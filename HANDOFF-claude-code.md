@@ -36,7 +36,7 @@ Keep all game files inside `C:\jungle jim\jungle-johns-game-folder\game\`.
 - Art: match the established pixel style. Never swap illustrated art for flat vector/chart glyphs. Ask before changing art direction.
 - UI copy: short, plain, concrete. No flavour text, no "AI words".
 - Don't describe the project as a version or successor of anything.
-- LOCAL ONLY. Commit to the local git repo in the game folder. Never push, never ask about GitHub, no upload lists. Never write game files or commits into the Slimehedron repo (C:\jungle jim\plinky).
+- Repo: github.com/FlahMusic/JungleJohns (public, remote `origin`). Playable at https://flahmusic.github.io/JungleJohns/ (GitHub Pages, main branch, root). Commit locally; push only when Flah asks. Never write game files or commits into the Slimehedron repo (C:\jungle jim\plinky).
 
 ## 4. Code map (source\src, plain JS, no framework, one canvas)
 | file | what |
