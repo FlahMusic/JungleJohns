@@ -1,0 +1,18 @@
+<html><body><script src="../src/music.js"></script><script>
+async function run(src){
+  const out={};
+  for(const name of Object.keys(MUSIC.SIT)){
+    const sec=24, ctx=new OfflineAudioContext(2,44100*sec,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
+    M.log={n:0,kinds:{},maxV:0}; M.cur=M.want=name; M.p=MUSIC.SIT[name]; M.step=0; M.next=0.05; M.voices=[]; M.running=true; M.barLen=undefined; M.bar=0; M.motif=null;
+    MUSIC.scheduleUntil(sec-1); const barsN=Math.max(1,M.bar); const buf=await ctx.startRendering();
+    let peak=0,nan=false; for(let c=0;c<2;c++){const d=buf.getChannelData(c); for(let i=0;i<d.length;i++){const v=Math.abs(d[i]); if(v!==v)nan=true; if(v>peak)peak=v;}}
+    document.title="prog "+name; out[name]={perBar:+(M.log.n/barsN).toFixed(1), mel:+((M.log.kinds.mel||0)/barsN).toFixed(2), maxV:M.log.maxV, peakDb:+(20*Math.log10(peak||1e-9)).toFixed(1), nan};
+  }
+  // bar-line switch test
+  const ctx=new OfflineAudioContext(2,44100*4,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M; M.cur=M.want='day'; M.p=MUSIC.SIT.day; M.step=0; M.next=0; M.log=null; M.barLen=undefined; M.bar=0;
+  let flips=[]; for(let i=0;i<70;i++){ const before=M.cur; if(i===21) MUSIC.setSituation('lounge'); if(i===45) MUSIC.setSituation('night'); if(i===21||i===45){} MUSIC.scheduleUntil(M.next+1e-6); if(M.cur!==before) flips.push(M.step-1); }
+  out.switchSteps=flips;
+  document.title=JSON.stringify(out);
+}
+run().catch(e=>document.title="ERR "+e.message+" "+e.stack.slice(0,300));
+</script></body></html>

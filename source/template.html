@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__TITLE__</title>
+<style>
+@font-face { font-family: 'Press Start 2P'; src: url(data:font/woff2;base64,__PS2P__) format('woff2'); font-display: block; }
+@font-face { font-family: 'VT323'; src: url(data:font/woff2;base64,__VT323__) format('woff2'); font-display: block; }
+:root { --ink: #2a1d22; --panel: #163a22; --panel2: #1f5230; --gold: #f2c81c; --cream: #fff4d6; --money: #ffe14d; --bad: #ff6a5a; --warn: #ffb84a; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1a12; }
+body { font-family: VT323, 'Courier New', monospace; color: var(--cream); font-size: 22px; user-select: none; -webkit-user-select: none; touch-action: none; }
+#game { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; display: block; }
+.px { background: var(--panel); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 2px var(--gold), inset 0 0 0 4px var(--ink); padding: 8px 14px; }
+body.inmenu #touch { display: none !important; }
+body.inmenu #problems, body.inmenu #hint, body.inmenu #toasts, body.inmenu #prompt { visibility: hidden; }
+#hud { display: none; position: fixed; inset: 0; pointer-events: none; }
+#clockbox { position: absolute; left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); min-width: 190px; line-height: 1; }
+#h-day { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--gold); margin-bottom: 6px; }
+#h-time { font-family: 'Press Start 2P', monospace; font-size: 18px; margin-bottom: 6px; }
+#h-wx { font-size: 20px; opacity: .9; }
+#h-ev { color: #ff9ad0; font-size: 20px; }
+#h-ev:empty { display: none; }
+#moneybox { position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(14px, env(safe-area-inset-top)); text-align: right; min-width: 200px; line-height: 1; }
+#h-money { font-family: 'Press Start 2P', monospace; font-size: 18px; color: var(--money); margin-bottom: 6px; }
+#h-stars { color: var(--gold); font-size: 26px; letter-spacing: 2px; }
+#h-stars .dim { color: #4a5a40; }
+#h-energy { margin-top: 6px; height: 10px; background: var(--ink); position: relative; }
+#h-energy i { position: absolute; left: 0; top: 0; bottom: 0; background: #7dd35a; }
+#h-elab { font-size: 16px; opacity: .8; margin-top: 6px; text-align: left; }
+#problems { position: absolute; right: max(14px, env(safe-area-inset-right)); top: 128px; max-width: 300px; font-size: 19px; line-height: 1.15; background: rgba(22,58,34,.88); }
+#problems .bad { color: var(--bad); } #problems .warn { color: var(--warn); } #problems .q { color: var(--money); }
+#toolbar { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: max(14px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 12px; pointer-events: auto; }
+#tools { display: flex; gap: 6px; }
+.tool { width: 52px; height: 52px; background: var(--panel); box-shadow: 0 0 0 3px var(--ink); position: relative; display: grid; place-items: center; cursor: pointer; }
+.tool img { width: 36px; height: 36px; image-rendering: pixelated; }
+.tool .k { position: absolute; left: 3px; top: 1px; font-size: 16px; color: var(--gold); }
+.tool.on { background: var(--panel2); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px var(--gold); transform: translateY(-4px); }
+#h-tool { font-size: 20px; text-shadow: 2px 2px 0 var(--ink); }
+#h-tool small { font-size: 17px; color: var(--money); }
+#prompt { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 22px; max-width: min(640px, 60vw); text-align: center; background: rgba(42,29,34,.9); box-shadow: 0 0 0 3px var(--ink); padding: 6px 14px; display: none; }
+#prompt b { font-weight: normal; color: var(--cream); }
+#hint { position: absolute; left: 50%; top: max(14px, env(safe-area-inset-top)); transform: translateX(-50%); max-width: min(560px, 46vw); font-size: 21px; line-height: 1.15; background: #fff4b0; color: var(--ink); box-shadow: 0 0 0 3px var(--ink), 4px 4px 0 3px rgba(0,0,0,.3); padding: 8px 12px; display: none; }
+#toasts { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 132px; display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
+.toast { background: rgba(22,58,34,.92); box-shadow: 0 0 0 3px var(--ink); padding: 4px 10px; font-size: 19px; line-height: 1.1; }
+.toast.warn { background: rgba(120,40,20,.92); } .toast.good { background: rgba(30,90,120,.92); }
+#dialog { display: none; position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(760px, 92vw); min-height: 120px; z-index: 5; cursor: pointer; }
+#dl-name { font-family: 'Press Start 2P', monospace; font-size: 12px; color: var(--gold); margin-bottom: 8px; }
+#dl-text { font-size: 25px; line-height: 1.15; min-height: 58px; }
+.dsub { margin-top: 8px; color: var(--money); font-size: 21px; }
+#dl-more { position: absolute; right: 16px; bottom: 8px; color: var(--gold); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+#dl-choices { gap: 10px; margin-top: 10px; }
+button { font-family: VT323, monospace; font-size: 22px; background: var(--panel2); color: var(--cream); border: 0; box-shadow: 0 0 0 3px var(--ink), inset 0 -3px 0 rgba(0,0,0,.3); padding: 6px 16px; cursor: pointer; }
+button:hover:not(:disabled), button.sel { background: #2a6a3e; }
+button:focus-visible { outline: 3px solid var(--money); outline-offset: 3px; }
+button.buy { background: var(--gold); color: var(--ink); box-shadow: 0 0 0 3px var(--ink), inset 0 -3px 0 #b8900a; }
+button.buy:hover { background: #ffe14d; }
+button:disabled { opacity: .55; cursor: default; }
+.menu { display: none; position: fixed; inset: 0; background: rgba(8,14,10,.7); z-index: 10; align-items: center; justify-content: center; }
+.menu.title { background: radial-gradient(ellipse at center, rgba(8,14,10,.35), rgba(8,14,10,.85)); }
+#menu-box { max-width: min(980px, 94vw);}
+.menu.catalog #menu-box { width: min(980px, 94vw);}
+#menu-box { max-height: 92vh; overflow: auto; }
+.menu:not(.title) #menu-box { background: var(--panel); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 2px var(--gold), inset 0 0 0 4px var(--ink); padding: 18px 24px; }
+#menu-box h2 { font-family: 'Press Start 2P', monospace; font-size: 16px; color: var(--gold); margin: 4px 0 12px; line-height: 1.4; }
+#menu-box h3 { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--cream); margin: 14px 0 6px; }
+#menu-box p { margin: 10px 0; line-height: 1.15; max-width: 64ch; }
+.small { font-size: 19px; opacity: .85; }
+.sub { margin-bottom: 10px; } .money { color: var(--money); font-weight: normal; } .stars { color: var(--gold); } .dim { opacity: .6; }
+.row { display: flex; gap: 14px; justify-content: flex-end; margin-top: 14px; }
+.col { display: flex; flex-direction: column; gap: 10px; align-items: stretch; min-width: 320px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.tabs button.on { background: var(--gold); color: var(--ink); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.card { background: #0f2c18; box-shadow: 0 0 0 3px var(--ink); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.card.own { opacity: .7; } .cn { color: var(--gold); font-size: 23px; } .cd { font-size: 19px; line-height: 1.1; flex: 1; }
+table.rep { border-collapse: collapse; min-width: 380px; font-size: 22px; }
+table.rep td { padding: 2px 0; } table.rep td:last-child { text-align: right; padding-left: 40px; }
+table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.rep tr.tot td { border-top: 2px solid var(--gold); padding-top: 6px; }
+.tasks div { font-size: 21px; line-height: 1.2; } .tasks .ok { color: #9dff8a; } .tasks .no { color: var(--bad); }
+#mapc { display: block; box-shadow: 0 0 0 3px var(--ink); image-rendering: auto; }
+/* title */
+.menu.title #menu-box { text-align: center; padding: 24px; }
+.tgir { width: 184px; image-rendering: pixelated; display: block; margin: 0 auto 6px; }
+.menu.title h1 { font-family: 'Press Start 2P', monospace; font-size: clamp(26px, 5.2vw, 58px); color: #ffe14d; margin: 0; line-height: 1.15;
+  text-shadow: 3px 3px 0 #1f7a32, 6px 6px 0 #1f7a32, 9px 9px 0 var(--ink); }
+.tsub { display: inline-block; margin-top: 18px; background: #1f7a32; color: #fff; font-family: 'Press Start 2P', monospace; font-size: clamp(10px, 1.6vw, 16px); padding: 8px 14px; box-shadow: 0 0 0 3px var(--ink); }
+.tblurb { margin: 18px auto !important; font-size: 24px; text-shadow: 2px 2px 0 var(--ink); }
+.tbtn { width: 280px; margin: 0 auto; } .tbtn button { font-size: 26px; padding: 8px; }
+.menu.title .small { text-shadow: 2px 2px 0 var(--ink); margin: 18px auto 0 !important; }
+/* touch */
+#touch { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+#t-pad { position: absolute; left: 24px; bottom: 96px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,244,214,.12); box-shadow: 0 0 0 3px rgba(42,29,34,.6); pointer-events: auto; touch-action: none; }
+#t-knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: rgba(242,200,28,.7); }
+#t-a, #t-tool, #t-menu { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; display: grid; place-items: center; font-family: 'Press Start 2P', monospace; color: var(--ink); box-shadow: 0 0 0 3px var(--ink); }
+#t-a { right: 28px; bottom: 110px; width: 84px; height: 84px; background: var(--gold); font-size: 22px; }
+#t-tool { right: 126px; bottom: 90px; width: 58px; height: 58px; background: var(--cream); font-size: 10px; }
+#t-menu { right: 28px; top: 120px; width: 46px; height: 46px; background: var(--cream); font-size: 12px; }
+@media (max-width: 760px) { #problems { top: auto; bottom: 230px; font-size: 17px; max-width: 220px; } #hint { max-width: 90vw; top: 118px; font-size: 18px; } body { font-size: 18px; } #toasts { top: 120px; max-width: 220px; } }
+@media (prefers-reduced-motion: reduce) { #dl-more { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div id="clockbox" class="px"><div id="h-day"></div><div id="h-time"></div><div id="h-wx"></div><div id="h-ev"></div></div>
+  <div id="moneybox" class="px"><div id="h-money"></div><div id="h-stars"></div><div id="h-elab">energy</div><div id="h-energy"><i></i></div></div>
+  <div id="problems" class="px"></div>
+  <div id="toasts"></div>
+  <div id="hint"></div>
+  <div id="prompt"></div>
+  <div id="toolbar"><div id="tools"></div><div id="h-tool"></div></div>
+</div>
+<div id="dialog" class="px"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div><div id="dl-more">▼</div></div>
+<div id="menu" class="menu"><div id="menu-box"></div></div>
+<div id="touch"><div id="t-pad"><div id="t-knob"></div></div><div id="t-a">A</div><div id="t-tool">TOOL</div><div id="t-menu">II</div></div>
+<script>
+__JS__
+</script>
+</body>
+</html>
