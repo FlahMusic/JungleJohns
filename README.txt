@@ -2,7 +2,10 @@ JUNGLE JOHN'S
 
 PLAY
   Double-click jungle-johns.html. It opens in your browser. Nothing to install.
-  Saves happen at the end of each in-game day.
+  Each workday (Mon-Fri) has a money goal. Make it, then click the clock
+  (or "Close up for the night") to end the day. Saves at the end of each day.
+  Staff with a yellow ! have a job. Yellow ? = job done, go get paid
+  (the yellow arrow at the screen edge points to them). J = quest log.
 
 RENAME THE STORE
   Open source/src/data.js in Notepad. Near the top:
@@ -23,7 +26,8 @@ WHAT'S WHERE (source/src)
   art.js     shelves, props, customers
   art2.js    the boss sprite, pixel font, signs
   world.js   store layout
-  game.js    rules: customers, money, time, tasks
+  game.js    rules: customers, money, the day
+  quests.js  the day's goal, side jobs, close up / night
   music.js   the generated music (built from Slimehedron)
   audio.js   sound effects + picks which music plays where
   render.js  drawing
@@ -32,6 +36,7 @@ WHAT'S WHERE (source/src)
 
 CONTROLS
   WASD / arrows move. R takes skates off (walk, no sliding) and puts them back on.
+  Space talks / uses. 1-4 tools. J quest log. M map. Esc pause.
   On a phone: the WALK / SKATE button.
 
 LICENSE

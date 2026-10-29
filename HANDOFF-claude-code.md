@@ -41,11 +41,12 @@ Keep all game files inside `C:\jungle jim\jungle-johns-game-folder\game\`.
 ## 4. Code map (source\src, plain JS, no framework, one canvas)
 | file | what |
 |---|---|
-| data.js | CONFIG (store/owner name), DEPTS (aisles: position, layout, prices, crate type), CRATES, UPGRADES, EVENTS, GOALS, customer LINES |
+| data.js | CONFIG (store/owner name), DEPTS (aisles: position, layout, prices, crate type), CRATES, UPGRADES, EVENTS, GOALS, customer LINES, WEEK_GOALS, GIVERS, QUESTS (9 givers x Mon-Fri), SAMPLE_LINES, CHATTER |
 | art.js | procedural pixel art: floors, shelf items, shelves, coolers, bins, counters, props, customers |
 | art2.js | 3x5 pixel font, pixel signs, the boss sprite (skate poses) |
 | world.js | building footprint (FOOT), stock room, doors, dept layouts, A* pathfinding, ground pre-render |
-| game.js | state, clock, customers AI, registers, staff AI, skate physics (updatePlayer), actions, tasks, save/load |
+| game.js | state, the running day (untimed), customers AI (incl. loiter/wander), registers, staff AI, skate physics (updatePlayer), actions, save/load |
+| quests.js | main quest (day money goal), side quests (givers, accept/progress/turn-in), crowd keeping per quest zone, markers + edge arrow, close-up/night, quest log |
 | render.js | camera, y-sorted drawing, shadows, lighting, rain, monorail, overlay text, bubbles |
 | ui.js | DOM HUD, dialog, title, catalog, report, journal, map, pause |
 | music.js | generative music (built from Slimehedron, section 5) |
@@ -56,12 +57,27 @@ Debug hook: `window.__game` exposes state. Save key: `localStorage['jungle-store
 
 Rename the store: data.js -> CONFIG.storeName / ownerName, then rebuild.
 
+### How a day works now (2026-10-29)
+- No clock pressure. ST.phase is 'day' until the day's goal (WEEK_GOALS Mon..Fri, +30% per week) is earned. Earned = sales + tips + tastings/extras + job rewards (RT.day.quest).
+- Goal made -> celebration popup + "Close up" button in the clock box (clock face = sun by day, moon at night). Close up -> 3.5 s sunset (ST.minute swept 17:00 -> 22:15 for lighting/night music) -> report -> next morning. Couch in the stock room also closes up.
+- Work week Mon-Fri (weekday() = WORKDAYS[(day-1)%5]). Friday's report is the week celebration; week 2 starts Monday.
+- Things that used to run on the hour run on storeTick() every 40 s (breakdowns, rain drips, Elvis, monorail).
+- Side quests: one giver per main area (GIVERS). Counter clerks are tagged; others are placed at `at` (placeGivers in world.js). Markers: yellow ! offer, grey ? in progress, yellow ? ready (+ yellow edge arrow to the nearest ready giver). Lost customers' ? is blue now.
+- Crowd keeping (questCrowd): every second, each sample/talk quest keeps min(remaining, 10) unsampled people in its zones (3 while only on offer), recruiting free customers first, then new arrivals. Kids quests hold families. Pour quests fill the stools. questTrouble makes spills/breakdowns/lost people when a mop/fix/help job needs them.
+- Each morning ~14 shoppers start inside, in random departments. Customers sometimes loiter/wander; someone on screen says a CHATTER/LINES line every 5-11 s.
+
 ## 5. Music: what exists and what's next
 music.js reuses Slimehedron (c) FlahMusic, taken from the PUBLIC GitHub repo FlahMusic/Slimehedron (cloned 2026-10-28), not from the files Flah put in C:\jungle jim. Every Slimehedron commit is by FlahMusic, so Flah owns that code and the game is NOT bound by Slimehedron's GPL. Game license: LICENSE.txt, all rights reserved (Flah chose "not a pain", 2026-10-29). Keep its font + casio-music-data credits.
 Reused: rep()/bars() step format, KITS (chip, bossa, pop, march, conga, samba, jazz), KITVOICE, padKeeps() thinning, FEEL humanize, CHORD_FN.major odds, one-fifth key journey per day, pluck() voice.
 Credit: pop/bossa/jazz patterns came from casio-music-data via Slimehedron; see its THIRD-PARTY.md before anything public/commercial.
 
-Built here on top:
+Built here on top (rewritten 2026-10-29: songs follow the store):
+- Every department has a song (audio.js ZONE_SONG -> music.js SONGS). Three key families a fifth apart: middle of the store C, west international wing G, north-east wine/cheese wing F (relative to the day's root). Neighbouring departments are at most one note apart (tests/mzone.py checks the real map, including across open floor).
+- Department change: waits for the 4-bar phrase end; the last bar is a turnaround (two approach chords per mode, drum fill) and the melody steps next to the new root, then lands on it. Place change (inside/outside/stock/menus/night): next bar line, fill + crash. Tempo/swing ease 2 bpm per bar. 1.2 s settle time before a department takes over; open floor keeps the last song.
+- Moods (busy, fest, rain, morning = first 40 s, checkout) change fullness, never the key.
+- Held pads (2 notes; bass has the root) and a broken-chord fill when the melody rests stop bars going hollow (mtest checks loudest-vs-quietest half-second <= 18 dB for store songs).
+- tests/tour.py renders tests/out/music-tour.wav, a 2-minute walk through the store, for listening.
+Older notes:
 - API: MUSIC.init/start/stop/setSituation/setDay/sting/setVolume. Situation changes land on the next bar line.
 - 14 situations (title, prep, day, busy, lounge, candy, checkout, stock, outside, rain, fest, night, menu, sleep). Each has bpm, meter (4/4 or 3/4 waltz), key offset from the day's root, mode (major, dorian, mixolydian, minor, lydian), lead voice, bass voice, lead density.
 - Voices: accordion (2 detuned squares + saw, vibrato), flute (sine+tri, vibrato), chip square, pluck, tuba (filtered saw, oom-pah), pad, drums. 8-voice cap. Melody echo, darker repeats. Master low-pass.
@@ -84,7 +100,9 @@ t2 also checks walk mode (R toggles, walk is slower, stops dead on release).
 Build output uses LF line endings, so a fresh build is byte-identical to jungle-johns.html when nothing changed.
 - tests\t2.py: 21 real-keypress flows (skate, crates, restock, lost customer escort, mop, wrench, fish, cheese cooler, register scan, sleep, report, catalog buy, next day, save/continue)
 - tests\reach.py: every aisle, pallet, register lane and door reachable on foot (with and without upgrades)
-- tests\sim.py: simulates full idle days (economy, path failures)
+- tests\sim.py: runs the store untouched for N minutes on Mon and Fri (money per minute, idle time to goal, path failures). Last: Mon $113/min idle, Fri $174/min; Monday jobs pay $2,360 total
+- tests\quests.py: plays Gus's cheese job with keys (accept, crowd refills, 10 samples, arrow, turn in), kids-only/pour/stock rules, a full Mon-Fri week into week 2
+- tests\mzone.py: music key families on the real map + no flip-flop at department edges
 - tests\skate.py: skate physics numbers (accel, strides alternate L/R, coast, brake, carve, T-stop, fine tap)
 - tests\mtest.py (+ mtest.html): offline-renders every music situation; peak < -1 dBFS, <= 8 voices, notes per bar, situation switches on bar lines
 Mutation check (do it when you change a rule): break the rule on purpose, confirm the test goes red, put it back.
@@ -113,8 +131,11 @@ Last known results: all green. Music peak about -14 dB, max 7 voices. Skate: 0.3
 2. Skate feel tuning with Flah (game.js updatePlayer, SK constants).
 3. Art quality: customers, counter cases, tasting bar, registers. Same pixel style. Show Flah before/after.
 4. Rhino entrance "quick trips" register (map has registers there).
-5. Save mid-day (now only at day end).
+5. Save mid-day (now only at day end; quest progress is lost on quit mid-day).
 6. Walk speed (44) by feel with Flah.
+7. Pacing by feel: WEEK_GOALS, quest n/reward, custPerMin (game.js). Flah plays a Monday and says if it drags.
+8. More life: idle animations for staff/givers (only a weight-shift bob now), more quest variety for week 2+ (week 2 reuses Mon-Fri jobs with +20% counts, +30% pay).
+9. Art pass continued: customers, counter cases, registers (floors + tool icons done 2026-10-29).
 
 ## 10. Skills to use
 - prove-it-works: verify outcomes a human notices (playable/readable/findable), not "it ran".

@@ -4,8 +4,8 @@ function beginGame(cont) {
   if (!(cont && load())) { newState(); try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
   AU.musicOn = ST.settings.music; AU.sfxOn = ST.settings.sfx;
   buildWorld(ST.ups); buildNight(); startDay(); MUSIC.setDay(ST.day); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; RT.paused = false; $('#hud').style.display = 'block';
-  if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. doors open at 8. people are gonna clean out the shelves, get lost, spill pickles and break the lion. keep 'em happy and we make money. you've got skates, a mop, a wrench and fish food. go get 'em.`, null, 'Tip: the stock room is behind the bakery. Your office couch in there ends the day.');
-  else toast(`Welcome back. ${weekday()}, Day ${ST.day}.`);
+  if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. we need ${fmtMoney(dayGoal())} today. everybody with a yellow ! over their head has a job for you, and every job pays. make the money, then close up by the clock. monday to friday. go get 'em.`, null, 'J opens the quest log. The stock room is behind the bakery.');
+  else toast(`Welcome back. ${weekday()}, week ${weekNo()}. Goal today: ${fmtMoney(dayGoal())}.`);
 }
 const VK = { x: 0, y: 0 };
 function bindInput() {
@@ -17,7 +17,7 @@ function bindInput() {
     if (RT.dialog) { if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') advanceDialog(); if (RT.dialog && RT.dialog.choices && (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD')) { const n = RT.dialog.choices.length; RT.dialog.sel = (RT.dialog.sel + (e.code.endsWith('Left') || e.code === 'KeyA' ? n - 1 : 1)) % n; [...$('#dl-choices').children].forEach((b, i) => b.classList.toggle('sel', i === RT.dialog.sel)); } return; }
     if (e.code === 'Escape') { if (RT.menu === 'report') return; if (RT.menu) closeMenu(); else openMenu('pause'); return; }
     if (e.code === 'KeyM') { if (RT.menu === 'map') closeMenu(); else if (!RT.menu) openMenu('map'); return; }
-    if (e.code === 'KeyJ') { if (RT.menu === 'journal') closeMenu(); else if (!RT.menu) openMenu('journal'); return; }
+    if (e.code === 'KeyJ' || e.code === 'KeyL') { if (RT.menu === 'quests') closeMenu(); else if (!RT.menu) openMenu('quests'); return; }
     if (RT.menu) { if ((e.code === 'Enter' || e.code === 'Space') && RT.menu === 'report') { const b = document.getElementById('m-next'); if (b) b.click(); } return; }
     if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') doAction();
     if (e.code >= 'Digit1' && e.code <= 'Digit4') PL.tool = +e.code.slice(5) - 1;
@@ -40,6 +40,10 @@ function bindInput() {
     $('#t-menu').addEventListener('pointerdown', e => { e.preventDefault(); if (RT.menu && RT.menu !== 'report' && RT.menu !== 'title') closeMenu(); else if (!RT.menu) openMenu('pause'); });
   }
   $('#dialog').addEventListener('click', () => { if (RT.dialog && !RT.dialog.choices) advanceDialog(); });
+  // the clock: once the day's goal is made, clicking it (or the button under it) closes up for the night
+  $('#clockbtn').addEventListener('click', () => { if (!RT.menu && !RT.dialog) closeUp(); });
+  $('#nextday').addEventListener('click', () => { if (!RT.dialog) { if (RT.menu === 'goal') closeMenu(); if (!RT.menu) closeUp(); } });
+  $('#qbtn').addEventListener('click', () => { if (RT.menu === 'quests') closeMenu(); else if (!RT.menu) openMenu('quests'); });
 }
 let lastT = 0;
 function frame(t) {

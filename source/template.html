@@ -16,9 +16,22 @@ body { font-family: VT323, 'Courier New', monospace; color: var(--cream); font-s
 body.inmenu #touch { display: none !important; }
 body.inmenu #problems, body.inmenu #hint, body.inmenu #toasts, body.inmenu #prompt { visibility: hidden; }
 #hud { display: none; position: fixed; inset: 0; pointer-events: none; }
-#clockbox { position: absolute; left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); min-width: 190px; line-height: 1; }
+#clockbox { position: absolute; left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); min-width: 230px; line-height: 1; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; pointer-events: auto; }
+#clockbtn { padding: 0; background: none; box-shadow: none; width: 56px; height: 56px; }
+#clockbtn:hover { background: none; transform: scale(1.06); }
+#clockface { width: 52px; height: 52px; image-rendering: pixelated; display: block; }
 #h-day { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--gold); margin-bottom: 6px; }
-#h-time { font-family: 'Press Start 2P', monospace; font-size: 18px; margin-bottom: 6px; }
+#h-goal { font-size: 22px; margin-bottom: 4px; }
+#h-gbar { height: 8px; background: var(--ink); position: relative; margin-bottom: 5px; }
+#h-gbar i { position: absolute; left: 0; top: 0; bottom: 0; background: #7dd35a; }
+#nextday { grid-column: 1 / -1; display: none; font-size: 20px; padding: 4px 10px; animation: pulse 1.1s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.05); filter: brightness(1.15); } }
+#qbtn { pointer-events: auto; font-size: 20px; padding: 4px 12px; position: relative; }
+#qbtn .kk { color: var(--gold); font-size: 16px; } #qbadge .rdy { color: var(--ink); background: var(--money); padding: 0 4px; margin-left: 6px; } #qbadge .off { color: var(--money); margin-left: 6px; }
+.qrow { display: grid; grid-template-columns: 34px 1fr; gap: 8px; margin: 8px 0; text-align: left; line-height: 1.15; }
+.qm { font-family: 'Press Start 2P', monospace; font-size: 20px; color: var(--money); text-shadow: 2px 2px 0 var(--ink); text-align: center; } .qm.grey { color: #b9c0c8; } .qm.done { color: #7dd35a; font-family: VT323, monospace; }
+.qbar { height: 10px; background: var(--ink); margin: 6px 0; } .qbar i { display: block; height: 100%; background: var(--money); }
+h2.big { font-size: 22px; color: var(--money); text-shadow: 3px 3px 0 var(--ink); animation: pulse 1.1s ease-in-out infinite; }
 #h-wx { font-size: 20px; opacity: .9; }
 #h-ev { color: #ff9ad0; font-size: 20px; }
 #h-ev:empty { display: none; }
@@ -42,7 +55,7 @@ body.inmenu #problems, body.inmenu #hint, body.inmenu #toasts, body.inmenu #prom
 #prompt { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 22px; max-width: min(640px, 60vw); text-align: center; background: rgba(42,29,34,.9); box-shadow: 0 0 0 3px var(--ink); padding: 6px 14px; display: none; }
 #prompt b { font-weight: normal; color: var(--cream); }
 #hint { position: absolute; left: 50%; top: max(14px, env(safe-area-inset-top)); transform: translateX(-50%); max-width: min(560px, 46vw); font-size: 21px; line-height: 1.15; background: #fff4b0; color: var(--ink); box-shadow: 0 0 0 3px var(--ink), 4px 4px 0 3px rgba(0,0,0,.3); padding: 8px 12px; display: none; }
-#toasts { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 132px; display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
+#toasts { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 170px; display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
 .toast { background: rgba(22,58,34,.92); box-shadow: 0 0 0 3px var(--ink); padding: 4px 10px; font-size: 19px; line-height: 1.1; }
 .toast.warn { background: rgba(120,40,20,.92); } .toast.good { background: rgba(30,90,120,.92); }
 #dialog { display: none; position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(760px, 92vw); min-height: 120px; z-index: 5; cursor: pointer; }
@@ -100,19 +113,19 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
 #t-skate { right: 126px; bottom: 160px; width: 58px; height: 58px; background: var(--cream); font-size: 9px; }
 #t-menu { right: 28px; top: 120px; width: 46px; height: 46px; background: var(--cream); font-size: 12px; }
 @media (max-width: 760px) { #problems { top: auto; bottom: 230px; font-size: 17px; max-width: 220px; } #hint { max-width: 90vw; top: 118px; font-size: 18px; } body { font-size: 18px; } #toasts { top: 120px; max-width: 220px; } }
-@media (prefers-reduced-motion: reduce) { #dl-more { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #dl-more, #nextday, h2.big { animation: none; } }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="hud">
-  <div id="clockbox" class="px"><div id="h-day"></div><div id="h-time"></div><div id="h-wx"></div><div id="h-ev"></div></div>
+  <div id="clockbox" class="px"><button id="clockbtn" title="Close up for the night (once today's goal is made)"><img id="clockface" alt="clock"></button><div><div id="h-day"></div><div id="h-goal"></div><div id="h-gbar"><i></i></div><div id="h-wx"></div><div id="h-ev"></div></div><button id="nextday" class="buy">Close up for the night ▶</button></div>
   <div id="moneybox" class="px"><div id="h-money"></div><div id="h-stars"></div><div id="h-elab">energy</div><div id="h-energy"><i></i></div></div>
   <div id="problems" class="px"></div>
   <div id="toasts"></div>
   <div id="hint"></div>
   <div id="prompt"></div>
-  <div id="toolbar"><div id="tools"></div><div id="h-tool"></div></div>
+  <div id="toolbar"><div id="tools"></div><button id="qbtn">Quests <span class="kk">J</span><span id="qbadge"></span></button><div id="h-tool"></div></div>
 </div>
 <div id="dialog" class="px"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div><div id="dl-more">▼</div></div>
 <div id="menu" class="menu"><div id="menu-box"></div></div>

@@ -16,9 +16,22 @@ body { font-family: VT323, 'Courier New', monospace; color: var(--cream); font-s
 body.inmenu #touch { display: none !important; }
 body.inmenu #problems, body.inmenu #hint, body.inmenu #toasts, body.inmenu #prompt { visibility: hidden; }
 #hud { display: none; position: fixed; inset: 0; pointer-events: none; }
-#clockbox { position: absolute; left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); min-width: 190px; line-height: 1; }
+#clockbox { position: absolute; left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); min-width: 230px; line-height: 1; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; pointer-events: auto; }
+#clockbtn { padding: 0; background: none; box-shadow: none; width: 56px; height: 56px; }
+#clockbtn:hover { background: none; transform: scale(1.06); }
+#clockface { width: 52px; height: 52px; image-rendering: pixelated; display: block; }
 #h-day { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--gold); margin-bottom: 6px; }
-#h-time { font-family: 'Press Start 2P', monospace; font-size: 18px; margin-bottom: 6px; }
+#h-goal { font-size: 22px; margin-bottom: 4px; }
+#h-gbar { height: 8px; background: var(--ink); position: relative; margin-bottom: 5px; }
+#h-gbar i { position: absolute; left: 0; top: 0; bottom: 0; background: #7dd35a; }
+#nextday { grid-column: 1 / -1; display: none; font-size: 20px; padding: 4px 10px; animation: pulse 1.1s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.05); filter: brightness(1.15); } }
+#qbtn { pointer-events: auto; font-size: 20px; padding: 4px 12px; position: relative; }
+#qbtn .kk { color: var(--gold); font-size: 16px; } #qbadge .rdy { color: var(--ink); background: var(--money); padding: 0 4px; margin-left: 6px; } #qbadge .off { color: var(--money); margin-left: 6px; }
+.qrow { display: grid; grid-template-columns: 34px 1fr; gap: 8px; margin: 8px 0; text-align: left; line-height: 1.15; }
+.qm { font-family: 'Press Start 2P', monospace; font-size: 20px; color: var(--money); text-shadow: 2px 2px 0 var(--ink); text-align: center; } .qm.grey { color: #b9c0c8; } .qm.done { color: #7dd35a; font-family: VT323, monospace; }
+.qbar { height: 10px; background: var(--ink); margin: 6px 0; } .qbar i { display: block; height: 100%; background: var(--money); }
+h2.big { font-size: 22px; color: var(--money); text-shadow: 3px 3px 0 var(--ink); animation: pulse 1.1s ease-in-out infinite; }
 #h-wx { font-size: 20px; opacity: .9; }
 #h-ev { color: #ff9ad0; font-size: 20px; }
 #h-ev:empty { display: none; }
@@ -42,7 +55,7 @@ body.inmenu #problems, body.inmenu #hint, body.inmenu #toasts, body.inmenu #prom
 #prompt { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 22px; max-width: min(640px, 60vw); text-align: center; background: rgba(42,29,34,.9); box-shadow: 0 0 0 3px var(--ink); padding: 6px 14px; display: none; }
 #prompt b { font-weight: normal; color: var(--cream); }
 #hint { position: absolute; left: 50%; top: max(14px, env(safe-area-inset-top)); transform: translateX(-50%); max-width: min(560px, 46vw); font-size: 21px; line-height: 1.15; background: #fff4b0; color: var(--ink); box-shadow: 0 0 0 3px var(--ink), 4px 4px 0 3px rgba(0,0,0,.3); padding: 8px 12px; display: none; }
-#toasts { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 132px; display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
+#toasts { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 170px; display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
 .toast { background: rgba(22,58,34,.92); box-shadow: 0 0 0 3px var(--ink); padding: 4px 10px; font-size: 19px; line-height: 1.1; }
 .toast.warn { background: rgba(120,40,20,.92); } .toast.good { background: rgba(30,90,120,.92); }
 #dialog { display: none; position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(760px, 92vw); min-height: 120px; z-index: 5; cursor: pointer; }
@@ -100,19 +113,19 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
 #t-skate { right: 126px; bottom: 160px; width: 58px; height: 58px; background: var(--cream); font-size: 9px; }
 #t-menu { right: 28px; top: 120px; width: 46px; height: 46px; background: var(--cream); font-size: 12px; }
 @media (max-width: 760px) { #problems { top: auto; bottom: 230px; font-size: 17px; max-width: 220px; } #hint { max-width: 90vw; top: 118px; font-size: 18px; } body { font-size: 18px; } #toasts { top: 120px; max-width: 220px; } }
-@media (prefers-reduced-motion: reduce) { #dl-more { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #dl-more, #nextday, h2.big { animation: none; } }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="hud">
-  <div id="clockbox" class="px"><div id="h-day"></div><div id="h-time"></div><div id="h-wx"></div><div id="h-ev"></div></div>
+  <div id="clockbox" class="px"><button id="clockbtn" title="Close up for the night (once today's goal is made)"><img id="clockface" alt="clock"></button><div><div id="h-day"></div><div id="h-goal"></div><div id="h-gbar"><i></i></div><div id="h-wx"></div><div id="h-ev"></div></div><button id="nextday" class="buy">Close up for the night ▶</button></div>
   <div id="moneybox" class="px"><div id="h-money"></div><div id="h-stars"></div><div id="h-elab">energy</div><div id="h-energy"><i></i></div></div>
   <div id="problems" class="px"></div>
   <div id="toasts"></div>
   <div id="hint"></div>
   <div id="prompt"></div>
-  <div id="toolbar"><div id="tools"></div><div id="h-tool"></div></div>
+  <div id="toolbar"><div id="tools"></div><button id="qbtn">Quests <span class="kk">J</span><span id="qbadge"></span></button><div id="h-tool"></div></div>
 </div>
 <div id="dialog" class="px"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div><div id="dl-more">▼</div></div>
 <div id="menu" class="menu"><div id="menu-box"></div></div>
@@ -460,6 +473,132 @@ const TOOLS = [
   { id: 'wrench', name: 'Wrench', key: '3', hint: 'Fix broken displays' },
   { id: 'food', name: 'Fish Food', key: '4', hint: 'Feed the live tanks' },
 ];
+
+// ===== the work week: main quest = earn the day's goal (all money in: sales, tips, tastings, quest rewards) =====
+const WORKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const WEEK_GOALS = [2000, 2600, 3300, 4100, 5000]; // week 2+ asks 30% more each week
+
+// quest givers, one per main area. counter clerks already stand behind their cases; the rest stand at `at`
+const GIVERS = [
+  { id: 'gus', name: 'Gus', dept: 'cheese', at: [53, 13], shirt: '#f4f4f4', apron: '#e8c23a' },
+  { id: 'rosa', name: 'Rosa', dept: 'bakery' },
+  { id: 'sal', name: 'Sal', dept: 'deli' },
+  { id: 'marlene', name: 'Marlene', dept: 'seafood' },
+  { id: 'philippe', name: 'Philippe', dept: 'tasting', at: [47, 9], shirt: '#1e1e24', apron: '#5a1626' },
+  { id: 'hank', name: 'Hank', dept: 'produce', at: [34, 24], shirt: '#2e7d3b', apron: '#6a4a2a' },
+  { id: 'trixie', name: 'Trixie', dept: 'candy', at: [50, 22], shirt: '#ff8fc0', apron: '#6fc6e8' },
+  { id: 'dave', name: 'Diablo Dave', dept: 'hotsauce', at: [22, 19], shirt: '#1e1e24', apron: '#d42a1a' },
+  { id: 'deb', name: 'Deb', dept: 'custserv' },
+];
+// one quest per giver per weekday (Mon..Fri). types: sample/talk (hand out to customers in `zones`), stock (restock `dept`),
+// help (walk lost customers), mop, fix (broken displays), pour (tastings), feed (fish tanks), cool (Big Cheese), elvis (for kids), scan (register items)
+const QUESTS = {
+  gus: [
+    { type: 'sample', n: 10, item: 'cheese sample', lines: 'cheese', zones: ['cheese'], buy: 'cheese', reward: 300, title: 'Hand out cheese samples in the Cheese Shop',
+      ask: "boss. the big cheese has no fans today. i cut ten cubes of cheddar. hand them out to people in the cheese shop before i eat them out of grief.", nag: "the cubes are sweating. people. cheese. go.", done: "ten converts. the big cheese is pleased. here, take this before the cheese changes its mind." },
+    { type: 'cool', n: 3, reward: 260, title: 'Crank the Big Cheese cooler 3 times', ask: "the big cheese cooler is held together with tape and prayer. crank it cold three times today and i will love you forever. or until friday.", nag: "it's warming up. i can hear it warming up.", done: "34 degrees. you hear that? that's the sound of nobody getting sued." },
+    { type: 'stock', n: 2, dept: 'cheese', reward: 300, title: 'Restock the Cheese Shop twice', ask: "we're out of half the cheese. bring me two crates from the stock room. the cheese crates. not the beer crates. we talked about this.", nag: "the shelves are naked. it's indecent.", done: "full shelves. now this is a cheese shop and not a crime scene." },
+    { type: 'sample', n: 12, item: 'stinky cheese', lines: 'stinky', zones: ['cheese', 'deli'], buy: 'cheese', reward: 420, title: 'Hand out stinky cheese in Cheese + Deli',
+      ask: "today we hand out the limburger. twelve people. cheese shop or deli. hold your breath and smile. it's character building.", nag: "the stink is not going away on its own. hand it out.", done: "twelve brave souls. three cried. that's a good day for limburger." },
+    { type: 'sample', n: 12, item: 'aged gouda', lines: 'gouda', zones: ['cheese', 'tasting', 'wine'], buy: 'wine', reward: 520, title: 'Hand out aged gouda in Cheese, Wine + Tasting',
+      ask: "friday. the good stuff. eight-year gouda. twelve samples. cheese shop, wine aisle or the tasting bar. people who drink wine pretend to know cheese. let them.", nag: "the gouda is aging while you stand there. which is fine. but go.", done: "beautiful. the wine snobs said 'nutty' nine times. that's a record." },
+  ],
+  rosa: [
+    { type: 'sample', n: 8, item: 'warm cookie', lines: 'cookie', zones: ['bakery', 'meat', 'produce'], buy: 'bakery', reward: 260, title: 'Hand out warm cookies near the Bakery',
+      ask: "mijo! i made too many cookies. hand eight out near the bakery. if anyone says they're on a diet, give them two.", nag: "the cookies are getting cold. a cold cookie is a sad cookie.", done: "everybody happy? everybody happy. here. and take a cookie, you're too skinny for skates." },
+    { type: 'stock', n: 2, dept: 'bakery', reward: 280, title: 'Restock the Bakery twice', ask: "the bread shelf is empty and a man just asked me if we sell 'flour, but cooked'. two bakery crates, please.", nag: "still empty. a lady is crying by the bagels.", done: "full! now go sit down, you look like you skated here from cincinnati." },
+    { type: 'sample', n: 10, item: 'day-old donut', lines: 'donut', zones: ['bakery', 'produce', 'natural'], buy: 'bakery', reward: 340, title: 'Get rid of day-old donuts near Bakery + Produce',
+      ask: "these donuts are from yesterday. they're fine. they're FINE. ten people. bakery, produce, natural foods. don't say 'yesterday'.", nag: "say 'vintage'. people like 'vintage'.", done: "all gone! nobody died! i love this job." },
+    { type: 'help', n: 2, reward: 360, title: 'Walk 2 lost customers to their aisle', ask: "my husband came in for one onion in 1998 and i still haven't seen him. help two lost people today. for him.", nag: "people are wandering. like ghosts. with carts.", done: "two found! not my husband, but it's a start." },
+    { type: 'sample', n: 12, item: 'birthday cake', lines: 'cake', zones: ['bakery', 'meat', 'produce', 'candy'], buy: 'bakery', reward: 500, title: 'Hand out birthday cake near Bakery, Meat, Produce + Candy',
+      ask: "somebody ordered a birthday cake and never picked it up. so today it's everybody's birthday. twelve slices. bakery, meat, produce, candy.", nag: "sing if you have to. i won't tell.", done: "twelve birthdays in one day. this store is magic, mijo." },
+  ],
+  sal: [
+    { type: 'talk', n: 6, item: 'sandwich survey', lines: 'survey', zones: ['deli', 'grocery', 'cheese'], reward: 260, title: 'Ask 6 customers about sandwiches (Deli, Grocery, Cheese)',
+      ask: "corporate wants a 'sandwich survey'. ask six people near the deli what they want on a sandwich. write nothing down. i'll remember.", nag: "six opinions. everybody's got one.", done: "six answers. four said 'meat'. one said 'more meat'. one said 'jesus'. we'll use that." },
+    { type: 'sample', n: 8, item: 'pickle spear', lines: 'pickle', zones: ['deli', 'cheese', 'grocery'], buy: 'deli', reward: 300, title: 'Hand out pickle spears in Deli, Cheese + Grocery',
+      ask: "pickle spears. eight of them. deli, cheese, grocery. if they don't like pickles, they're not my people.", nag: "the pickles are judging you. i can tell.", done: "eight pickles, eight smiles. one guy asked for the juice. respect." },
+    { type: 'stock', n: 2, dept: 'deli', reward: 300, title: 'Restock the Deli twice', ask: "i'm slicing air over here. two deli crates. move.", nag: "the slicer is just spinning. it's lonely.", done: "now we're cooking. well, slicing. same thing." },
+    { type: 'mop', n: 3, reward: 340, title: 'Mop 3 spills', ask: "somebody dropped a pickle jar and the juice is ON THE MOVE. mop three spills before it reaches the wine.", nag: "i can smell the brine from here.", done: "clean floors. my mother would weep. she hated this floor." },
+    { type: 'sample', n: 12, item: 'meatball', lines: 'meatball', zones: ['deli', 'grocery', 'cheese', 'meat'], buy: 'deli', reward: 520, title: 'Hand out meatballs in Deli, Grocery, Cheese + Meat',
+      ask: "friday meatballs. my nonna's recipe. twelve people. if anyone says 'pretty good' you take it back.", nag: "they're getting cold. nonna is watching.", done: "nonna would be proud. or she'd find something wrong. either way. here." },
+  ],
+  marlene: [
+    { type: 'feed', n: 1, reward: 220, title: 'Feed the live tanks', ask: "honey, the lobsters are staring at me like i owe them money. feed the tanks. fish food is tool 4.", nag: "they're still staring.", done: "look at them. happy as clams. which, legally, they are not." },
+    { type: 'sample', n: 8, item: 'shrimp cocktail', lines: 'shrimp', zones: ['seafood', 'livefish', 'honey', 'intl'], buy: 'seafood', reward: 300, title: 'Hand out shrimp near Seafood',
+      ask: "shrimp cocktail samples. eight of 'em. seafood or nearby. keep them cold and keep them moving.", nag: "warm shrimp is a lawsuit, hon.", done: "eight people, zero lawsuits. that's a great day in seafood." },
+    { type: 'stock', n: 2, dept: 'seafood', reward: 300, title: 'Restock Seafood twice', ask: "the fish case is looking thin. two seafood crates. the ice is melting into my shoes.", nag: "my shoes are full of ice water. hurry.", done: "beautiful. the case looks like a postcard again." },
+    { type: 'mop', n: 3, reward: 340, title: 'Mop 3 spills', ask: "the ice machine leaked and now it's a slip-and-slide. three spills. mop. go.", nag: "somebody's gonna eat it. hard.", done: "dry floors! nobody broke a hip! today is a good day." },
+    { type: 'fix', n: 2, reward: 460, title: 'Fix 2 broken displays', ask: "everything that moves in this store is breaking today. fix two of them. wrench is tool 3.", nag: "something's still broken. i can hear it not moving.", done: "you're handy. you married? kidding. mostly." },
+  ],
+  philippe: [
+    { type: 'pour', n: 3, reward: 260, title: 'Pour 3 tastings at the Tasting Bar', ask: "ah. you. pour three tastings at the bar. small pours. we are not a frat house.", nag: "the guests are thirsty and i am judgmental.", done: "three pours. acceptable. you swirl like a raccoon, but acceptable." },
+    { type: 'pour', n: 5, reward: 340, title: 'Pour 5 tastings at the Tasting Bar', ask: "today we pour five. a man asked for 'the red one'. i need to lie down. you pour.", nag: "five pours. it is not complicated.", done: "five. you're improving. you only spilled on one rich person." },
+    { type: 'stock', n: 2, dept: 'wine', reward: 320, title: 'Restock Wine twice', ask: "the wine wall has holes. holes, in my wall. two wine crates, please.", nag: "the holes are still there. mocking me.", done: "whole again. like a symphony. a symphony of grapes." },
+    { type: 'sample', n: 8, item: 'fancy cracker', lines: 'cracker', zones: ['wine', 'tasting', 'liquor', 'cigars'], buy: 'wine', reward: 360, title: 'Hand out fancy crackers in Wine, Liquor + Cigars',
+      ask: "fancy crackers. eight. wine, liquor, cigars. it is a cracker that costs four dollars. hand it over like it is a diamond.", nag: "diamond energy. go.", done: "eight people now think they have taste. this is how we sell wine." },
+    { type: 'pour', n: 8, reward: 520, title: 'Pour 8 tastings at the Tasting Bar', ask: "friday. everyone wants to forget their week. eight pours. i believe in you. a little.", nag: "more pours. less standing.", done: "eight. magnifique. take this and do not tell anyone i was nice to you." },
+  ],
+  hank: [
+    { type: 'stock', n: 2, dept: 'produce', reward: 260, title: 'Restock Produce twice', ask: "produce is getting picked clean, chief. two produce crates. the bananas don't stock themselves. i've asked.", nag: "a lady is squeezing the last avocado like it owes her money.", done: "now that's a fruit stand. 1971 vibes. love it." },
+    { type: 'help', n: 2, reward: 300, title: 'Walk 2 lost customers to their aisle', ask: "folks keep asking me where stuff is and i only know fruit. help two lost people for me.", nag: "another one just asked me where the 'normal milk' is. help.", done: "two found. you're a human map, chief." },
+    { type: 'sample', n: 10, item: 'mystery fruit', lines: 'durian', zones: ['produce', 'intlproduce', 'natural'], buy: 'produce', reward: 380, title: 'Hand out mystery fruit in Produce + Natural Foods',
+      ask: "it's durian. don't tell them it's durian. ten samples. produce, intl produce, natural foods. say 'mystery fruit' and run.", nag: "the smell is getting out. we're running out of time.", done: "ten people tried durian. two liked it. that's a historic ratio." },
+    { type: 'stock', n: 3, dept: 'produce', reward: 400, title: 'Restock Produce 3 times', ask: "big shipment day. three produce crates. lift with your legs, chief.", nag: "the bins are hungry.", done: "three crates. you're stronger than you look. no offense." },
+    { type: 'sample', n: 12, item: 'dragon fruit', lines: 'dragonfruit', zones: ['produce', 'intlproduce', 'natural', 'honey'], buy: 'produce', reward: 500, title: 'Hand out dragon fruit in Produce, Natural + Honey',
+      ask: "dragon fruit friday. twelve samples. it looks like a pokemon and tastes like a pear that went to college.", nag: "the dragons await.", done: "twelve! the dragons are proud. so am i, chief." },
+  ],
+  trixie: [
+    { type: 'sample', n: 5, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery'], kids: true, buy: 'candy', reward: 260, title: 'Give lollipops to 5 kids near Candy',
+      ask: "omg hi!! give lollipops to five kids around candy. kids only. adults will ask. adults cannot have one. it's the law. my law.", nag: "the kids are vibrating. find them.", done: "five sugar-blasted children!! their parents hate us. perfect." },
+    { type: 'elvis', n: 3, reward: 280, title: 'Make Elvis sing 3 times', ask: "the kids want elvis. make him sing three times. he's the lion. don't ask. nobody knows.", nag: "elvis has left the building. please bring him back.", done: "three songs!! one kid cried. happy tears. probably." },
+    { type: 'stock', n: 2, dept: 'candy', reward: 300, title: 'Restock Candy twice', ask: "we're OUT of the sour stuff and a kid bit a display. two candy crates. please. for safety.", nag: "the kid is eyeing another display.", done: "restocked!! the biting has stopped. for now." },
+    { type: 'sample', n: 6, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery', 'health'], kids: true, buy: 'candy', reward: 380, title: 'Give lollipops to 6 kids near Candy',
+      ask: "lollipop day part two!! six kids. it's the sour apple ones. they make your face do a thing.", nag: "six faces must do the thing.", done: "six faces did the thing!! you're my favorite boss. you're my only boss but still." },
+    { type: 'elvis', n: 5, reward: 460, title: 'Make Elvis sing 5 times', ask: "friday concert!! five elvis songs. he gets a little hoarse but he's a professional.", nag: "the crowd wants more!!", done: "five!! elvis needs a nap. so do i. so do you, honestly." },
+  ],
+  dave: [
+    { type: 'sample', n: 8, item: 'mild hot sauce', lines: 'mild', zones: ['hotsauce', 'americas', 'gigante', 'intl'], buy: 'hotsauce', reward: 280, title: 'Hand out mild hot sauce near Hot Sauce',
+      ask: "my friend. today we start gentle. 'mild'. eight samples. hot sauce, americas, mercado. watch their faces. 'mild' is a lie i tell for fun.", nag: "they're waiting to suffer. go.", done: "eight people. four said 'that's not mild'. correct. it's not." },
+    { type: 'sample', n: 10, item: 'ghost pepper sauce', lines: 'ghost', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia'], buy: 'hotsauce', reward: 380, title: 'Hand out ghost pepper sauce near Hot Sauce',
+      ask: "ghost pepper. ten brave people. hot sauce or the international aisles. have milk nearby. i don't. you should.", nag: "the ghosts are restless.", done: "ten souls touched by the ghost. one guy saw his ancestors. good reviews." },
+    { type: 'stock', n: 2, dept: 'hotsauce', reward: 300, title: 'Restock Hot Sauce twice', ask: "my wall of fire is down to embers. two hot sauce crates, my friend.", nag: "embers. only embers.", done: "the wall burns again. you are a true friend of the pepper." },
+    { type: 'help', n: 3, reward: 420, title: 'Walk 3 lost customers to their aisle', ask: "three people wandered in here looking for 'normal ketchup' and now they're scared. help three lost people find their way.", nag: "they keep coming. they keep being lost.", done: "three saved. they will never come back to my aisle. that's fine." },
+    { type: 'sample', n: 12, item: 'the reaper', lines: 'reaper', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia', 'seafood'], buy: 'hotsauce', reward: 560, title: 'Hand out The Reaper near Hot Sauce + Intl',
+      ask: "friday. the reaper. twelve people. i've signed nothing and neither have you. hand it out and walk away fast.", nag: "the reaper is patient. the customers are not.", done: "twelve. three of them are still sweating in the parking lot. legends." },
+  ],
+  deb: [
+    { type: 'scan', n: 15, reward: 260, title: 'Scan 15 items at a register', ask: "hon, the lines are backing up. hop on a register and scan fifteen items. stand on the left side. mash the button.", nag: "the line's out to the jungle scene, hon.", done: "fifteen! you're a natural. a natural on skates, which is weird, but a natural." },
+    { type: 'help', n: 2, reward: 300, title: 'Walk 2 lost customers to their aisle', ask: "i've had six people at my desk asking where things are. help two lost folks so i can drink my coffee.", nag: "my coffee is cold, hon.", done: "two found. coffee's still cold but my heart is warm." },
+    { type: 'scan', n: 25, reward: 360, title: 'Scan 25 items at a register', ask: "wednesday rush. twenty-five items at a register. dolores is on her third break. don't tell her i said that.", nag: "beep beep, hon. beep beep.", done: "twenty-five! dolores is back and she's jealous." },
+    { type: 'mop', n: 4, reward: 400, title: 'Mop 4 spills', ask: "somebody ran a cart full of salsa into the soup can swing. four spills. i've seen things today, hon.", nag: "it's spreading, hon.", done: "clean! i'm putting you up for employee of the month. you're the boss, so you'll win." },
+    { type: 'scan', n: 40, reward: 560, title: 'Scan 40 items at a register', ask: "friday payday crowd. forty items. you can do it. i believe in you more than i believe in the copier.", nag: "keep beeping, hon!", done: "forty! you're a legend. go home. well. after the store closes. you live here, right?" },
+  ],
+};
+// what customers say when handed a sample (one pool per quest `lines`)
+const SAMPLE_LINES = {
+  cheese: ["oh that's a cheese. that's a real cheese.", "i'll take four pounds. don't ask questions.", "free cheese is the best cheese.", "this cheddar has more personality than my husband.", "i came for paper towels. i'm leaving with cheese."],
+  stinky: ["oh no. oh no. why is it good though", "that smells like a gym bag and tastes like heaven.", "my eyes are watering but my mouth is happy.", "is this cheese legal in other states?", "i'm gonna need a minute. and a mint."],
+  gouda: ["notes of... caramel? i don't know. i'm saying caramel.", "nutty. very nutty. like my uncle.", "eight years old? it's more mature than me.", "this pairs with wine. i'm pairing it with more wine.", "oh that's fancy. i feel fancy."],
+  cookie: ["is this chocolate chip? marry me. not you. the cookie.", "i'm on a diet. was. was on a diet.", "warm cookie in a grocery store. this is heaven.", "my grandma made these. better. don't tell rosa.", "i'll take a dozen and a nap."],
+  donut: ["this donut has seen things. still good.", "vintage donut. i get it. i love it.", "a little chewy. like me.", "free donut? i'd eat it off the floor. not literally.", "that's yesterday's donut and today's happiness."],
+  cake: ["it's my birthday? sure. it's my birthday.", "happy birthday to me, a stranger in aisle seven.", "frosting. on a weekday. living the dream.", "this is the best cake i've ever gotten for free.", "do i have to sing? i'm not singing."],
+  survey: ["turkey, swiss, regret.", "honestly? more pickles. always more pickles.", "a sandwich is just a hot dog with ambition.", "whatever's free.", "meat. then more meat. then bread, if there's room.", "peanut butter and sauerkraut. don't knock it."],
+  pickle: ["crunchy. sour. perfect. like my ex.", "can i have the juice? is that weird? i want the juice.", "pickles are just cucumbers that went through something.", "that's a good pickle. a very good pickle.", "i'd fight someone for another one."],
+  meatball: ["tell nonna i love her.", "that's a meatball. that's a capital M meatball.", "pretty g-- AMAZING. it's amazing.", "i'm gonna think about this meatball at work.", "i'd like to be buried with these."],
+  shrimp: ["cold shrimp, warm heart.", "cocktail sauce has horseradish? my sinuses are open.", "fancy. i feel like i'm on a boat.", "that boat over there? that's my boat now.", "i'll take five pounds and a lemon."],
+  cracker: ["four dollars? for a cracker? it IS good though.", "this cracker went to private school.", "crisp. elegant. i don't deserve it.", "i'm gonna need a wine to go with this cracker.", "is there gold in it? it tastes like there's gold in it."],
+  durian: ["what. what IS that. what is HAPPENING.", "it smells like feet and tastes like custard. i'm confused.", "is this fruit or a dare?", "i hate it. give me another one.", "my whole family is going to smell this on me."],
+  dragonfruit: ["it looks like a pokemon!", "tastes like a kiwi in a costume.", "dragon fruit. i feel powerful.", "pretty. like a fruit at a fashion show.", "my kids are gonna lose their minds."],
+  lollipop: ["LOLLIPOP!!!", "is it sour? IT'S SOUR. i love it.", "i'm gonna save it. no i'm not.", "mom! MOM! the skate guy gave me candy!", "my face is doing a thing!!", "this is the best day of my life."],
+  mild: ["MILD?! that's not mild!", "ok... ok... ok that's a lot.", "i can feel my ears.", "mild for who?! for a dragon?", "i'm fine. i'm fine. is there milk."],
+  ghost: ["i see... i see my grandma.", "AAAAAAAAAAAH.", "why did i say yes. why do i always say yes.", "my lips are gone. i had lips.", "this is my villain origin story."],
+  reaper: ["i've made a terrible mistake.", "tell my wife... tell her it was worth it.", "i can taste colors.", "the reaper came. the reaper won.", "i need to lie down in the frozen section."],
+};
+// what a giver says once today's job is done
+const GIVER_IDLE = ["thanks again, boss.", "you're all set here. go help someone else.", "come back tomorrow, i'll have something.", "i'm good. go. skate. be free."];
+// random chatter people say while hanging around
+const CHATTER = ["i'm just looking. i've been just looking for an hour.", "is it me or is that lion staring?", "i love this place. i'm scared of this place.", "i should've made a list.", "how is there a boat in here?", "my cart has a wobbly wheel. like my life.", "do they sell normal stuff? like, normal milk?", "i parked by the elephant. i think.", "smells like cheese and adventure.", "i came for one thing. i have nine things.", "is that guy on skates the manager?", "honey, which way is out?", "this is my third lap. i'm not lost. i'm exercising."];
 
 // ===== pixel art: everything is drawn at 1x into small canvases, then scaled =====
 function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -1234,6 +1373,7 @@ function buildWorld(ups) {
   addObj({ type: 'corral', x: 40, y: 52 }); addObj({ type: 'corral', x: 50, y: 56 });
   W.lanes.forEach(l => { W.cost[idx(l.cash[0], l.cash[1])] = 30; });
   W.stools.forEach(s => { W.cost[idx(s.x, s.y)] = 12; });
+  placeGivers();
   computeFronts(); renderGround();
 }
 
@@ -1342,6 +1482,21 @@ function layoutDept(d, i) {
   }
 }
 function removeAt(x, y) { const o = W.objAt.get(idx(x, y)); if (!o) return; W.objs.splice(W.objs.indexOf(o), 1); for (let yy = o.y; yy < o.y + o.h; yy++) for (let xx = o.x; xx < o.x + o.w; xx++) { W.objAt.delete(idx(xx, yy)); W.solid[idx(xx, yy)] = W.wall[idx(xx, yy)]; } }
+// quest givers: tag the clerk already behind a counter, or stand a new one at `at` (or the nearest free tile in the area)
+function placeGivers() {
+  W.givers = [];
+  for (const gv of GIVERS) {
+    const d = DEPT[gv.dept]; if (!d || d.lock) continue; // giver areas are never locked areas
+    let o = W.objs.find(o => o.type === 'staff' && W.zone[idx(o.x, o.y)] === DEPTS.indexOf(d));
+    if (!o) {
+      const di = DEPTS.indexOf(d), free = (x, y) => inb(x, y) && W.zone[idx(x, y)] === di && !W.solid[idx(x, y)] && !W.objAt.get(idx(x, y));
+      let at = gv.at; if (!at || !free(at[0], at[1])) { at = null; let bd = 1e9; for (let y = d.y; y < d.y + d.h; y++) for (let x = d.x; x < d.x + d.w; x++) if (free(x, y)) { const dd = Math.hypot(x - (gv.at ? gv.at[0] : d.x), y - (gv.at ? gv.at[1] : d.y)); if (dd < bd) { bd = dd; at = [x, y]; } } }
+      if (!at) continue; const look = staffLook(gv.id); look.shirt = gv.shirt || look.shirt; look.apron = gv.apron || look.apron;
+      o = addObj({ type: 'staff', x: at[0], y: at[1], solid: true, look });
+    }
+    o.giver = gv; W.givers.push({ gv, o, px: o.x * T + 8, py: o.y * T + 12 });
+  }
+}
 function staffLook(id) { const r = mkRng(id.length * 97 + id.charCodeAt(0)); const o = randomLook(r, 'adult'); o.shirt = '#f4f4f4'; o.apron = { deli: '#8a2a3a', meat: '#a82a2a', bakery: '#e8cfa0', seafood: '#2e6a9a', sushi: '#3a2a20', custserv: null }[id] || null; if (id === 'custserv') o.shirt = '#2e7d3b'; if (id === 'bakery') { o.style = 'cap'; o.hat = '#f4f4f4'; } o.key = 'staff_' + id; return o; }
 
 // customer-reachable tiles touching each dept's stock objects
@@ -1743,7 +1898,7 @@ function musicTick() { // pick the song from where you are; music.js gets there 
   if (!AU.started) return; AU.music.gain.value = AU.musicOn && !document.hidden ? 1 : 0;
   let s = 'market'; const moods = [];
   if (RT.menu === 'title') s = 'title';
-  else if (RT.menu && RT.menu !== 'map') s = 'menu';
+  else if (RT.menu && !['map', 'quests', 'goal'].includes(RT.menu)) s = 'menu';
   else if (RT.sleeping) s = 'sleep';
   else {
     const m = ST.minute, tx = Math.floor(PL.x / T), ty = Math.floor((PL.y - 3) / T), zi = inb(tx, ty) ? W.zone[idx(tx, ty)] : -1, dz = zi >= 0 ? DEPTS[zi].id : null;
@@ -1757,7 +1912,7 @@ function musicTick() { // pick the song from where you are; music.js gets there 
     else if (stock) s = 'stock';
     else if (outdoor) s = ST.weather === 'rain' ? 'rain' : 'outside';
     else s = AU.zone || 'market';
-    if (m < OPEN_MIN) moods.push('morning');
+    if (RT.dayT < 40) moods.push('morning'); // the store just opened
     if (ST.weather === 'rain') moods.push('rain');
     if (eventToday()) moods.push('fest');
     if (RT.custs.length > 30) moods.push('busy');
@@ -1783,9 +1938,10 @@ function newState() {
 function fmtMoney(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
 function stars() { return Math.max(1, Math.min(5, Math.ceil(ST.rep / 20))); }
 function fmtTime(m) { m = ((m % 1440) + 1440) % 1440; let h = Math.floor(m / 60), mm = Math.floor(m % 60); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(mm).padStart(2, '0')} ${ap}`; }
-function weekday(day = ST.day) { return WEEKDAYS[(day - 1) % 7]; }
+function weekday(day = ST.day) { return WORKDAYS[(day - 1) % 5]; } // a work week: Mon-Fri, then the next week
+const MAX_CUSTS = 70;
 function eventToday(day = ST.day) { const c = ((day - 1) % 28) + 1; return EVENTS.find(e => e.day === c || e.day + 1 === c) || null; }
-function isOpen() { return ST.minute >= OPEN_MIN && ST.minute < CLOSE_MIN; }
+function isOpen() { return ST.phase === 'day'; }
 function typo(s) { return String(s).replace(/(^|[\s(\[{])"/g, '$1\u201c').replace(/"/g, '\u201d').replace(/'/g, '\u2019'); }
 function say(s) { s = s.replace(/\{store\}/g, CONFIG.storeName).replace(/\{owner\}/g, CONFIG.ownerName); if (ST.settings && ST.settings.clean) CLEAN.forEach(([a, b]) => s = s.replace(a, b)); return typo(s); }
 const BAGS = {};
@@ -1807,8 +1963,9 @@ function fill(id) { const d = DEPT[id]; return d && d.max ? (ST.stock[id] || 0) 
 
 // ---------- day setup ----------
 function startDay() {
-  RT.day = { sales: 0, tips: 0, wholesale: 0, wages: 0, extra: 0, served: 0, helped: 0, lostGaveUp: 0, emptyHits: {}, repDelta: 0, moods: [], emptyDuringFest: false, collapsed: false };
-  ST.minute = DAY_START; ST.energy = ST.energyMaxNext || 100; ST.energyMaxNext = 100;
+  RT.day = { sales: 0, tips: 0, wholesale: 0, wages: 0, extra: 0, quest: 0, questsDone: 0, served: 0, helped: 0, lostGaveUp: 0, emptyHits: {}, repDelta: 0, moods: [], emptyDuringFest: false };
+  // no clock pressure: it stays daytime until the day's goal is made and you close up
+  ST.phase = 'day'; ST.minute = 9 * 60; RT.dayT = 0; RT.goalHit = false; RT.evT = 0; RT.chatT = 4; RT.nightT = 0; ST.energy = ST.energyMaxNext || 100; ST.energyMaxNext = 100;
   ST.tanks = [0, 0, 0, 0]; ST.fedToday = false; ST.cheeseTemp = 36; ST.snacks = 0; ST.hype = false; ST.filmed = false; ST.tourney = false;
   const r = Math.random(); ST.weather = r < 0.68 ? 'sunny' : r < 0.84 ? 'cloudy' : 'rain';
   RT.custs = []; RT.cars = []; RT.spills = []; RT.parts = []; RT.spawnAcc = 0; PL.carry = []; PL.escort = null; RT.lastHour = 6;
@@ -1816,16 +1973,9 @@ function startDay() {
   PL.x = W.spots.start[0] * T; PL.y = W.spots.start[1] * T; PL.vx = PL.vy = 0; PL.dir = 'down';
   Object.keys(ANIMS).forEach(k => { ST.anims[k] = ST.anims[k] || { broken: false, fix: 0 }; ST.anims[k].fix = 0; });
   ST.monorailBroken = false;
-  // daily tasks
-  const ev = eventToday();
-  ST.tasks = [
-    { id: 'fish', text: 'Feed the fish tanks before noon', done: false, fail: false },
-    { id: 'cheese', text: 'Keep the Big Cheese cooler under 45°F', done: false, fail: false, passive: true },
-    { id: 'help', text: 'Help 3 lost customers', need: 3, done: false },
-    { id: 'sales', text: `Sell ${fmtMoney(ST.salesGoal || 1500)} today`, need: ST.salesGoal || 1500, done: false },
-  ];
-  if (ev) ST.tasks.push({ id: 'fest', text: `${ev.name}: keep every aisle stocked`, done: false, fail: false, passive: true });
-  setupStaff();
+  setupStaff(); buildQuests();
+  // the store opens with people already shopping, somewhere different every day
+  for (let i = 0; i < 14; i++) spawnInside();
 }
 function setupStaff() {
   RT.staff = [];
@@ -1845,15 +1995,20 @@ function pickList(type, family) {
   for (let i = 0; i < n; i++) { let tot = 0; const ws = pool.map(d => { let w = d.pop * (ev && ev.boost[d.id] ? ev.boost[d.id] : 1); if (family && ['candy', 'toys', 'gacha'].includes(d.id)) w *= 3; if (list.includes(d.id)) w = 0; tot += w; return w; }); let r = Math.random() * tot; for (let k = 0; k < pool.length; k++) { r -= ws[k]; if (r <= 0) { list.push(pool[k].id); break; } } }
   return list;
 }
-function spawnCustomer(forced) {
+function spawnCustomer(forced, withKid) {
   const free = W.parking.filter(p => !p.car); if (!free.length) return;
   const side = Math.random() < 0.25; let spots = free.filter(p => !!p.side === side); if (!spots.length) spots = free;
   const sp = spots[Math.floor(Math.random() * spots.length)];
-  const rr = Math.random(); const type = forced || (rr < 0.17 ? 'old' : 'adult'); const family = type === 'adult' && Math.random() < 0.3;
+  const rr = Math.random(); const type = forced || (rr < 0.17 ? 'old' : 'adult'); const family = withKid || (type === 'adult' && Math.random() < 0.3);
   const car = { x: sp.x * T + 8, y: sp.y * T + 13, col: pick(Math.random, CAR_COLS), slot: sp, t: 0, leaving: false, enter: 1 }; sp.car = car; RT.cars.push(car);
   const c = mkCust(type, car, sp.side ? 'side' : 'main'); c.list = pickList(type, family);
   if (family) { const k = mkCust('kid', car, c.door); k.parent = c; k.state = 'tag'; c.kid = k; k.x = c.x - 6; }
   return c;
+}
+function spawnInside() { // a shopper already in the store: parked car outside, standing in a random department
+  const c = spawnCustomer(); if (!c) return; c.car.enter = 0;
+  const zs = DEPTS.filter(d => d.max && deptOpen(d)).map(d => d.id), t = randomZoneTile(zs); if (!t) return;
+  c.x = (t[0] + 0.5) * T; c.y = (t[1] + 0.7) * T; c.path = null; if (c.kid) { c.kid.x = c.x - 6; c.kid.y = c.y; } nextTask(c);
 }
 function mkCust(type, car, door) {
   const look = randomLook(Math.random, type); const c = { id: RT.nextId++, type, look, x: car.x, y: car.y + 10, dir: 'down', frame: 0, anim: 0, state: 'toStore', path: null, pi: 0, mood: 62 + Math.random() * 10, items: 0, spend: 0, list: [], car, door, bubble: null, lostDone: false, wait: 0, timer: 0, speed: type === 'old' ? 36 : type === 'kid' ? 56 : 46 + Math.random() * 10, seen: {}, hist: [] };
@@ -1873,17 +2028,23 @@ function stepPath(e, dt, spd) {
 function bubble(c, text, t = 3.5, kind = 'say') { c.bubble = { text: say(text), t, kind }; }
 function custTile(c) { return [Math.floor(c.x / T), Math.floor((c.y - 3) / T)]; }
 function nextTask(c) {
-  if (!isOpen() && ST.minute >= CLOSE_MIN) c.list = [];
-  const ev = eventToday();
+  if (!isOpen()) { c.list = []; c.hold = null; }
+  if (c.hold) { if (c.hold.state === 'active' || c.hold.state === 'offer') { if (goLoiter(c, c.holdZones)) return; } c.hold = null; }
   if (c.kid && !c.sawElvis && Math.random() < 0.6 && W.spots.elvis) { c.sawElvis = true; c.state = 'walk'; c.then = 'elvis'; goTo(c, W.spots.elvis[0] + (Math.random() - 0.5) * 2, W.spots.elvis[1] + Math.random()); return; }
-  if (c.type !== 'kid' && !c.tasted && ST.minute >= 11 * 60 && ST.minute < CLOSE_MIN - 30 && Math.random() < 0.14) { c.tasted = true; const s = W.stools.find(s => !s.cust); if (s) { s.cust = c; c.stool = s; c.state = 'walk'; c.then = 'sit'; goTo(c, s.x + 0.5, s.y + 0.75); return; } }
+  if (c.type !== 'kid' && !c.tasted && isOpen() && RT.dayT > 30 && Math.random() < 0.14) { c.tasted = true; const s = W.stools.find(s => !s.cust); if (s) { s.cust = c; c.stool = s; c.state = 'walk'; c.then = 'sit'; goTo(c, s.x + 0.5, s.y + 0.75); return; } }
   if (c.list.length) {
     const id = c.list.shift(); c.cur = id; const fr = W.fronts[id]; if (!fr || !fr.length) return nextTask(c);
-    if (!c.lostDone && c.type !== 'kid' && Math.random() < 0.12) { c.lostDone = true; c.state = 'lost'; c.timer = 40; c.lostItem = pick(Math.random, DEPT[id].items || [DEPT[id].name]); bubble(c, '?', 999, 'q'); return; }
+    if (!c.lostDone && c.type !== 'kid' && Math.random() < 0.12) { makeLost(c, id); return; }
+    // sometimes people just drift around a department for a bit first
+    if (!c.wandered && Math.random() < 0.18) { c.wandered = true; c.list.unshift(id); if (goLoiter(c, [id])) return; c.list.shift(); }
     const f = fr[Math.floor(Math.random() * fr.length)]; c.state = 'walk'; c.then = 'browse'; c.front = f; goTo(c, f[0] + 0.5, f[1] + 0.75); return;
   }
   if (c.items > 0) { c.state = 'toLane'; joinLane(c); return; }
   leaveStore(c);
+}
+function makeLost(c, id) {
+  id = id || c.list.shift() || c.cur; if (!id || !DEPT[id]) return; c.cur = id; c.lostDone = true; c.state = 'lost'; c.timer = 40; c.path = null;
+  c.lostItem = pick(Math.random, DEPT[id].items || [DEPT[id].name]); bubble(c, '?', 999, 'q');
 }
 function laneOpen(l) { return !!l.staff || (PL.onCash === l); }
 function joinLane(c) {
@@ -1921,7 +2082,7 @@ function updateCust(c, dt) {
       if (dist > 20) { if (!c.path || c.pi >= c.path.length || (c.repath -= dt) <= 0) { c.repath = 0.6; goTo(c, PL.x / T, PL.y / T); } stepPath(c, dt, spd); } else c.frame = 0;
       c.timer -= dt; const [tx, ty] = custTile(c); const zi = inb(tx, ty) ? W.zone[idx(tx, ty)] : -1;
       if (zi >= 0 && DEPTS[zi].id === c.cur) { // made it
-        PL.escort = null; const tip = 5 + Math.round(Math.random() * 12 + (c.type === 'old' ? 6 : 0)); addMoney(tip, c.x, c.y - 26); RT.day.tips += tip; RT.day.helped++; ST.totals.helped++; moodHit(c, 22); sfx('good');
+        PL.escort = null; const tip = 5 + Math.round(Math.random() * 12 + (c.type === 'old' ? 6 : 0)); addMoney(tip, c.x, c.y - 26); RT.day.tips += tip; RT.day.helped++; ST.totals.helped++; moodHit(c, 22); sfx('good'); questEvent('help');
         bubble(c, line('thanks'), 4); hint('helped'); const f = pick(Math.random, W.fronts[c.cur]); c.state = 'walk'; c.then = 'browse'; c.front = f; goTo(c, f[0] + 0.5, f[1] + 0.75);
       } else if (c.timer <= 0) { PL.escort = null; bubble(c, 'ok i\'m on my own. thanks for nothing.', 3); moodHit(c, -12); c.state = 'walk'; c.then = 'browse'; const f = pick(Math.random, W.fronts[c.cur]); c.front = f; goTo(c, f[0] + 0.5, f[1] + 0.75); }
       break;
@@ -1940,6 +2101,10 @@ function updateCust(c, dt) {
     }
     case 'waitLane': c.timer -= dt; if (c.timer <= 0) joinLane(c); break;
     case 'elvis': c.timer -= dt; c.dir = 'up'; c.frame = 0; if (c.timer <= 0) nextTask(c); break;
+    case 'loiter': { // hanging around a department: look about, mutter, drift to another spot
+      c.timer -= dt; c.frame = 0; if ((c.lookT = (c.lookT || 0) - dt) <= 0) { c.lookT = 1 + Math.random() * 2; c.dir = pick(Math.random, ['down', 'left', 'right', 'up', 'down']); }
+      if (c.timer <= 0) nextTask(c); break;
+    }
     case 'exitOut': if (stepPath(c, dt, spd)) { c.state = 'gone'; finishCust(c); } break;
   }
   // passing hazards
@@ -1952,6 +2117,7 @@ function arrive(c) {
   if (t === 'browse') { c.state = 'browse'; c.timer = 1.8 + Math.random() * 2.2; if (c.front) { const o = c.front[2]; c.dir = o.y < c.front[1] ? 'up' : o.y > c.front[1] ? 'down' : o.x > c.front[0] ? 'right' : 'left'; } }
   else if (t === 'sit') { c.state = 'sit'; c.timer = 32; c.poured = false; bubble(c, Math.random() < 0.4 ? line('tasting') : '', 999, 'wine'); }
   else if (t === 'elvis') { c.state = 'elvis'; c.timer = 3 + Math.random() * 3; if (c.kid) { c.kid.mood = Math.min(100, c.kid.mood + 8); } if (!ST.anims.elvis.broken) { moodHit(c, 6); if (Math.random() < 0.4) bubble(c.kid || c, line('elvis'), 3); } }
+  else if (t === 'loiter') { c.state = 'loiter'; c.timer = 2.5 + Math.random() * 4; }
   else if (t === 'exit') { c.state = 'exitOut'; const car = c.car; goTo(c, car.x / T, car.y / T + 0.2); if (Math.random() < 0.3) bubble(c, c.mood > 70 ? line('leaveHappy') : c.mood < 40 ? line('leaveMad') : 'later.', 3, c.mood < 40 ? 'mad' : 'say'); }
   else nextTask(c);
 }
@@ -1986,51 +2152,39 @@ function pay(c, l) {
 function playerScan() {
   const l = PL.onCash; if (!l) return false; const c = l.queue[0];
   if (!c || c.qi !== 0 || (c.path && c.pi < c.path.length)) { flash('nobody at your register yet'); return true; }
-  c.scanned++; sfx('scan'); ST.energy = Math.max(0, ST.energy - 0.25); if (c.scanned >= c.items) { pay(c, l); moodHit(c, 4); } return true;
+  c.scanned++; sfx('scan'); questEvent('scan'); ST.energy = Math.max(0, ST.energy - 0.25); if (c.scanned >= c.items) { pay(c, l); moodHit(c, 4); } return true;
 }
 
-// ---------- spawning / clock ----------
+// ---------- the running day (untimed) ----------
 function hourCurve(h) { return h < 9 ? 0.5 : h < 11 ? 0.8 : h < 14 ? 1.3 : h < 16 ? 0.9 : h < 19 ? 1.4 : h < 21 ? 1.0 : 0.5; }
-function custPerHour() {
-  const ev = eventToday(); const wd = weekday(); const dayMul = wd === 'Sat' || wd === 'Sun' ? 1.4 : wd === 'Fri' ? 1.2 : 1;
-  return 10 * (0.5 + ST.rep / 100) * hourCurve(ST.minute / 60) * dayMul * (ev ? ev.crowd : 1) * (ST.ups.billboard ? 1.2 : 1) * (ST.ups.parking ? 1.15 : 1) * (ST.weather === 'rain' ? 0.8 : 1) * (ST.hype ? 1.3 : 1) * (ST.ups.monorail && (dayMul > 1.3 || ev) ? 1.1 : 1);
+function custPerMin() { // new arrivals per real minute
+  const ev = eventToday(); const dayMul = weekday() === 'Fri' ? 1.2 : 1;
+  return 9 * (0.5 + ST.rep / 100) * dayMul * (ev ? ev.crowd : 1) * (ST.ups.billboard ? 1.2 : 1) * (ST.ups.parking ? 1.15 : 1) * (ST.weather === 'rain' ? 0.8 : 1) * (ST.hype ? 1.3 : 1) * (ST.ups.monorail && (dayMul > 1.1 || ev) ? 1.1 : 1);
 }
-function minPerSec() { return [1.4, 2, 3][ST.settings.speed] || 2; }
-function updateClock(dt) {
-  const before = ST.minute; ST.minute += dt * minPerSec();
-  const h = Math.floor(ST.minute / 60);
-  if (isOpen()) { RT.spawnAcc += (ST.minute - before) * custPerHour() / 60; while (RT.spawnAcc >= 1) { RT.spawnAcc--; if (RT.custs.length < 48) spawnCustomer(); } }
-  if (h !== RT.lastHour) { RT.lastHour = h; onHour(h); }
+function minPerSec() { return 2; } // staff pacing
+function updateDay(dt) {
+  if (ST.phase === 'night') return updateNight(dt);
+  RT.dayT += dt;
+  RT.spawnAcc += dt * custPerMin() / 60; while (RT.spawnAcc >= 1) { RT.spawnAcc--; if (RT.custs.length < MAX_CUSTS) spawnCustomer(); }
   // cheese cooler drifts warmer
-  if (isOpen()) ST.cheeseTemp += (ST.minute - before) / 20; if (ST.cheeseTemp > 45) { if (!RT.cheeseAlarm) { RT.cheeseAlarm = true; toast('The Big Cheese cooler is too warm. Go check it.', 'warn'); sfx('alarm'); } const t = ST.tasks.find(t => t.id === 'cheese'); if (t && isOpen()) t.fail = true; if (isOpen()) addRep(-(ST.minute - before) * 0.01); } else RT.cheeseAlarm = false;
-  // fish hunger
-  if (ST.minute >= 12 * 60 && !ST.fedToday) { const t = ST.tasks.find(t => t.id === 'fish'); if (t && !t.fail) { t.fail = true; toast('The fish didn\'t get fed. Customers noticed.', 'warn'); addRep(-1.5); } }
-  // fest: empties
-  if (eventToday() && isOpen()) { const empty = DEPTS.some(d => d.max && deptOpen(d) && ST.stock[d.id] <= 0); if (empty) { const t = ST.tasks.find(t => t.id === 'fest'); if (t) t.fail = true; RT.day.emptyDuringFest = true; } }
-  if (ST.minute >= 26 * 60 && !RT.sleeping) collapse();
+  ST.cheeseTemp += dt * 0.06; if (ST.cheeseTemp > 45) { if (!RT.cheeseAlarm) { RT.cheeseAlarm = true; toast('The Big Cheese cooler is too warm. Go check it.', 'warn'); sfx('alarm'); } addRep(-dt * 0.02); } else RT.cheeseAlarm = false;
+  if (eventToday()) { const empty = DEPTS.some(d => d.max && deptOpen(d) && ST.stock[d.id] <= 0); if (empty) RT.day.emptyDuringFest = true; }
+  RT.evT += dt; if (RT.evT >= 40) { RT.evT = 0; storeTick(); }
+  questCrowd(dt); questTrouble(dt); checkDayGoal();
+  // somebody on screen says something now and then
+  if ((RT.chatT -= dt) <= 0) { RT.chatT = 5 + Math.random() * 6; const cs = RT.custs.filter(c => !c.bubble && c.state !== 'lost' && onScreen(c.x, c.y)); if (cs.length) { const c = pick(Math.random, cs); bubble(c, c.type === 'kid' ? line('kid') : Math.random() < 0.5 ? pick(Math.random, CHATTER) : line(c.type === 'old' ? 'old' : 'adult'), 4); } }
 }
-function onHour(h) {
-  if (h === 8) { toast(`${CONFIG.storeName} is open. Here they come.`); }
-  if (h === 22) { toast('Store closed. Finish up and sleep on the office couch.'); RT.custs.forEach(c => { if (c.list) c.list = []; }); }
-  if (h === 23 && !RT.sleeping) toast('You\'re getting tired. Get to the couch.', 'warn');
-  if (h === 25) toast('You\'re about to pass out.', 'warn');
-  if (h >= 9 && h <= 21) {
-    for (const k in ANIMS) { if (!W.anims[k]) continue; const a = ST.anims[k]; if (!a.broken && Math.random() < 0.045) { a.broken = true; a.fix = 0; toast(`${ANIMS[k].name[0].toUpperCase() + ANIMS[k].name.slice(1)} broke down. Bring the wrench.`, 'warn'); sfx('alarm'); hint('broken'); } }
-    if (!ST.anims.elvis.broken && W.anims.elvis) startElvis(false);
-    if (ST.weather === 'rain' && Math.random() < 0.6) { const x = 58 + Math.floor(Math.random() * 4), y = 44 + Math.floor(Math.random() * 2); if (!RT.spills.find(s => s.x === x && s.y === y) && !W.solid[idx(x, y)]) RT.spills.push({ id: RT.nextId++, x, y, kind: 'water', hp: 2 }); }
-    if (ST.ups.monorail && !ST.monorailBroken && (['Sat', 'Sun'].includes(weekday()) || eventToday())) { const riders = 8 + Math.floor(Math.random() * 10); RT.day.extra += riders * 3; ST.money += riders * 3; addRep(0.4); }
-  }
+function storeTick() { // every 40 s: things break, rain drips in, Elvis sings, monorail riders pay
+  for (const k in ANIMS) { if (!W.anims[k]) continue; const a = ST.anims[k]; if (!a.broken && Math.random() < 0.045) { a.broken = true; a.fix = 0; toast(`${ANIMS[k].name[0].toUpperCase() + ANIMS[k].name.slice(1)} broke down. Bring the wrench.`, 'warn'); sfx('alarm'); hint('broken'); } }
+  if (!ST.anims.elvis.broken && W.anims.elvis) startElvis(false);
+  if (ST.weather === 'rain' && Math.random() < 0.6) { const x = 58 + Math.floor(Math.random() * 4), y = 44 + Math.floor(Math.random() * 2); if (!RT.spills.find(s => s.x === x && s.y === y) && !W.solid[idx(x, y)]) RT.spills.push({ id: RT.nextId++, x, y, kind: 'water', hp: 2 }); }
+  if (ST.ups.monorail && !ST.monorailBroken && (weekday() === 'Fri' || eventToday())) { const riders = 8 + Math.floor(Math.random() * 10); RT.day.extra += riders * 3; ST.money += riders * 3; addRep(0.4); }
 }
 function startElvis(byPlayer) {
   if (RT.elvisT > 0) return false; RT.elvisT = 9; if (onScreen(W.spots.elvis[0] * T, W.spots.elvis[1] * T) || byPlayer) sfx('elvis');
   RT.custs.forEach(c => { const d = Math.hypot(c.x / T - W.spots.elvis[0], c.y / T - W.spots.elvis[1]); if (d < 7) { moodHit(c, c.type === 'kid' ? 10 : 5); } });
-  return true;
+  if (byPlayer) questEvent('elvis'); return true;
 }
-function collapse() {
-  RT.day.collapsed = true; const lost = Math.round(Math.min(ST.money * 0.1, 800)); ST.money -= lost; RT.day.extra -= lost; ST.energyMaxNext = 70;
-  showDialog(CONFIG.cashierName, `you passed out in the cereal aisle at 2am. i dragged you to the couch. the ambulance guys took ${fmtMoney(lost)} in "consulting fees". go to bed at a normal hour, boss.`, () => endDay());
-}
-
 // ---------- staff AI ----------
 function updateStaff(dt) {
   RT.staff.forEach(s => {
@@ -2112,6 +2266,7 @@ let flashMsg = null; function flash(t) { flashMsg = { text: say(t), t: 2.2 }; }
 // what's in front of the player + what Space would do
 function targetInfo() {
   const f = playerFacing(); const tool = TOOLS[PL.tool].id;
+  const gv = ST.phase === 'day' && giverNear(f); if (gv && !PL.onCash) { const m = giverMarker(gv); return { act: 'giver', g: gv, label: `Space: talk to ${gv.gv.name}` + (m === '?' ? ' (job done!)' : m === '!' ? ' (has a job)' : '') }; }
   // customers first
   let best = null, bd = 14;
   for (const c of RT.custs) { const d = Math.hypot(c.x - f.px, c.y - 4 - f.py); if (d < bd) { bd = d; best = c; } }
@@ -2124,6 +2279,7 @@ function targetInfo() {
   if (best && (tool === 'hands' || best.state === 'lost')) {
     if (best.state === 'lost') return { act: 'help', c: best, label: 'Space: help this lost customer' };
     if (best.state === 'sit' && !best.poured) return { act: 'pour', c: best, label: 'Space: pour a tasting ($5)' };
+    const sq = tool === 'hands' && sampleQuestFor(best); if (sq) return { act: 'sample', c: best, q: sq, label: sq.def.type === 'talk' ? `Space: ask about sandwiches (${sq.got}/${sq.n})` : `Space: give a ${sq.def.item} (${sq.got}/${sq.n})` };
     return { act: 'talk', c: best, label: 'Space: talk' };
   }
   if (best && best.kind) return { act: 'talkStaff', s: best, label: `Space: talk to ${best.name}` };
@@ -2142,10 +2298,10 @@ function targetInfo() {
   if (o.type === 'bigcheese') return cheeseInfo(tool);
   if (o.anim) return animInfo(o, tool);
   if (o.type === 'desk') return { act: 'computer', label: 'Space: use the computer (catalog)' };
-  if (o.type === 'couch') return { act: 'sleep', label: 'Space: sleep (ends the day)' };
+  if (o.type === 'couch') return { act: 'sleep', label: RT.goalHit ? 'Space: close up for the night' : `Couch. Make ${fmtMoney(goalLeft())} more before closing up` };
   if (o.type === 'fridge') return { act: 'snack', label: ST.snacks >= 3 ? 'Snacks are gone for today' : 'Space: eat a snack (+energy)' };
   if (o.type === 'ringlight') return { act: 'film', label: ST.filmed ? 'Already posted today' : 'Space: film a TikTok (crowd boost)' };
-  if (o.type === 'cardtable') return { act: 'tourney', label: weekday() !== 'Sat' ? 'Tournaments are on Saturdays' : ST.tourney ? 'Tournament done today' : 'Space: run the card tournament' };
+  if (o.type === 'cardtable') return { act: 'tourney', label: weekday() !== 'Fri' ? 'Tournaments are on Fridays' : ST.tourney ? 'Tournament done today' : 'Space: run the card tournament' };
   if (o.type === 'register') return { label: 'Stand on the left side of a register to work it' };
   return null;
 }
@@ -2161,21 +2317,23 @@ function doAction() {
     case 'scan': playerScan(); break;
     case 'grab': { const c = crateCost(t.o.crate); if (ST.money < c) { sfx('err'); flash('Not enough money for that crate'); return; } ST.money -= c; RT.day.wholesale += c; PL.carry.push(t.o.crate); sfx('pick'); cost(1.5); floatText(PL.x, PL.y - 30, '-' + fmtMoney(c), '#ff8a7a'); hint('grabbed'); break; }
     case 'return': { const c = crateCost(t.o.crate); PL.carry.pop(); ST.money += c; RT.day.wholesale -= c; sfx('pick'); break; }
-    case 'stock': { const d = t.dept; PL.carry.splice(t.i, 1); ST.stock[d.id] = Math.min(d.max, ST.stock[d.id] + CRATES[d.crate].units); sfx('stock'); cost(1.5); sparkle(t.o.x * T + 8, t.o.y * T); floatText(PL.x, PL.y - 30, d.name + ' restocked', '#9fe8ff'); hint('stocked'); break; }
-    case 'mop': { t.spill.hp -= ST.ups.mop2 ? 3 : 1; sfx('mop'); cost(1); if (t.spill.hp <= 0) { RT.spills.splice(RT.spills.indexOf(t.spill), 1); sparkle(t.spill.x * T + 8, t.spill.y * T + 8); } break; }
-    case 'fix': { const a = ST.anims[t.o.anim]; a.fix++; sfx('clank'); cost(2); RT.parts.push({ x: t.o.x * T + 10, y: t.o.y * T, vx: (Math.random() - 0.5) * 40, vy: -40, t: 0.4, c: '#ffe14d' }); if (a.fix >= 4) { a.broken = false; a.fix = 0; sfx('good'); toast(`Fixed ${ANIMS[t.o.anim].name}.`); addRep(0.5); } break; }
-    case 'feed': { if (ST.fedToday) return; ST.fedToday = true; sfx('feed'); cost(1); const tk = ST.tasks.find(x => x.id === 'fish'); if (tk && !tk.fail) tk.done = true; W.tanks.forEach(o => sparkle(o.x * T + 8, o.y * T + 4)); toast('Tanks fed. Happy fish.'); break; }
-    case 'cheese': { ST.cheeseTemp = 34; sfx('good'); cost(1); toast('Big Cheese cooler back to 34°F.'); break; }
+    case 'stock': { const d = t.dept; PL.carry.splice(t.i, 1); ST.stock[d.id] = Math.min(d.max, ST.stock[d.id] + CRATES[d.crate].units); sfx('stock'); cost(1.5); questEvent('stock', d.id); sparkle(t.o.x * T + 8, t.o.y * T); floatText(PL.x, PL.y - 30, d.name + ' restocked', '#9fe8ff'); hint('stocked'); break; }
+    case 'mop': { t.spill.hp -= ST.ups.mop2 ? 3 : 1; sfx('mop'); cost(1); if (t.spill.hp <= 0) { RT.spills.splice(RT.spills.indexOf(t.spill), 1); sparkle(t.spill.x * T + 8, t.spill.y * T + 8); questEvent('mop'); } break; }
+    case 'fix': { const a = ST.anims[t.o.anim]; a.fix++; sfx('clank'); cost(2); RT.parts.push({ x: t.o.x * T + 10, y: t.o.y * T, vx: (Math.random() - 0.5) * 40, vy: -40, t: 0.4, c: '#ffe14d' }); if (a.fix >= 4) { a.broken = false; a.fix = 0; sfx('good'); toast(`Fixed ${ANIMS[t.o.anim].name}.`); addRep(0.5); questEvent('fix'); } break; }
+    case 'feed': { if (ST.fedToday) return; ST.fedToday = true; sfx('feed'); cost(1); questEvent('feed'); W.tanks.forEach(o => sparkle(o.x * T + 8, o.y * T + 4)); toast('Tanks fed. Happy fish.'); break; }
+    case 'cheese': { const warm = ST.cheeseTemp > 37; ST.cheeseTemp = 34; sfx('good'); cost(1); toast('Big Cheese cooler back to 34°F.'); if (warm) questEvent('cool'); else flash('Already cold. Give it a minute to warm up.'); break; }
     case 'elvis': { if (!startElvis(true)) flash('He\'s catching his breath'); break; }
     case 'help': { const c = t.c; c.state = 'follow'; c.timer = 60; c.path = null; c.repath = 0; c.bubble = null; PL.escort = c; sfx('talk'); showDialog('Customer', line('lost').replace('{item}', c.lostItem), null, `They want ${c.lostItem}. Lead them to ${DEPT[c.cur].name}.`); break; }
-    case 'pour': { const c = t.c; c.poured = true; c.timer = 5; c.bubble = null; moodHit(c, 12); addMoney(5, c.x, c.y - 28); RT.day.extra += 5; sfx('pour'); cost(0.5); bubble(c, line('poured'), 3); if (Math.random() < 0.6) c.list.unshift(Math.random() < 0.6 ? 'wine' : 'beer'); break; }
+    case 'pour': { const c = t.c; c.poured = true; c.timer = 5; c.bubble = null; moodHit(c, 12); addMoney(5, c.x, c.y - 28); RT.day.extra += 5; sfx('pour'); cost(0.5); bubble(c, line('poured'), 3); questEvent('pour'); if (Math.random() < 0.6) c.list.unshift(Math.random() < 0.6 ? 'wine' : 'beer'); break; }
     case 'talk': { const c = t.c; sfx('talk'); const cat = c.type === 'kid' ? 'kid' : c.type === 'old' ? 'old' : 'adult'; bubble(c, line(cat), 4); if (!c.talked) { c.talked = true; moodHit(c, 3); } break; }
     case 'talkStaff': { sfx('talk'); showDialog(t.s.name, staffLine(t.s)); break; }
+    case 'giver': talkGiver(t.g); break;
+    case 'sample': giveSample(t.c, t.q); cost(0.5); break;
     case 'computer': openMenu('catalog'); break;
     case 'sleep': trySleep(); break;
     case 'snack': { if (ST.snacks >= 3) return; ST.snacks++; const n = ST.ups.coffee ? 40 : 20; ST.energy = Math.min(100, ST.energy + n); sfx('good'); toast(`Snack. +${n} energy.`); break; }
     case 'film': { if (ST.filmed) return; ST.filmed = true; ST.hype = true; addRep(1); cost(5); sfx('good'); toast('Video posted. It\'s doing numbers. More customers today.'); break; }
-    case 'tourney': { if (weekday() !== 'Sat' || ST.tourney) return; ST.tourney = true; addMoney(400, PL.x, PL.y - 30); RT.day.extra += 400; addRep(1); for (let i = 0; i < 6; i++) spawnCustomer('adult'); sfx('good'); toast('Card tournament ran. +$400 in entry fees.'); break; }
+    case 'tourney': { if (weekday() !== 'Fri' || ST.tourney) return; ST.tourney = true; addMoney(400, PL.x, PL.y - 30); RT.day.extra += 400; addRep(1); for (let i = 0; i < 6; i++) spawnCustomer('adult'); sfx('good'); toast('Card tournament ran. +$400 in entry fees.'); break; }
   }
 }
 function staffLine(s) {
@@ -2188,22 +2346,16 @@ function staffLine(s) {
   return pick(Math.random, L[s.kind] || ['hey boss.']);
 }
 function sparkle(x, y) { for (let i = 0; i < 10; i++) RT.parts.push({ x, y, vx: (Math.random() - 0.5) * 60, vy: -Math.random() * 50, t: 0.6, c: pick(Math.random, ['#fff6a0', '#9ff0ff', '#ffffff']) }); }
-function trySleep() {
-  if (ST.minute < CLOSE_MIN) showDialog('You', 'sleep now? the store keeps running without you until close. staff only.', null, null, [['Sleep', () => goSleep()], ['Not yet', () => { }]]);
-  else goSleep();
-}
-function goSleep() { RT.seen.bed = true; RT.sleeping = true; PL.carry = []; PL.x = W.spots.bed[0] * T; PL.y = W.spots.bed[1] * T + 4; PL.dir = 'down'; }
+function trySleep() { closeUp(); }
 
 // ---------- end of day ----------
 function endDay() {
   RT.sleeping = false; const d = RT.day; let wages = 0; UPGRADES.forEach(u => { if (ST.ups[u.id] && u.wage) wages += u.wage; }); wages += 180; d.wages = wages; ST.money -= wages;
-  // tasks
-  ST.tasks.forEach(t => { if (t.id === 'cheese' && !t.fail) t.done = true; if (t.id === 'fest' && !t.fail) t.done = true; if (t.id === 'sales' && d.sales >= t.need) t.done = true; if (t.id === 'help' && d.helped >= t.need) t.done = true; });
-  let bonus = 0; ST.tasks.forEach(t => { if (t.done) { bonus += 150; addRep(1); } }); ST.money += bonus; d.bonus = bonus;
-  if (d.sales > ST.totals.best) ST.totals.best = d.sales; ST.salesGoal = Math.max(1500, Math.round(d.sales * 1.05 / 100) * 100);
+  if (d.sales > ST.totals.best) ST.totals.best = d.sales;
   if (eventToday() && !d.emptyDuringFest) ST.goals.festOk = true;
   checkGoals();
-  RT.report = { ...d, day: ST.day, wd: weekday(), stars: stars(), tasks: ST.tasks.map(t => ({ ...t })) };
+  ST.weekEarned = (weekday() === 'Mon' ? 0 : ST.weekEarned || 0) + earnedToday();
+  RT.report = { ...d, day: ST.day, wd: weekday(), week: weekNo(), goal: dayGoal(), earned: earnedToday(), weekEarned: ST.weekEarned, weekDone: weekday() === 'Fri', stars: stars(), quests: (RT.quests || []).map(q => ({ who: q.g.gv.name, text: questGoalText(q), done: q.state === 'done', reward: q.reward })) };
   ST.day++; save(); openMenu('report');
 }
 function checkGoals() {
@@ -2232,17 +2384,18 @@ const HINTS = [
   ['moved', IS_TOUCH ? 'Drag the stick to skate. You glide, so ease off early.' : 'WASD or arrows to skate. You glide, so ease off early. Shift brakes.'],
   ['grabbed', 'Shelves empty as people shop. Go in the Stock Room, face a pallet and press Space (A) to grab a crate.'],
   ['stocked', 'Skate the crate to the aisle it belongs to, face the shelf and press Space.'],
-  ['helped', 'People with a yellow ? are lost. Talk to them and they follow you. Skate them to the right aisle for a tip.'],
+  ['helped', 'People with a blue ? are lost. Talk to them and they follow you. Skate them to the right aisle for a tip.'],
+  ['quest', 'Staff with a yellow ! have a job for you. Skate over and press Space. Jobs pay and count toward today\'s goal.'],
 ];
 function hint(id) { RT.hintDone[id] = true; if (HINTS[ST.tut] && HINTS[ST.tut][0] === id) { ST.tut++; } }
 function currentHint() {
   if (ST.day > 3) return null; if (HINTS[ST.tut]) return HINTS[ST.tut][1];
-  if (!RT.seen.fish && !ST.fedToday && ST.minute < 12 * 60) return 'Feed the fish before noon. Press 4 (or TOOL) for fish food, face a tank in Seafood, press Space.';
+  if (RT.quests && RT.quests.some(q => q.state === 'ready') && !RT.seen.turnin) return 'A job is done. Follow the yellow arrow to the yellow ? and press Space to get paid.';
   if (RT.spills.length && !RT.seen.mop) return 'Spill! Press 2 (or TOOL) for the mop, skate over it and press Space.';
   if (Object.keys(ANIMS).some(k => ST.anims[k] && ST.anims[k].broken) && !RT.seen.wrench) return 'A display broke. Press 3 (or TOOL) for the wrench, face it and press Space a few times.';
   if (W.lanes.some(l => l.queue.length > 3) && !RT.seen.cash) return 'Lines are long. Stand on the left side of an empty register and mash Space to scan.';
   if (ST.money > 3000 && !RT.seen.cat) return 'You can afford upgrades. Use the computer in the Stock Room.';
-  if (ST.minute > 20 * 60 && !RT.seen.bed) return 'Sleep on the office couch in the Stock Room to end the day.';
+  if (RT.goalHit && !RT.seen.bed) return 'Goal made! Click Close up by the clock when you\'re ready for tomorrow.';
   return null;
 }
 function onScreen(x, y) { return x > R.cx - 32 && x < R.cx + R.vw + 32 && y > R.cy - 32 && y < R.cy + R.vh + 48; }
@@ -2251,18 +2404,16 @@ function onScreen(x, y) { return x > R.cx - 32 && x < R.cx + R.vw + 32 && y > R.
 function update(dt) {
   if (RT.paused) return;
   if (RT.dialog || (RT.menu && RT.menu !== 'map')) { updateUI(dt); return; }
-  const sub = RT.sleeping ? 24 : 1;
+  const sub = 1;
   for (let i = 0; i < sub; i++) {
-    updateClock(dt); updatePlayer(dt);
+    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt);
     for (let k = RT.custs.length - 1; k >= 0; k--) { const c = RT.custs[k]; if (c) updateCust(c, dt); }
     updateLanes(dt); updateStaff(dt); updateCars(dt);
     if (RT.elvisT > 0) { RT.elvisT -= dt; if (Math.random() < dt * 4) RT.parts.push({ x: W.spots.elvis[0] * T + (Math.random() - 0.5) * 20, y: (W.spots.elvis[1] - 3) * T, vx: (Math.random() - 0.5) * 20, vy: -25, t: 1.4, note: true, c: pick(Math.random, ['#ffe14d', '#ff8fc0', '#9ff0ff']) }); }
-    if (RT.sleeping && ST.minute >= CLOSE_MIN + 20 && RT.custs.length === 0) { endDay(); break; }
-    if (RT.sleeping && ST.minute >= 26 * 60) { endDay(); break; }
   }
   if (PL.escort && !RT.custs.includes(PL.escort)) PL.escort = null;
   if (PL.onCash) RT.seen.cash = true; if (TOOLS[PL.tool].id === 'mop') RT.seen.mop = true; if (TOOLS[PL.tool].id === 'wrench') RT.seen.wrench = true; if (ST.fedToday) RT.seen.fish = true;
-  RT.parts = RT.parts.filter(p => { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (!p.note) p.vy += 120 * dt; return p.t > 0; });
+  RT.parts = RT.parts.filter(p => { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.conf) p.vx += Math.sin(p.t * 6) * 30 * dt; else if (!p.note) p.vy += 120 * dt; return p.t > 0; });
   RT.floats = RT.floats.filter(f => { f.t -= dt; f.y -= 18 * dt; return f.t > 0; });
   RT.toasts = RT.toasts.filter(t => (t.t -= dt) > 0); if (flashMsg) { flashMsg.t -= dt; if (flashMsg.t <= 0) flashMsg = null; }
   if (RT.legend) { RT.legend = false; showDialog(CONFIG.cashierName, `five stars. people drive in from three states now. you're a jungle legend, boss. the store's yours to keep growing. go nuts.`); }
@@ -2274,6 +2425,166 @@ const SAVE_KEY = 'jungle-store-save-v1';
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(ST)); } catch (e) { } }
 function load() { try { const s = localStorage.getItem(SAVE_KEY); if (!s) return false; const o = JSON.parse(s); if (!o || o.v !== 1) return false; newState(); Object.assign(ST, o); return true; } catch (e) { return false; } }
 function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+
+// ===== quests: the day's money goal (main quest) + one side quest per area giver =====
+function weekNo(day = ST.day) { return Math.floor((day - 1) / 5) + 1; }
+function dayGoal(day = ST.day) { return Math.round(WEEK_GOALS[(day - 1) % 5] * (1 + 0.3 * (weekNo(day) - 1)) / 100) * 100; }
+function earnedToday() { const d = RT.day; return d ? d.sales + d.tips + d.extra + d.quest : 0; }
+function goalLeft() { return Math.max(0, dayGoal() - earnedToday()); }
+
+// today's quests: one per giver whose area is open
+function buildQuests() {
+  const wd = (ST.day - 1) % 5, k = 1 + 0.2 * (weekNo() - 1), money = 1 + 0.3 * (weekNo() - 1);
+  RT.quests = W.givers.map(g => {
+    const def = QUESTS[g.gv.id][wd]; const n = def.type === 'feed' ? 1 : Math.round(def.n * k);
+    return { key: g.gv.id + ST.day, g, def, n, got: 0, reward: Math.round(def.reward * money / 10) * 10, state: 'offer' };
+  });
+}
+const questOf = g => RT.quests && RT.quests.find(q => q.g === g);
+const deptName = id => DEPT[id] ? DEPT[id].name.replace('International: ', '') : id;
+function questWhere(q) { const z = q.def.zones || (q.def.dept ? [q.def.dept] : null); return z ? z.map(deptName).join(', ') : q.def.type === 'scan' ? 'Registers' : q.def.type === 'pour' ? 'Tasting Bar' : 'anywhere'; }
+function questGoalText(q) { // plain words for the log
+  const d = q.def, n = q.n;
+  return { sample: `Give a ${d.item} to ${n} ${d.kids ? 'kids' : 'customers'} in ${questWhere(q)}.`, talk: `Ask ${n} customers in ${questWhere(q)} about sandwiches.`, stock: `Restock ${deptName(d.dept)} ${n} times.`,
+    help: `Walk ${n} lost customers (blue ?) to their aisle.`, mop: `Mop ${n} spills.`, fix: `Fix ${n} broken displays.`, pour: `Pour ${n} tastings at the Tasting Bar.`, feed: 'Feed the live tanks in Seafood (tool 4).',
+    cool: `Crank the Big Cheese cooler ${n} times.`, elvis: `Make Elvis sing ${n} times (Candy).`, scan: `Scan ${n} items at a register.` }[d.type];
+}
+
+// the giver in reach of where the player is facing (counter clerks stand one tile behind their case)
+function giverNear(f) { let best = null, bd = 26; for (const g of W.givers || []) { const d = Math.hypot(g.px - f.px, g.py - 6 - f.py); if (d < bd) { bd = d; best = g; } } return best; }
+function talkGiver(g) {
+  const q = questOf(g); sfx('talk'); if (!q) return showDialog(g.gv.name, pick(Math.random, GIVER_IDLE));
+  if (q.state === 'offer') showDialog(g.gv.name, q.def.ask, null, `${questGoalText(q)} Reward ${fmtMoney(q.reward)}.`, [['Accept', () => acceptQuest(q)], ['Not now', () => { }]]);
+  else if (q.state === 'active') showDialog(g.gv.name, q.def.nag, null, `${questGoalText(q)} ${q.got}/${q.n}.`);
+  else if (q.state === 'ready') turnIn(q);
+  else showDialog(g.gv.name, pick(Math.random, GIVER_IDLE));
+}
+function acceptQuest(q) {
+  q.state = 'active'; sfx('pick'); hint('quest'); toast(`New job from ${q.g.gv.name}: ${questGoalText(q)}`, 'good');
+  if (q.def.type === 'feed') ST.fedToday = false; // hungry again
+  if (q.def.type === 'cool') ST.cheeseTemp = Math.max(ST.cheeseTemp, 41);
+}
+function turnIn(q) {
+  q.state = 'done'; RT.seen.turnin = true; addMoney(q.reward, q.g.px, q.g.py - 30); RT.day.quest += q.reward; RT.day.questsDone = (RT.day.questsDone || 0) + 1; addRep(1);
+  sparkle(q.g.px, q.g.py - 20); sfx('good'); showDialog(q.g.gv.name, q.def.done, null, `+${fmtMoney(q.reward)}`);
+}
+// progress from anything the player does. type + optional dept/info
+function questEvent(type, dept) {
+  for (const q of RT.quests || []) {
+    if (q.state !== 'active' || q.def.type !== type) continue;
+    if (type === 'stock' && q.def.dept !== dept) continue;
+    q.got = Math.min(q.n, q.got + 1);
+    if (q.got >= q.n) { q.state = 'ready'; toast(`${q.g.gv.name}'s job is done. Go see ${q.g.gv.name} for your reward.`, 'good'); sfx('good'); }
+  }
+}
+
+// ---- handing out samples / asking questions ----
+function custZone(c) { const [tx, ty] = custTile(c); const zi = inb(tx, ty) ? W.zone[idx(tx, ty)] : -1; return zi >= 0 ? DEPTS[zi].id : null; }
+function canSample(c, q) {
+  if (q.state !== 'active' || !['sample', 'talk'].includes(q.def.type) || (c.sampled && c.sampled[q.key])) return false;
+  if (q.def.kids ? c.type !== 'kid' : c.type === 'kid') return false;
+  if (['follow', 'exitOut', 'lost'].includes(c.state) || c.then === 'exit') return false;
+  return q.def.zones.includes(custZone(c));
+}
+function sampleQuestFor(c) { return (RT.quests || []).find(q => canSample(c, q)) || null; }
+function giveSample(c, q) {
+  c.sampled = c.sampled || {}; c.sampled[q.key] = 1; moodHit(c, 6); bubble(c, pick(Math.random, SAMPLE_LINES[q.def.lines] || ['thanks!']), 3.5);
+  floatText(c.x, c.y - 30, `${q.got + 1}/${q.n}`, '#ffe14d'); sfx('pick'); RT.parts.push({ x: c.x, y: c.y - 30, vx: 0, vy: -18, t: 0.9, note: true, c: '#ff8fc0' });
+  const who = c.parent || c; if (who.hold === q) who.hold = null; // let them go shop
+  if (q.def.buy && who.list && DEPT[q.def.buy] && deptOpen(DEPT[q.def.buy]) && !who.list.includes(q.def.buy) && Math.random() < 0.7) who.list.unshift(q.def.buy);
+  questEvent(q.def.type);
+}
+
+// ---- keeping the right crowd in each quest zone ----
+function zoneTiles(id) { // walkable floor in a department, cached per world build
+  if (W.ztCache !== W.groundCanvas) { W.ztCache = W.groundCanvas; W.zt = {}; }
+  if (!W.zt[id]) { const i = DEPTS.findIndex(d => d.id === id), out = []; if (i >= 0) for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const k = idx(x, y); if (W.zone[k] === i && !W.solid[k] && !W.objAt.get(k) && W.cost[k] < 10) out.push([x, y]); } W.zt[id] = out; }
+  return W.zt[id];
+}
+function randomZoneTile(zones) { const open = zones.filter(z => DEPT[z] && deptOpen(DEPT[z]) && zoneTiles(z).length); if (!open.length) return null; return pick(Math.random, zoneTiles(pick(Math.random, open))); }
+function goLoiter(c, zones) { const t = randomZoneTile(zones); if (!t) return false; c.state = 'walk'; c.then = 'loiter'; goTo(c, t[0] + 0.3 + Math.random() * 0.4, t[1] + 0.6 + Math.random() * 0.2); return true; }
+const FREE_STATES = ['walk', 'browse', 'toStore', 'loiter', 'elvis', 'waitLane'];
+function isFree(c) { return c.type !== 'kid' && !c.hold && FREE_STATES.includes(c.state) && c.then !== 'exit' && c.then !== 'sit' && !c.lane; }
+// every second: each quest that needs people in a zone keeps enough of them there (up to 10 for an accepted job,
+// a few for one on offer so the zone looks alive). they come from the crowd first, then from new arrivals.
+function questCrowd(dt) {
+  RT.crowdT = (RT.crowdT || 0) - dt; if (RT.crowdT > 0 || ST.phase !== 'day') return; RT.crowdT = 1;
+  for (const q of RT.quests || []) {
+    const t = q.def.type; if (q.state === 'done' || q.state === 'ready') continue;
+    if (t === 'pour') { if (q.state === 'active') seatTasters(q); continue; }
+    if (t === 'elvis' && q.state === 'active') { keepKids(q, ['candy'], 3); continue; }
+    if (t !== 'sample' && t !== 'talk') continue;
+    const want = q.state === 'active' ? Math.min(q.n - q.got, 10) : 3;
+    if (q.def.kids) { keepKids(q, q.def.zones, want); continue; }
+    let have = RT.custs.filter(c => c.type !== 'kid' && !(c.sampled && c.sampled[q.key]) && (c.hold === q || q.def.zones.includes(custZone(c)))).length;
+    if (have >= want) continue;
+    const z = DEPT[q.def.zones[0]], zx = (z.x + z.w / 2) * T, zy = (z.y + z.h / 2) * T;
+    const cands = RT.custs.filter(c => isFree(c) && !(c.sampled && c.sampled[q.key])).sort((a, b) => Math.hypot(a.x - zx, a.y - zy) - Math.hypot(b.x - zx, b.y - zy));
+    while (have < want && cands.length) { const c = cands.shift(); c.hold = q; c.holdZones = q.def.zones; goLoiter(c, q.def.zones); have++; }
+    for (let i = 0; i < Math.min(want - have, 2) && RT.custs.length < MAX_CUSTS; i++) { const c = spawnCustomer(); if (c) { c.hold = q; c.holdZones = q.def.zones; } }
+  }
+}
+function keepKids(q, zones, want) { // families: hold the parent, the kid tags along
+  const kids = RT.custs.filter(c => c.type === 'kid' && c.parent && !(c.sampled && c.sampled[q.key]));
+  let have = kids.filter(k => k.parent.hold === q || zones.includes(custZone(k))).length; if (have >= want) return;
+  const z = DEPT[zones[0]], zx = (z.x + z.w / 2) * T, zy = (z.y + z.h / 2) * T;
+  const cands = kids.map(k => k.parent).filter(p => isFree(p)).sort((a, b) => Math.hypot(a.x - zx, a.y - zy) - Math.hypot(b.x - zx, b.y - zy));
+  while (have < want && cands.length) { const p = cands.shift(); p.hold = q; p.holdZones = zones; goLoiter(p, zones); have++; }
+  for (let i = 0; i < Math.min(want - have, 2) && RT.custs.length < MAX_CUSTS; i++) { const p = spawnCustomer('adult', true); if (p) { p.hold = q; p.holdZones = zones; } }
+}
+function seatTasters(q) { // keep the tasting stools filled while the pour job is on
+  const free = W.stools.filter(s => !s.cust); if (!free.length) return;
+  const cands = RT.custs.filter(c => isFree(c)).sort((a, b) => Math.hypot(a.x - free[0].x * T, a.y - free[0].y * T) - Math.hypot(b.x - free[0].x * T, b.y - free[0].y * T));
+  for (const s of free) { let c = cands.shift(); if (!c) { if (RT.custs.length >= MAX_CUSTS) return; c = spawnCustomer(); if (!c) return; } s.cust = c; c.stool = s; c.tasted = true; c.state = 'walk'; c.then = 'sit'; goTo(c, s.x + 0.5, s.y + 0.75); }
+}
+// quests that need something broken or spilled get it
+function questTrouble(dt) {
+  RT.troubleT = (RT.troubleT || 0) - dt; if (RT.troubleT > 0 || ST.phase !== 'day') return; RT.troubleT = 6;
+  for (const q of RT.quests || []) {
+    if (q.state !== 'active') continue; const left = q.n - q.got;
+    if (q.def.type === 'mop' && RT.spills.length < Math.min(left, 3)) { const c = pick(Math.random, RT.custs.filter(c => c.type !== 'kid' && !custOutside(c))); if (c) makeSpill(c); }
+    if (q.def.type === 'fix') { const ks = Object.keys(ANIMS).filter(k => W.anims[k] && ST.anims[k]); if (!ks.some(k => ST.anims[k].broken)) { const k = pick(Math.random, ks); if (k) { ST.anims[k].broken = true; ST.anims[k].fix = 0; toast(`${ANIMS[k].name[0].toUpperCase() + ANIMS[k].name.slice(1)} broke down. Bring the wrench.`, 'warn'); } } }
+    if (q.def.type === 'help' && !RT.custs.some(c => c.state === 'lost')) { const c = pick(Math.random, RT.custs.filter(c => c.type !== 'kid' && c.state === 'browse' && c.list.length)); if (c) makeLost(c); }
+  }
+}
+function custOutside(c) { const [tx, ty] = custTile(c); return !inb(tx, ty) || W.outdoor[idx(tx, ty)]; }
+
+// ---- markers + the arrow to a finished job ----
+function giverMarker(g) { const q = questOf(g); if (!q || ST.phase !== 'day') return null; return q.state === 'offer' ? '!' : q.state === 'active' ? 'grey?' : q.state === 'ready' ? '?' : null; }
+function readyGiverTarget() { // nearest giver waiting to pay you
+  let best = null, bd = 1e9; for (const q of RT.quests || []) { if (q.state !== 'ready') continue; const d = Math.hypot(q.g.px - PL.x, q.g.py - PL.y); if (d < bd) { bd = d; best = q.g; } } return best;
+}
+
+// ---- the day's goal, and closing up ----
+function checkDayGoal() {
+  if (RT.goalHit || ST.phase !== 'day' || earnedToday() < dayGoal()) return;
+  RT.goalHit = true; MUSIC.sting('good'); sfx('good'); confetti(); openMenu('goal');
+}
+function confetti() { for (let i = 0; i < 90; i++) RT.parts.push({ x: R.cx + Math.random() * R.vw, y: R.cy - 10 - Math.random() * 60, vx: (Math.random() - 0.5) * 50, vy: 20 + Math.random() * 40, t: 2.5 + Math.random(), c: pick(Math.random, ['#ffe14d', '#ff8fc0', '#9ff0ff', '#7dff7a', '#ff8a2a']), conf: true }); }
+function closeUp() { // sunset, the store empties, then the day's report
+  if (ST.phase !== 'day') return;
+  if (!RT.goalHit) { flash(`Make ${fmtMoney(goalLeft())} more before closing up`); sfx('err'); return; }
+  ST.phase = 'night'; RT.nightT = 0; RT.seen.bed = true; closeMenu(); PL.escort = null; RT.custs.forEach(c => { if (c.list) c.list = []; c.hold = null; });
+  W.stools.forEach(s => { if (s.cust) { s.cust.poured = true; s.cust.timer = 0; } });
+  toast('Closing up. Nice work today.', 'good');
+}
+function updateNight(dt) {
+  RT.nightT += dt; ST.minute = 17 * 60 + Math.min(1, RT.nightT / 2.5) * (5 * 60 + 15); // sun goes down
+  if (RT.nightT > 3.5 && !RT.menu && !RT.dialog) endDay();
+}
+
+// ---- quest log ----
+function questLogHTML() {
+  const goal = dayGoal(), e = earnedToday(), pct = Math.min(100, Math.round(e / goal * 100));
+  const row = (q, mark) => `<div class="qrow"><span class="qm ${mark}">${mark === 'ready' ? '?' : mark === 'grey' ? '?' : mark === 'offer' ? '!' : '✔'}</span><div><b>${typo(q.g.gv.name)}</b> <span class="dim">· ${deptName(q.g.gv.dept)}</span><br>${typo(questGoalText(q))}${q.state === 'active' ? ` <b class="money">${q.got}/${q.n}</b>` : ''}<br><span class="dim">${q.state === 'ready' ? 'Done. Go back for your reward:' : q.state === 'offer' ? `Talk to ${q.g.gv.name} to take it. Reward` : q.state === 'done' ? 'Paid' : 'Reward'} ${fmtMoney(q.reward)}</span></div></div>`;
+  const group = (title, st, mark) => { const qs = (RT.quests || []).filter(q => q.state === st); return qs.length ? `<h3>${title}</h3>${qs.map(q => row(q, mark)).join('')}` : ''; };
+  return `<h2>Quest log</h2>
+  <h3>Today's goal · ${weekday()}, week ${weekNo()}</h3><div>Make ${fmtMoney(goal)} today. <b class="money">${fmtMoney(e)}</b> so far.</div><div class="qbar"><i style="width:${pct}%"></i></div>
+  ${RT.goalHit ? '<p>Goal made. Close up any time with the button by the clock.</p>' : '<p class="dim">Everything you earn counts: sales, tips, tastings and job rewards.</p>'}
+  ${group('Ready to turn in', 'ready', 'ready')}${group('In progress', 'active', 'grey')}${group('Jobs on offer', 'offer', 'offer')}${group('Done today', 'done', 'done')}
+  <h3>Jungle goals</h3><div class="tasks">${GOALS.map(g => `<div class="${ST.goals[g.id] ? 'ok' : ''}">${ST.goals[g.id] ? '✔' : '•'} ${typo(g.text)} <span class="dim">${fmtMoney(g.reward)}</span></div>`).join('')}</div>
+  <div class="row"><button id="m-close">Close</button></div>`;
+}
 
 // ===== renderer =====
 const R = { cv: null, g: null, SC: 3, vw: 0, vh: 0, cx: 0, cy: 0, dpr: 1, t: 0, night: null };
@@ -2394,9 +2705,9 @@ function objDraw(o) {
     case 'case': return drawSpr(caseSprite(o.art, o.seed, fill(o.dept)), x, y - 8);
     case 'candy': return drawSpr(candySprite(o.seed, fill(o.dept)), x, y - 8);
     case 'gacha': return bot(propSprite('gacha', 0));
-    case 'tank': return drawSpr(tankSprite(o.kind, Math.floor(t * 2 + o.x) % 3, !ST.fedToday && ST.minute > 10 * 60), x, y - 8);
+    case 'tank': return drawSpr(tankSprite(o.kind, Math.floor(t * 2 + o.x) % 3, !ST.fedToday && RT.dayT > 60), x, y - 8);
     case 'pallet': return drawSpr(palletSprite(o.crate), x - 1, y - 8 - 1);
-    case 'staff': { drawPerson({ x: x + 8, y: y + 12, dir: 'down', frame: 0 }, o.look); return; }
+    case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob, dir: 'down', frame: 0 }, o.look); return; } // givers shift their weight now and then
     case 'bar': return bot(propSprite('bar', o.frame || 0));
     case 'stool': return drawSpr(propSprite('stool', 0), x, y);
     case 'bigcheese': { bot(propSprite('bigcheese', 0)); const hot = Math.max(0, Math.min(1, (ST.cheeseTemp - 30) / 20)); const g = R.g; g.fillStyle = hot > 0.75 ? '#ff3a2a' : '#e23a2e'; const bh = 13 * hot; g.fillRect(sx(x + 29 + 1), sy(y + 32 - 10 - bh - 4), R.SC, bh * R.SC); if (ST.cheeseTemp > 45 && Math.floor(t * 4) % 2) { g.fillStyle = 'rgba(255,60,40,0.18)'; g.fillRect(sx(x), sy(y - 8), 32 * R.SC, 40 * R.SC); } return; }
@@ -2489,7 +2800,7 @@ function drawMonorail() {
   g.fillStyle = '#8a8f98'; g.fillRect(sx(x - 3), sy(y1), 6 * SC, (y2 - y1) * SC); g.fillStyle = '#b8bec8'; g.fillRect(sx(x - 3), sy(y1), SC, (y2 - y1) * SC);
   g.fillStyle = '#9aa3ad'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 3 * T * SC); g.fillStyle = '#c8ccd2'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 2 * SC);
   const running = ST.ups.monorail && isOpen() && (['Sat', 'Sun'].includes(weekday()) || eventToday());
-  const k = running ? (1 - Math.cos((ST.minute / 60) * 2.2)) / 2 : 0; const py = (8.5 + k * 34) * T;
+  const k = running ? (1 - Math.cos(R.t / 9)) / 2 : 0; const py = (8.5 + k * 34) * T;
   const s = propSprite('monorail', 0); g.save(); g.translate(sx(x), sy(py)); g.rotate(Math.PI / 2); g.drawImage(s, -25 * SC, -11 * SC, s.width * SC, s.height * SC); g.restore();
   if (!ST.ups.monorail) label(sx(x), sy(6 * T), 'Monorail: out of order', '#f2c81c', '#2a1d22', 5.5);
 }
@@ -2521,6 +2832,13 @@ function drawOverlay() {
   if (PL.escort) { const d = DEPT[PL.escort.cur]; const tx = (d.x + d.w / 2) * T, ty = (d.y + d.h / 2) * T; const a = Math.atan2(ty - PL.y, tx - PL.x); const x = sx(PL.x) + Math.cos(a) * 26 * SC, y = sy(PL.y - 12) + Math.sin(a) * 26 * SC;
     g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = '#ffe14d'; g.strokeStyle = '#2a1d22'; g.lineWidth = SC; g.beginPath(); g.moveTo(7 * SC, 0); g.lineTo(-4 * SC, -5 * SC); g.lineTo(-4 * SC, 5 * SC); g.closePath(); g.fill(); g.stroke(); g.restore();
     label(sx(PL.x), sy(PL.y - 46), 'to ' + d.name, '#2a1d22', '#ffe14d', 5); }
+  // quest givers: yellow ! = job on offer, grey ? = job under way, yellow ? = job done, come get paid
+  for (const gv of W.givers || []) { const m = giverMarker(gv); if (!m) continue; const x = sx(gv.px), y = sy(gv.py - 30); if (x < -40 || x > R.cv.width + 40 || y < -40 || y > R.cv.height + 40) continue; questMark(x, y, m); }
+  // arrow at the screen edge toward a finished job
+  const rg = readyGiverTarget(); if (rg && !RT.menu) { const x = sx(rg.px), y = sy(rg.py - 20), m = 30 * SC, W2 = R.cv.width, H2 = R.cv.height;
+    if (x < m || x > W2 - m || y < m || y > H2 - m) { const cx = W2 / 2, cy = H2 / 2, a = Math.atan2(y - cy, x - cx), k = Math.min((W2 / 2 - m) / Math.abs(Math.cos(a) || 1e-6), (H2 / 2 - m) / Math.abs(Math.sin(a) || 1e-6)), ax = cx + Math.cos(a) * k, ay = cy + Math.sin(a) * k, pulse = 1 + Math.sin(R.t * 6) * 0.12;
+      g.save(); g.translate(ax, ay); g.rotate(a); g.scale(pulse, pulse); g.fillStyle = '#ffe14d'; g.strokeStyle = '#2a1d22'; g.lineWidth = 1.5 * SC; g.beginPath(); g.moveTo(11 * SC, 0); g.lineTo(-6 * SC, -8 * SC); g.lineTo(-2 * SC, 0); g.lineTo(-6 * SC, 8 * SC); g.closePath(); g.fill(); g.stroke(); g.restore();
+      questMark(ax - Math.cos(a) * 16 * SC, ay - Math.sin(a) * 16 * SC + 6 * SC, '?'); } }
   // bubbles
   for (const c of RT.custs) { if (!c.bubble) continue; const x = sx(c.x), y = sy(c.y - 30); if (x < -100 || x > R.cv.width + 100 || y < -50 || y > R.cv.height + 50) continue; drawBubble(x, y, c.bubble); }
   // floats
@@ -2528,9 +2846,15 @@ function drawOverlay() {
   // lane queues: progress pips over head customer
   W.lanes.forEach(l => { const c = l.queue[0]; if (!c || c.qi !== 0 || c.items <= 0 || (c.path && c.pi < c.path.length)) return; const x = sx(c.x), y = sy(c.y - 30); if (c.bubble) return; g.fillStyle = 'rgba(42,29,34,0.8)'; g.fillRect(x - 10 * SC, y - 2 * SC, 20 * SC, 3 * SC); g.fillStyle = '#7dff7a'; g.fillRect(x - 10 * SC, y - 2 * SC, 20 * SC * Math.min(1, c.scanned / c.items), 3 * SC); });
 }
+function questMark(x, y, m) { // chunky pixel ! or ? with an ink outline, bobbing
+  const g = R.g, SC = R.SC, bob = Math.round(Math.sin(R.t * 5) * 1.5) * SC, col = m === 'grey?' ? '#b9c0c8' : '#ffe14d', ch = m === '!' ? '!' : '?';
+  g.font = `${Math.round(11 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+  g.lineWidth = 3 * SC; g.strokeStyle = '#2a1d22'; g.strokeText(ch, x, y + bob); g.fillStyle = col; g.fillText(ch, x, y + bob);
+  g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillRect(x - 2 * SC, y - 9 * SC + bob, SC, 3 * SC); g.textAlign = 'left';
+}
 function drawBubble(x, y, b) {
   const g = R.g, SC = R.SC;
-  if (b.kind === 'q') { const bob = Math.sin(R.t * 6) * SC; g.fillStyle = '#2a1d22'; g.fillRect(x - 5 * SC, y - 10 * SC + bob, 10 * SC, 11 * SC); g.fillStyle = '#ffe14d'; g.fillRect(x - 4 * SC, y - 9 * SC + bob, 8 * SC, 9 * SC); g.fillStyle = '#2a1d22'; g.font = `${Math.round(6 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('?', x + SC * 0.5, y - 1.5 * SC + bob); g.textAlign = 'left'; return; }
+  if (b.kind === 'q') { const bob = Math.sin(R.t * 6) * SC; g.fillStyle = '#2a1d22'; g.fillRect(x - 5 * SC, y - 10 * SC + bob, 10 * SC, 11 * SC); g.fillStyle = '#7fd4ff'; g.fillRect(x - 4 * SC, y - 9 * SC + bob, 8 * SC, 9 * SC); g.fillStyle = '#2a1d22'; g.font = `${Math.round(6 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('?', x + SC * 0.5, y - 1.5 * SC + bob); g.textAlign = 'left'; return; }
   let text = b.text; if (b.kind === 'wine' && !text) { g.font = `${Math.round(8 * SC)}px sans-serif`; g.textAlign = 'center'; g.fillText('🍷', x, y); g.textAlign = 'left'; return; }
   g.font = `${Math.round(5.5 * SC)}px VT323, monospace`; const maxW = 74 * SC; const words = text.split(' '); const lines = []; let cur = '';
   for (const w of words) { const t2 = cur ? cur + ' ' + w : w; if (g.measureText(t2).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t2; } if (cur) lines.push(cur);
@@ -2552,9 +2876,14 @@ function initUI() {
 function updateUI(dt) {
   if (!RT.day) return;
   const ev = eventToday();
-  setText('h-day', `${weekday()}, Day ${ST.day}`);
-  setText('h-time', fmtTime(ST.minute));
-  setText('h-wx', (ST.weather === 'rain' ? 'Rain' : ST.weather === 'cloudy' ? 'Cloudy' : 'Sunny') + (isOpen() ? '' : ST.minute < OPEN_MIN ? ', opens 8 AM' : ', closed'));
+  setText('h-day', `${weekday()} · Week ${weekNo()}`);
+  const goal = dayGoal(), got = earnedToday(); setText('h-goal', ST.phase === 'night' ? 'Closed for the night' : `<b class="money">${fmtMoney(got)}</b> / ${fmtMoney(goal)}`);
+  const gb = $('#h-gbar i'); if (gb) { gb.style.width = Math.min(100, got / goal * 100) + '%'; gb.style.background = got >= goal ? '#ffe14d' : '#7dd35a'; }
+  setText('h-wx', ST.weather === 'rain' ? 'Rain' : ST.weather === 'cloudy' ? 'Cloudy' : 'Sunny');
+  const night = ST.phase === 'night'; if (UI.face !== night) { UI.face = night; $('#clockface').src = iconURL(clockFace(night)); }
+  $('#nextday').style.display = RT.goalHit && !night ? 'block' : 'none';
+  const ready = (RT.quests || []).filter(q => q.state === 'ready').length, offers = (RT.quests || []).filter(q => q.state === 'offer').length;
+  setText('qbadge', ready ? `<span class="rdy">${ready}?</span>` : offers ? `<span class="off">${offers}!</span>` : '');
   setText('h-ev', ev ? typo(ev.name) : '');
   setText('h-money', fmtMoney(ST.money));
   const st = stars(); setText('h-stars', '★'.repeat(st) + '<span class="dim">' + '★'.repeat(5 - st) + '</span>');
@@ -2574,7 +2903,7 @@ function updateUI(dt) {
   if (RT.spills.length) pr.push(`<span class="warn">Spills:</span> ${RT.spills.length}`);
   const br = Object.keys(ANIMS).filter(k => W.anims[k] && ST.anims[k] && ST.anims[k].broken).map(k => ANIMS[k].name); if (br.length) pr.push(`<span class="warn">Broken:</span> ${br.join(', ')}`);
   if (ST.cheeseTemp > 42) pr.push(`<span class="${ST.cheeseTemp > 45 ? 'bad' : 'warn'}">Big Cheese:</span> ${Math.round(ST.cheeseTemp)}°F`);
-  if (!ST.fedToday && ST.minute < 12 * 60) pr.push(`<span class="warn">Fish:</span> feed before noon`);
+  if (!ST.fedToday && (RT.quests || []).some(q => q.def.type === 'feed' && q.state === 'active')) pr.push(`<span class="warn">Fish:</span> hungry`);
   const lost = RT.custs.filter(c => c.state === 'lost').length; if (lost) pr.push(`<span class="q">Lost:</span> ${lost} customer${lost > 1 ? 's' : ''}`);
   const longQ = W.lanes.reduce((a, l) => Math.max(a, l.queue.length), 0); if (longQ >= 4) pr.push(`<span class="warn">Line:</span> ${longQ} deep`);
   const wait = RT.custs.filter(c => c.state === 'sit' && !c.poured).length; if (wait) pr.push(`<span class="q">Tasting bar:</span> ${wait} waiting`);
@@ -2603,9 +2932,10 @@ function openMenu(kind) {
   RT.menu = kind; document.body.classList.add('inmenu'); const m = $('#menu'); m.style.display = 'flex'; m.className = 'menu ' + kind; const box = $('#menu-box');
   if (kind === 'catalog') { RT.seen.cat = true; box.innerHTML = catalogHTML(); }
   if (kind === 'report') box.innerHTML = reportHTML();
-  if (kind === 'journal') box.innerHTML = journalHTML();
+  if (kind === 'journal' || kind === 'quests') { RT.menu = 'quests'; box.innerHTML = questLogHTML(); }
+  if (kind === 'goal') box.innerHTML = goalHTML();
   if (kind === 'pause') box.innerHTML = pauseHTML();
-  if (kind === 'map') { box.innerHTML = `<h2>Store map</h2><canvas id="mapc"></canvas><p class="small">Yellow ? = lost customer. Red = spill. Orange = broken display. Red sign = empty aisle. <b>M</b> or <b>Esc</b> to close.</p>`; drawMap(); }
+  if (kind === 'map') { box.innerHTML = `<h2>Store map</h2><canvas id="mapc"></canvas><p class="small">Yellow ! = job on offer. Yellow ? = job done. Blue ? = lost customer. Red = spill. Orange = broken display. Red sign = empty aisle. <b>M</b> or <b>Esc</b> to close.</p>`; drawMap(); }
   if (kind === 'title') box.innerHTML = titleHTML();
   bindMenu();
 }
@@ -2615,12 +2945,12 @@ function bindMenu() {
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { UI.tab = b.dataset.tab; $('#menu-box').innerHTML = catalogHTML(); bindMenu(); });
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
   on('m-close', () => { if (RT.menu === 'catalog' && UI.fromReport) { UI.fromReport = false; openMenu('report'); return; } closeMenu(); });
-  on('m-next', () => { MUSIC.setDay(ST.day + 0); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; startDay(); save(); toast(`${weekday()}, Day ${ST.day}. Store opens at 8 AM.`); const ev = eventToday(); if (ev) toast(`Today: ${ev.name}! Expect a crowd.`, 'good'); });
+  on('m-next', () => { MUSIC.setDay(ST.day + 0); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; startDay(); save(); toast(`${weekday()}, week ${weekNo()}. Goal today: ${fmtMoney(dayGoal())}.`); const ev = eventToday(); if (ev) toast(`Today: ${ev.name}! Expect a crowd.`, 'good'); });
+  on('g-keep', () => closeMenu()); on('g-close', () => { closeMenu(); closeUp(); });
   on('m-cat', () => { UI.fromReport = true; openMenu('catalog'); });
   on('m-resume', () => closeMenu()); on('m-journal', () => openMenu('journal')); on('m-map', () => openMenu('map'));
   on('m-quit', () => { save(); location.reload(); });
   on('s-clean', () => { ST.settings.clean = !ST.settings.clean; openMenu('pause'); });
-  on('s-speed', () => { ST.settings.speed = (ST.settings.speed + 1) % 3; openMenu('pause'); });
   on('s-music', () => { ST.settings.music = !ST.settings.music; AU.musicOn = ST.settings.music; openMenu('pause'); });
   on('s-sfx', () => { ST.settings.sfx = !ST.settings.sfx; AU.sfxOn = ST.settings.sfx; openMenu('pause'); });
   on('t-new', () => { if (hasSave() && !UI.confirmNew) { UI.confirmNew = true; $('#t-new').textContent = 'Erase save and start over?'; return; } beginGame(false); });
@@ -2638,39 +2968,45 @@ function catalogHTML() {
   <div class="row"><button id="m-close">Done</button></div>`;
 }
 function reportHTML() {
-  const r = RT.report; const net = r.sales + r.tips + r.extra + r.bonus - r.wholesale - r.wages; const avg = r.moods.length ? r.moods.reduce((a, b) => a + b, 0) / r.moods.length : 0;
-  const empt = Object.entries(r.emptyHits).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${DEPT[k].name.replace('International: ', '')} (${v})`).join(', ');
-  const ev = eventToday(); const moodWord = avg > 72 ? 'happy' : avg > 58 ? 'fine' : avg > 45 ? 'grumpy' : 'furious';
-  return `<h2>${r.wd}, Day ${r.day} is done</h2>
+  const r = RT.report; const net = r.sales + r.tips + r.extra + r.quest - r.wholesale - r.wages; const avg = r.moods.length ? r.moods.reduce((a, b) => a + b, 0) / r.moods.length : 0;
+  const ev = eventToday(); const moodWord = !r.moods.length || avg > 58 ? (avg > 72 ? 'happy' : 'fine') : avg > 45 ? 'grumpy' : 'furious'; // nobody left yet = fine
+  const head = r.weekDone ? `<h2 class="big">Week ${r.week} done!</h2><p>Monday to Friday, made it. You earned <b class="money">${fmtMoney(r.weekEarned)}</b> this week.</p>` : `<h2>${r.wd} is done</h2>`;
+  return `${head}
+  <p>Goal ${fmtMoney(r.goal)}. You made <b class="money">${fmtMoney(r.earned)}</b>.</p>
   <table class="rep">
   <tr><td>Register sales</td><td>${fmtMoney(r.sales)}</td></tr>
+  <tr><td>Job rewards</td><td>${fmtMoney(r.quest)}</td></tr>
   <tr><td>Tips</td><td>${fmtMoney(r.tips)}</td></tr>
   <tr><td>Tastings, rides & other</td><td>${fmtMoney(r.extra)}</td></tr>
-  <tr><td>Task bonus</td><td>${fmtMoney(r.bonus)}</td></tr>
   <tr><td>Crates bought</td><td class="neg">-${fmtMoney(r.wholesale)}</td></tr>
   <tr><td>Wages</td><td class="neg">-${fmtMoney(r.wages)}</td></tr>
   <tr class="tot"><td>Net today</td><td class="${net < 0 ? 'neg' : 'pos'}">${net < 0 ? '-' : ''}${fmtMoney(Math.abs(net))}</td></tr>
   </table>
-  <p>${r.served} customers paid. Mood: <b>${moodWord}</b>. ${r.helped} lost people helped.${empt ? ` Empty shelves hit: ${empt}.` : ''}</p>
-  <div class="tasks">${r.tasks.map(t => `<div class="${t.done ? 'ok' : 'no'}">${t.done ? '✔' : '✘'} ${typo(t.text)}</div>`).join('')}</div>
-  <p>Rep ${r.repDelta >= 0 ? 'up' : 'down'} ${Math.abs(r.repDelta).toFixed(1)}. You're at <span class="stars">${'★'.repeat(stars())}</span>. Cash: <b class="money">${fmtMoney(ST.money)}</b></p>
-  <p class="small">Tomorrow: ${weekday()}, Day ${ST.day}${ev ? `. <b>${ev.name}</b>` : ''}. Saved.</p>
-  <div class="row"><button id="m-cat">Catalog</button><button id="m-next" class="buy">Start Day ${ST.day}</button></div>`;
+  <div class="tasks">${r.quests.map(q => `<div class="${q.done ? 'ok' : 'no'}">${q.done ? '✔' : '•'} ${typo(q.who)}: ${typo(q.text)}${q.done ? ` <span class="dim">+${fmtMoney(q.reward)}</span>` : ''}</div>`).join('')}</div>
+  <p>${r.served} customers paid. Mood: <b>${moodWord}</b>. ${r.helped} lost people helped. You're at <span class="stars">${'★'.repeat(stars())}</span>. Cash: <b class="money">${fmtMoney(ST.money)}</b></p>
+  <p class="small">Next: ${weekday()}, week ${weekNo()}. Goal ${fmtMoney(dayGoal())}${ev ? `. <b>${ev.name}</b>` : ''}. Saved.</p>
+  <div class="row"><button id="m-cat">Catalog</button><button id="m-next" class="buy">${r.weekDone ? 'Start next week' : `Start ${weekday()}`}</button></div>`;
 }
-function journalHTML() {
-  return `<h2>Journal</h2><h3>Today</h3><div class="tasks">${ST.tasks.map(t => { let s = t.done ? '✔' : t.fail ? '✘' : '•'; let x = ''; if (t.id === 'help') x = ` (${RT.day.helped}/${t.need})`; if (t.id === 'sales') x = ` (${fmtMoney(RT.day.sales)})`; return `<div class="${t.done ? 'ok' : t.fail ? 'no' : ''}">${s} ${typo(t.text)}${x}</div>`; }).join('')}</div>
-  <h3>Jungle goals</h3><div class="tasks">${GOALS.map(g => `<div class="${ST.goals[g.id] ? 'ok' : ''}">${ST.goals[g.id] ? '✔' : '•'} ${typo(g.text)} <span class="dim">${fmtMoney(g.reward)}</span></div>`).join('')}</div>
-  <p class="small">${ST.totals.served} customers served. ${ST.totals.helped} helped. Best day ${fmtMoney(ST.totals.best)}.</p>
-  <div class="row"><button id="m-close">Close</button></div>`;
+function goalHTML() {
+  return `<h2 class="big">Goal made!</h2><p>You made <b class="money">${fmtMoney(earnedToday())}</b> today. The goal was ${fmtMoney(dayGoal())}.</p>
+  <p>Keep working to bank more, or close up and ${weekday() === 'Fri' ? 'finish the week' : `start ${weekday(ST.day + 1)}`}. The <b>Close up</b> button by the clock stays there.</p>
+  <div class="row"><button id="g-keep">Keep working</button><button id="g-close" class="buy">Close up for the night</button></div>`;
 }
 function pauseHTML() {
-  const sp = ['Slow', 'Normal', 'Fast'][ST.settings.speed];
   return `<h2>Paused</h2><div class="col">
-  <button id="m-resume" class="buy">Resume</button><button id="m-journal">Journal (J)</button><button id="m-map">Map (M)</button>
-  <button id="s-speed">Day speed: ${sp}</button><button id="s-clean">Swearing: ${ST.settings.clean ? 'off (clean mode)' : 'on'}</button>
+  <button id="m-resume" class="buy">Resume</button><button id="m-journal">Quest log (J)</button><button id="m-map">Map (M)</button>
+  <button id="s-clean">Swearing: ${ST.settings.clean ? 'off (clean mode)' : 'on'}</button>
   <button id="s-music">Music: ${ST.settings.music ? 'on' : 'off'}</button><button id="s-sfx">Sound: ${ST.settings.sfx ? 'on' : 'off'}</button>
   <button id="m-quit">Save and quit</button></div>
-  <p class="small">Move: WASD / arrows. Brake: Shift. Use / talk: Space or E. Tools: 1-4 or Q. Map: M. Journal: J.</p>`;
+  <p class="small">Move: WASD / arrows. Brake: Shift. Use / talk: Space or E. Tools: 1-4 or Q. Map: M. Quest log: J. Skates on/off: R.</p>`;
+}
+function clockFace(night) { // 26x26 dial, sun or moon in the middle
+  return spr('clock' + (night ? 'N' : 'D'), 26, 26, g => {
+    disc(g, 13, 13, 12.5, '#2a1d22'); disc(g, 13, 13, 11.5, '#fff4d6'); disc(g, 13, 13, 9, night ? '#1c2f86' : '#7fd4ff');
+    [[12, 2], [12, 22], [2, 12], [22, 12]].forEach(([x, y]) => P(g, x, y, 2, 2, '#2a1d22'));
+    if (night) { disc(g, 13, 13, 5, '#fff4b0'); disc(g, 15.5, 11, 4.4, '#1c2f86'); P(g, 7, 8, 1, 1, '#ffffff'); P(g, 18, 17, 1, 1, '#ffffff'); P(g, 17, 7, 1, 1, '#fff4b0'); }
+    else { for (let a = 0; a < 8; a++) { const x = 13 + Math.cos(a * Math.PI / 4) * 6.5, y = 13 + Math.sin(a * Math.PI / 4) * 6.5; P(g, Math.round(x - 0.5), Math.round(y - 0.5), 1, 1, '#ff9a1a'); } disc(g, 13, 13, 4.5, '#ffd23f'); disc(g, 12, 12, 2, '#fff09a'); }
+  });
 }
 function wizHatSprite() { // original pixel wizard hat for the title
   return spr('wizhat', 40, 46, g => {
@@ -2702,7 +3038,8 @@ function drawMap() {
   g.font = `${Math.max(10, 13 * sc * 1.6)}px VT323, monospace`; g.fillStyle = '#fff'; g.fillText('Stock Room', 33.5 * T * sc, 16 * T * sc);
   RT.spills.forEach(s => { g.fillStyle = '#ff3a2a'; g.beginPath(); g.arc((s.x + 0.5) * T * sc, (s.y + 0.5) * T * sc, 5, 0, 6.3); g.fill(); });
   Object.keys(ANIMS).forEach(k => { if (!ST.anims[k] || !ST.anims[k].broken) return; const o = W.objs.find(o => o.anim === k); if (!o) return; g.fillStyle = '#ff9a1a'; g.fillRect((o.x + o.w / 2) * T * sc - 6, o.y * T * sc - 6, 12, 12); });
-  RT.custs.forEach(cu => { if (cu.state !== 'lost') return; g.fillStyle = '#ffe14d'; g.font = 'bold 18px sans-serif'; g.fillText('?', cu.x * sc, (cu.y - 8) * sc); });
+  RT.custs.forEach(cu => { if (cu.state !== 'lost') return; g.fillStyle = '#7fd4ff'; g.font = 'bold 18px sans-serif'; g.fillText('?', cu.x * sc, (cu.y - 8) * sc); });
+  (W.givers || []).forEach(gv => { const m = giverMarker(gv); if (!m) return; g.font = 'bold 22px sans-serif'; g.lineWidth = 4; g.strokeStyle = '#2a1d22'; const ch = m === '!' ? '!' : '?'; g.strokeText(ch, gv.px * sc, (gv.py - 14) * sc); g.fillStyle = m === 'grey?' ? '#b9c0c8' : '#ffe14d'; g.fillText(ch, gv.px * sc, (gv.py - 14) * sc); });
   g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(PL.x * sc, (PL.y - 4) * sc, 6, 0, 6.3); g.fill(); g.stroke(); g.fillStyle = '#d8342a'; g.beginPath(); g.arc(PL.x * sc, (PL.y - 4) * sc, 3, 0, 6.3); g.fill();
 }
 
@@ -2712,8 +3049,8 @@ function beginGame(cont) {
   if (!(cont && load())) { newState(); try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
   AU.musicOn = ST.settings.music; AU.sfxOn = ST.settings.sfx;
   buildWorld(ST.ups); buildNight(); startDay(); MUSIC.setDay(ST.day); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; RT.paused = false; $('#hud').style.display = 'block';
-  if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. doors open at 8. people are gonna clean out the shelves, get lost, spill pickles and break the lion. keep 'em happy and we make money. you've got skates, a mop, a wrench and fish food. go get 'em.`, null, 'Tip: the stock room is behind the bakery. Your office couch in there ends the day.');
-  else toast(`Welcome back. ${weekday()}, Day ${ST.day}.`);
+  if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. we need ${fmtMoney(dayGoal())} today. everybody with a yellow ! over their head has a job for you, and every job pays. make the money, then close up by the clock. monday to friday. go get 'em.`, null, 'J opens the quest log. The stock room is behind the bakery.');
+  else toast(`Welcome back. ${weekday()}, week ${weekNo()}. Goal today: ${fmtMoney(dayGoal())}.`);
 }
 const VK = { x: 0, y: 0 };
 function bindInput() {
@@ -2725,7 +3062,7 @@ function bindInput() {
     if (RT.dialog) { if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') advanceDialog(); if (RT.dialog && RT.dialog.choices && (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD')) { const n = RT.dialog.choices.length; RT.dialog.sel = (RT.dialog.sel + (e.code.endsWith('Left') || e.code === 'KeyA' ? n - 1 : 1)) % n; [...$('#dl-choices').children].forEach((b, i) => b.classList.toggle('sel', i === RT.dialog.sel)); } return; }
     if (e.code === 'Escape') { if (RT.menu === 'report') return; if (RT.menu) closeMenu(); else openMenu('pause'); return; }
     if (e.code === 'KeyM') { if (RT.menu === 'map') closeMenu(); else if (!RT.menu) openMenu('map'); return; }
-    if (e.code === 'KeyJ') { if (RT.menu === 'journal') closeMenu(); else if (!RT.menu) openMenu('journal'); return; }
+    if (e.code === 'KeyJ' || e.code === 'KeyL') { if (RT.menu === 'quests') closeMenu(); else if (!RT.menu) openMenu('quests'); return; }
     if (RT.menu) { if ((e.code === 'Enter' || e.code === 'Space') && RT.menu === 'report') { const b = document.getElementById('m-next'); if (b) b.click(); } return; }
     if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') doAction();
     if (e.code >= 'Digit1' && e.code <= 'Digit4') PL.tool = +e.code.slice(5) - 1;
@@ -2748,6 +3085,10 @@ function bindInput() {
     $('#t-menu').addEventListener('pointerdown', e => { e.preventDefault(); if (RT.menu && RT.menu !== 'report' && RT.menu !== 'title') closeMenu(); else if (!RT.menu) openMenu('pause'); });
   }
   $('#dialog').addEventListener('click', () => { if (RT.dialog && !RT.dialog.choices) advanceDialog(); });
+  // the clock: once the day's goal is made, clicking it (or the button under it) closes up for the night
+  $('#clockbtn').addEventListener('click', () => { if (!RT.menu && !RT.dialog) closeUp(); });
+  $('#nextday').addEventListener('click', () => { if (!RT.dialog) { if (RT.menu === 'goal') closeMenu(); if (!RT.menu) closeUp(); } });
+  $('#qbtn').addEventListener('click', () => { if (RT.menu === 'quests') closeMenu(); else if (!RT.menu) openMenu('quests'); });
 }
 let lastT = 0;
 function frame(t) {

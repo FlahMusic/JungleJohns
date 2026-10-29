@@ -117,9 +117,9 @@ function objDraw(o) {
     case 'case': return drawSpr(caseSprite(o.art, o.seed, fill(o.dept)), x, y - 8);
     case 'candy': return drawSpr(candySprite(o.seed, fill(o.dept)), x, y - 8);
     case 'gacha': return bot(propSprite('gacha', 0));
-    case 'tank': return drawSpr(tankSprite(o.kind, Math.floor(t * 2 + o.x) % 3, !ST.fedToday && ST.minute > 10 * 60), x, y - 8);
+    case 'tank': return drawSpr(tankSprite(o.kind, Math.floor(t * 2 + o.x) % 3, !ST.fedToday && RT.dayT > 60), x, y - 8);
     case 'pallet': return drawSpr(palletSprite(o.crate), x - 1, y - 8 - 1);
-    case 'staff': { drawPerson({ x: x + 8, y: y + 12, dir: 'down', frame: 0 }, o.look); return; }
+    case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob, dir: 'down', frame: 0 }, o.look); return; } // givers shift their weight now and then
     case 'bar': return bot(propSprite('bar', o.frame || 0));
     case 'stool': return drawSpr(propSprite('stool', 0), x, y);
     case 'bigcheese': { bot(propSprite('bigcheese', 0)); const hot = Math.max(0, Math.min(1, (ST.cheeseTemp - 30) / 20)); const g = R.g; g.fillStyle = hot > 0.75 ? '#ff3a2a' : '#e23a2e'; const bh = 13 * hot; g.fillRect(sx(x + 29 + 1), sy(y + 32 - 10 - bh - 4), R.SC, bh * R.SC); if (ST.cheeseTemp > 45 && Math.floor(t * 4) % 2) { g.fillStyle = 'rgba(255,60,40,0.18)'; g.fillRect(sx(x), sy(y - 8), 32 * R.SC, 40 * R.SC); } return; }
@@ -212,7 +212,7 @@ function drawMonorail() {
   g.fillStyle = '#8a8f98'; g.fillRect(sx(x - 3), sy(y1), 6 * SC, (y2 - y1) * SC); g.fillStyle = '#b8bec8'; g.fillRect(sx(x - 3), sy(y1), SC, (y2 - y1) * SC);
   g.fillStyle = '#9aa3ad'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 3 * T * SC); g.fillStyle = '#c8ccd2'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 2 * SC);
   const running = ST.ups.monorail && isOpen() && (['Sat', 'Sun'].includes(weekday()) || eventToday());
-  const k = running ? (1 - Math.cos((ST.minute / 60) * 2.2)) / 2 : 0; const py = (8.5 + k * 34) * T;
+  const k = running ? (1 - Math.cos(R.t / 9)) / 2 : 0; const py = (8.5 + k * 34) * T;
   const s = propSprite('monorail', 0); g.save(); g.translate(sx(x), sy(py)); g.rotate(Math.PI / 2); g.drawImage(s, -25 * SC, -11 * SC, s.width * SC, s.height * SC); g.restore();
   if (!ST.ups.monorail) label(sx(x), sy(6 * T), 'Monorail: out of order', '#f2c81c', '#2a1d22', 5.5);
 }
@@ -244,6 +244,13 @@ function drawOverlay() {
   if (PL.escort) { const d = DEPT[PL.escort.cur]; const tx = (d.x + d.w / 2) * T, ty = (d.y + d.h / 2) * T; const a = Math.atan2(ty - PL.y, tx - PL.x); const x = sx(PL.x) + Math.cos(a) * 26 * SC, y = sy(PL.y - 12) + Math.sin(a) * 26 * SC;
     g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = '#ffe14d'; g.strokeStyle = '#2a1d22'; g.lineWidth = SC; g.beginPath(); g.moveTo(7 * SC, 0); g.lineTo(-4 * SC, -5 * SC); g.lineTo(-4 * SC, 5 * SC); g.closePath(); g.fill(); g.stroke(); g.restore();
     label(sx(PL.x), sy(PL.y - 46), 'to ' + d.name, '#2a1d22', '#ffe14d', 5); }
+  // quest givers: yellow ! = job on offer, grey ? = job under way, yellow ? = job done, come get paid
+  for (const gv of W.givers || []) { const m = giverMarker(gv); if (!m) continue; const x = sx(gv.px), y = sy(gv.py - 30); if (x < -40 || x > R.cv.width + 40 || y < -40 || y > R.cv.height + 40) continue; questMark(x, y, m); }
+  // arrow at the screen edge toward a finished job
+  const rg = readyGiverTarget(); if (rg && !RT.menu) { const x = sx(rg.px), y = sy(rg.py - 20), m = 30 * SC, W2 = R.cv.width, H2 = R.cv.height;
+    if (x < m || x > W2 - m || y < m || y > H2 - m) { const cx = W2 / 2, cy = H2 / 2, a = Math.atan2(y - cy, x - cx), k = Math.min((W2 / 2 - m) / Math.abs(Math.cos(a) || 1e-6), (H2 / 2 - m) / Math.abs(Math.sin(a) || 1e-6)), ax = cx + Math.cos(a) * k, ay = cy + Math.sin(a) * k, pulse = 1 + Math.sin(R.t * 6) * 0.12;
+      g.save(); g.translate(ax, ay); g.rotate(a); g.scale(pulse, pulse); g.fillStyle = '#ffe14d'; g.strokeStyle = '#2a1d22'; g.lineWidth = 1.5 * SC; g.beginPath(); g.moveTo(11 * SC, 0); g.lineTo(-6 * SC, -8 * SC); g.lineTo(-2 * SC, 0); g.lineTo(-6 * SC, 8 * SC); g.closePath(); g.fill(); g.stroke(); g.restore();
+      questMark(ax - Math.cos(a) * 16 * SC, ay - Math.sin(a) * 16 * SC + 6 * SC, '?'); } }
   // bubbles
   for (const c of RT.custs) { if (!c.bubble) continue; const x = sx(c.x), y = sy(c.y - 30); if (x < -100 || x > R.cv.width + 100 || y < -50 || y > R.cv.height + 50) continue; drawBubble(x, y, c.bubble); }
   // floats
@@ -251,9 +258,15 @@ function drawOverlay() {
   // lane queues: progress pips over head customer
   W.lanes.forEach(l => { const c = l.queue[0]; if (!c || c.qi !== 0 || c.items <= 0 || (c.path && c.pi < c.path.length)) return; const x = sx(c.x), y = sy(c.y - 30); if (c.bubble) return; g.fillStyle = 'rgba(42,29,34,0.8)'; g.fillRect(x - 10 * SC, y - 2 * SC, 20 * SC, 3 * SC); g.fillStyle = '#7dff7a'; g.fillRect(x - 10 * SC, y - 2 * SC, 20 * SC * Math.min(1, c.scanned / c.items), 3 * SC); });
 }
+function questMark(x, y, m) { // chunky pixel ! or ? with an ink outline, bobbing
+  const g = R.g, SC = R.SC, bob = Math.round(Math.sin(R.t * 5) * 1.5) * SC, col = m === 'grey?' ? '#b9c0c8' : '#ffe14d', ch = m === '!' ? '!' : '?';
+  g.font = `${Math.round(11 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+  g.lineWidth = 3 * SC; g.strokeStyle = '#2a1d22'; g.strokeText(ch, x, y + bob); g.fillStyle = col; g.fillText(ch, x, y + bob);
+  g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillRect(x - 2 * SC, y - 9 * SC + bob, SC, 3 * SC); g.textAlign = 'left';
+}
 function drawBubble(x, y, b) {
   const g = R.g, SC = R.SC;
-  if (b.kind === 'q') { const bob = Math.sin(R.t * 6) * SC; g.fillStyle = '#2a1d22'; g.fillRect(x - 5 * SC, y - 10 * SC + bob, 10 * SC, 11 * SC); g.fillStyle = '#ffe14d'; g.fillRect(x - 4 * SC, y - 9 * SC + bob, 8 * SC, 9 * SC); g.fillStyle = '#2a1d22'; g.font = `${Math.round(6 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('?', x + SC * 0.5, y - 1.5 * SC + bob); g.textAlign = 'left'; return; }
+  if (b.kind === 'q') { const bob = Math.sin(R.t * 6) * SC; g.fillStyle = '#2a1d22'; g.fillRect(x - 5 * SC, y - 10 * SC + bob, 10 * SC, 11 * SC); g.fillStyle = '#7fd4ff'; g.fillRect(x - 4 * SC, y - 9 * SC + bob, 8 * SC, 9 * SC); g.fillStyle = '#2a1d22'; g.font = `${Math.round(6 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('?', x + SC * 0.5, y - 1.5 * SC + bob); g.textAlign = 'left'; return; }
   let text = b.text; if (b.kind === 'wine' && !text) { g.font = `${Math.round(8 * SC)}px sans-serif`; g.textAlign = 'center'; g.fillText('🍷', x, y); g.textAlign = 'left'; return; }
   g.font = `${Math.round(5.5 * SC)}px VT323, monospace`; const maxW = 74 * SC; const words = text.split(' '); const lines = []; let cur = '';
   for (const w of words) { const t2 = cur ? cur + ' ' + w : w; if (g.measureText(t2).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t2; } if (cur) lines.push(cur);

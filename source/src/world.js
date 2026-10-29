@@ -76,6 +76,7 @@ function buildWorld(ups) {
   addObj({ type: 'corral', x: 40, y: 52 }); addObj({ type: 'corral', x: 50, y: 56 });
   W.lanes.forEach(l => { W.cost[idx(l.cash[0], l.cash[1])] = 30; });
   W.stools.forEach(s => { W.cost[idx(s.x, s.y)] = 12; });
+  placeGivers();
   computeFronts(); renderGround();
 }
 
@@ -184,6 +185,21 @@ function layoutDept(d, i) {
   }
 }
 function removeAt(x, y) { const o = W.objAt.get(idx(x, y)); if (!o) return; W.objs.splice(W.objs.indexOf(o), 1); for (let yy = o.y; yy < o.y + o.h; yy++) for (let xx = o.x; xx < o.x + o.w; xx++) { W.objAt.delete(idx(xx, yy)); W.solid[idx(xx, yy)] = W.wall[idx(xx, yy)]; } }
+// quest givers: tag the clerk already behind a counter, or stand a new one at `at` (or the nearest free tile in the area)
+function placeGivers() {
+  W.givers = [];
+  for (const gv of GIVERS) {
+    const d = DEPT[gv.dept]; if (!d || d.lock) continue; // giver areas are never locked areas
+    let o = W.objs.find(o => o.type === 'staff' && W.zone[idx(o.x, o.y)] === DEPTS.indexOf(d));
+    if (!o) {
+      const di = DEPTS.indexOf(d), free = (x, y) => inb(x, y) && W.zone[idx(x, y)] === di && !W.solid[idx(x, y)] && !W.objAt.get(idx(x, y));
+      let at = gv.at; if (!at || !free(at[0], at[1])) { at = null; let bd = 1e9; for (let y = d.y; y < d.y + d.h; y++) for (let x = d.x; x < d.x + d.w; x++) if (free(x, y)) { const dd = Math.hypot(x - (gv.at ? gv.at[0] : d.x), y - (gv.at ? gv.at[1] : d.y)); if (dd < bd) { bd = dd; at = [x, y]; } } }
+      if (!at) continue; const look = staffLook(gv.id); look.shirt = gv.shirt || look.shirt; look.apron = gv.apron || look.apron;
+      o = addObj({ type: 'staff', x: at[0], y: at[1], solid: true, look });
+    }
+    o.giver = gv; W.givers.push({ gv, o, px: o.x * T + 8, py: o.y * T + 12 });
+  }
+}
 function staffLook(id) { const r = mkRng(id.length * 97 + id.charCodeAt(0)); const o = randomLook(r, 'adult'); o.shirt = '#f4f4f4'; o.apron = { deli: '#8a2a3a', meat: '#a82a2a', bakery: '#e8cfa0', seafood: '#2e6a9a', sushi: '#3a2a20', custserv: null }[id] || null; if (id === 'custserv') o.shirt = '#2e7d3b'; if (id === 'bakery') { o.style = 'cap'; o.hat = '#f4f4f4'; } o.key = 'staff_' + id; return o; }
 
 // customer-reachable tiles touching each dept's stock objects

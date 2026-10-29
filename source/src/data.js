@@ -340,3 +340,129 @@ const TOOLS = [
   { id: 'wrench', name: 'Wrench', key: '3', hint: 'Fix broken displays' },
   { id: 'food', name: 'Fish Food', key: '4', hint: 'Feed the live tanks' },
 ];
+
+// ===== the work week: main quest = earn the day's goal (all money in: sales, tips, tastings, quest rewards) =====
+const WORKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const WEEK_GOALS = [2000, 2600, 3300, 4100, 5000]; // week 2+ asks 30% more each week
+
+// quest givers, one per main area. counter clerks already stand behind their cases; the rest stand at `at`
+const GIVERS = [
+  { id: 'gus', name: 'Gus', dept: 'cheese', at: [53, 13], shirt: '#f4f4f4', apron: '#e8c23a' },
+  { id: 'rosa', name: 'Rosa', dept: 'bakery' },
+  { id: 'sal', name: 'Sal', dept: 'deli' },
+  { id: 'marlene', name: 'Marlene', dept: 'seafood' },
+  { id: 'philippe', name: 'Philippe', dept: 'tasting', at: [47, 9], shirt: '#1e1e24', apron: '#5a1626' },
+  { id: 'hank', name: 'Hank', dept: 'produce', at: [34, 24], shirt: '#2e7d3b', apron: '#6a4a2a' },
+  { id: 'trixie', name: 'Trixie', dept: 'candy', at: [50, 22], shirt: '#ff8fc0', apron: '#6fc6e8' },
+  { id: 'dave', name: 'Diablo Dave', dept: 'hotsauce', at: [22, 19], shirt: '#1e1e24', apron: '#d42a1a' },
+  { id: 'deb', name: 'Deb', dept: 'custserv' },
+];
+// one quest per giver per weekday (Mon..Fri). types: sample/talk (hand out to customers in `zones`), stock (restock `dept`),
+// help (walk lost customers), mop, fix (broken displays), pour (tastings), feed (fish tanks), cool (Big Cheese), elvis (for kids), scan (register items)
+const QUESTS = {
+  gus: [
+    { type: 'sample', n: 10, item: 'cheese sample', lines: 'cheese', zones: ['cheese'], buy: 'cheese', reward: 300, title: 'Hand out cheese samples in the Cheese Shop',
+      ask: "boss. the big cheese has no fans today. i cut ten cubes of cheddar. hand them out to people in the cheese shop before i eat them out of grief.", nag: "the cubes are sweating. people. cheese. go.", done: "ten converts. the big cheese is pleased. here, take this before the cheese changes its mind." },
+    { type: 'cool', n: 3, reward: 260, title: 'Crank the Big Cheese cooler 3 times', ask: "the big cheese cooler is held together with tape and prayer. crank it cold three times today and i will love you forever. or until friday.", nag: "it's warming up. i can hear it warming up.", done: "34 degrees. you hear that? that's the sound of nobody getting sued." },
+    { type: 'stock', n: 2, dept: 'cheese', reward: 300, title: 'Restock the Cheese Shop twice', ask: "we're out of half the cheese. bring me two crates from the stock room. the cheese crates. not the beer crates. we talked about this.", nag: "the shelves are naked. it's indecent.", done: "full shelves. now this is a cheese shop and not a crime scene." },
+    { type: 'sample', n: 12, item: 'stinky cheese', lines: 'stinky', zones: ['cheese', 'deli'], buy: 'cheese', reward: 420, title: 'Hand out stinky cheese in Cheese + Deli',
+      ask: "today we hand out the limburger. twelve people. cheese shop or deli. hold your breath and smile. it's character building.", nag: "the stink is not going away on its own. hand it out.", done: "twelve brave souls. three cried. that's a good day for limburger." },
+    { type: 'sample', n: 12, item: 'aged gouda', lines: 'gouda', zones: ['cheese', 'tasting', 'wine'], buy: 'wine', reward: 520, title: 'Hand out aged gouda in Cheese, Wine + Tasting',
+      ask: "friday. the good stuff. eight-year gouda. twelve samples. cheese shop, wine aisle or the tasting bar. people who drink wine pretend to know cheese. let them.", nag: "the gouda is aging while you stand there. which is fine. but go.", done: "beautiful. the wine snobs said 'nutty' nine times. that's a record." },
+  ],
+  rosa: [
+    { type: 'sample', n: 8, item: 'warm cookie', lines: 'cookie', zones: ['bakery', 'meat', 'produce'], buy: 'bakery', reward: 260, title: 'Hand out warm cookies near the Bakery',
+      ask: "mijo! i made too many cookies. hand eight out near the bakery. if anyone says they're on a diet, give them two.", nag: "the cookies are getting cold. a cold cookie is a sad cookie.", done: "everybody happy? everybody happy. here. and take a cookie, you're too skinny for skates." },
+    { type: 'stock', n: 2, dept: 'bakery', reward: 280, title: 'Restock the Bakery twice', ask: "the bread shelf is empty and a man just asked me if we sell 'flour, but cooked'. two bakery crates, please.", nag: "still empty. a lady is crying by the bagels.", done: "full! now go sit down, you look like you skated here from cincinnati." },
+    { type: 'sample', n: 10, item: 'day-old donut', lines: 'donut', zones: ['bakery', 'produce', 'natural'], buy: 'bakery', reward: 340, title: 'Get rid of day-old donuts near Bakery + Produce',
+      ask: "these donuts are from yesterday. they're fine. they're FINE. ten people. bakery, produce, natural foods. don't say 'yesterday'.", nag: "say 'vintage'. people like 'vintage'.", done: "all gone! nobody died! i love this job." },
+    { type: 'help', n: 2, reward: 360, title: 'Walk 2 lost customers to their aisle', ask: "my husband came in for one onion in 1998 and i still haven't seen him. help two lost people today. for him.", nag: "people are wandering. like ghosts. with carts.", done: "two found! not my husband, but it's a start." },
+    { type: 'sample', n: 12, item: 'birthday cake', lines: 'cake', zones: ['bakery', 'meat', 'produce', 'candy'], buy: 'bakery', reward: 500, title: 'Hand out birthday cake near Bakery, Meat, Produce + Candy',
+      ask: "somebody ordered a birthday cake and never picked it up. so today it's everybody's birthday. twelve slices. bakery, meat, produce, candy.", nag: "sing if you have to. i won't tell.", done: "twelve birthdays in one day. this store is magic, mijo." },
+  ],
+  sal: [
+    { type: 'talk', n: 6, item: 'sandwich survey', lines: 'survey', zones: ['deli', 'grocery', 'cheese'], reward: 260, title: 'Ask 6 customers about sandwiches (Deli, Grocery, Cheese)',
+      ask: "corporate wants a 'sandwich survey'. ask six people near the deli what they want on a sandwich. write nothing down. i'll remember.", nag: "six opinions. everybody's got one.", done: "six answers. four said 'meat'. one said 'more meat'. one said 'jesus'. we'll use that." },
+    { type: 'sample', n: 8, item: 'pickle spear', lines: 'pickle', zones: ['deli', 'cheese', 'grocery'], buy: 'deli', reward: 300, title: 'Hand out pickle spears in Deli, Cheese + Grocery',
+      ask: "pickle spears. eight of them. deli, cheese, grocery. if they don't like pickles, they're not my people.", nag: "the pickles are judging you. i can tell.", done: "eight pickles, eight smiles. one guy asked for the juice. respect." },
+    { type: 'stock', n: 2, dept: 'deli', reward: 300, title: 'Restock the Deli twice', ask: "i'm slicing air over here. two deli crates. move.", nag: "the slicer is just spinning. it's lonely.", done: "now we're cooking. well, slicing. same thing." },
+    { type: 'mop', n: 3, reward: 340, title: 'Mop 3 spills', ask: "somebody dropped a pickle jar and the juice is ON THE MOVE. mop three spills before it reaches the wine.", nag: "i can smell the brine from here.", done: "clean floors. my mother would weep. she hated this floor." },
+    { type: 'sample', n: 12, item: 'meatball', lines: 'meatball', zones: ['deli', 'grocery', 'cheese', 'meat'], buy: 'deli', reward: 520, title: 'Hand out meatballs in Deli, Grocery, Cheese + Meat',
+      ask: "friday meatballs. my nonna's recipe. twelve people. if anyone says 'pretty good' you take it back.", nag: "they're getting cold. nonna is watching.", done: "nonna would be proud. or she'd find something wrong. either way. here." },
+  ],
+  marlene: [
+    { type: 'feed', n: 1, reward: 220, title: 'Feed the live tanks', ask: "honey, the lobsters are staring at me like i owe them money. feed the tanks. fish food is tool 4.", nag: "they're still staring.", done: "look at them. happy as clams. which, legally, they are not." },
+    { type: 'sample', n: 8, item: 'shrimp cocktail', lines: 'shrimp', zones: ['seafood', 'livefish', 'honey', 'intl'], buy: 'seafood', reward: 300, title: 'Hand out shrimp near Seafood',
+      ask: "shrimp cocktail samples. eight of 'em. seafood or nearby. keep them cold and keep them moving.", nag: "warm shrimp is a lawsuit, hon.", done: "eight people, zero lawsuits. that's a great day in seafood." },
+    { type: 'stock', n: 2, dept: 'seafood', reward: 300, title: 'Restock Seafood twice', ask: "the fish case is looking thin. two seafood crates. the ice is melting into my shoes.", nag: "my shoes are full of ice water. hurry.", done: "beautiful. the case looks like a postcard again." },
+    { type: 'mop', n: 3, reward: 340, title: 'Mop 3 spills', ask: "the ice machine leaked and now it's a slip-and-slide. three spills. mop. go.", nag: "somebody's gonna eat it. hard.", done: "dry floors! nobody broke a hip! today is a good day." },
+    { type: 'fix', n: 2, reward: 460, title: 'Fix 2 broken displays', ask: "everything that moves in this store is breaking today. fix two of them. wrench is tool 3.", nag: "something's still broken. i can hear it not moving.", done: "you're handy. you married? kidding. mostly." },
+  ],
+  philippe: [
+    { type: 'pour', n: 3, reward: 260, title: 'Pour 3 tastings at the Tasting Bar', ask: "ah. you. pour three tastings at the bar. small pours. we are not a frat house.", nag: "the guests are thirsty and i am judgmental.", done: "three pours. acceptable. you swirl like a raccoon, but acceptable." },
+    { type: 'pour', n: 5, reward: 340, title: 'Pour 5 tastings at the Tasting Bar', ask: "today we pour five. a man asked for 'the red one'. i need to lie down. you pour.", nag: "five pours. it is not complicated.", done: "five. you're improving. you only spilled on one rich person." },
+    { type: 'stock', n: 2, dept: 'wine', reward: 320, title: 'Restock Wine twice', ask: "the wine wall has holes. holes, in my wall. two wine crates, please.", nag: "the holes are still there. mocking me.", done: "whole again. like a symphony. a symphony of grapes." },
+    { type: 'sample', n: 8, item: 'fancy cracker', lines: 'cracker', zones: ['wine', 'tasting', 'liquor', 'cigars'], buy: 'wine', reward: 360, title: 'Hand out fancy crackers in Wine, Liquor + Cigars',
+      ask: "fancy crackers. eight. wine, liquor, cigars. it is a cracker that costs four dollars. hand it over like it is a diamond.", nag: "diamond energy. go.", done: "eight people now think they have taste. this is how we sell wine." },
+    { type: 'pour', n: 8, reward: 520, title: 'Pour 8 tastings at the Tasting Bar', ask: "friday. everyone wants to forget their week. eight pours. i believe in you. a little.", nag: "more pours. less standing.", done: "eight. magnifique. take this and do not tell anyone i was nice to you." },
+  ],
+  hank: [
+    { type: 'stock', n: 2, dept: 'produce', reward: 260, title: 'Restock Produce twice', ask: "produce is getting picked clean, chief. two produce crates. the bananas don't stock themselves. i've asked.", nag: "a lady is squeezing the last avocado like it owes her money.", done: "now that's a fruit stand. 1971 vibes. love it." },
+    { type: 'help', n: 2, reward: 300, title: 'Walk 2 lost customers to their aisle', ask: "folks keep asking me where stuff is and i only know fruit. help two lost people for me.", nag: "another one just asked me where the 'normal milk' is. help.", done: "two found. you're a human map, chief." },
+    { type: 'sample', n: 10, item: 'mystery fruit', lines: 'durian', zones: ['produce', 'intlproduce', 'natural'], buy: 'produce', reward: 380, title: 'Hand out mystery fruit in Produce + Natural Foods',
+      ask: "it's durian. don't tell them it's durian. ten samples. produce, intl produce, natural foods. say 'mystery fruit' and run.", nag: "the smell is getting out. we're running out of time.", done: "ten people tried durian. two liked it. that's a historic ratio." },
+    { type: 'stock', n: 3, dept: 'produce', reward: 400, title: 'Restock Produce 3 times', ask: "big shipment day. three produce crates. lift with your legs, chief.", nag: "the bins are hungry.", done: "three crates. you're stronger than you look. no offense." },
+    { type: 'sample', n: 12, item: 'dragon fruit', lines: 'dragonfruit', zones: ['produce', 'intlproduce', 'natural', 'honey'], buy: 'produce', reward: 500, title: 'Hand out dragon fruit in Produce, Natural + Honey',
+      ask: "dragon fruit friday. twelve samples. it looks like a pokemon and tastes like a pear that went to college.", nag: "the dragons await.", done: "twelve! the dragons are proud. so am i, chief." },
+  ],
+  trixie: [
+    { type: 'sample', n: 5, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery'], kids: true, buy: 'candy', reward: 260, title: 'Give lollipops to 5 kids near Candy',
+      ask: "omg hi!! give lollipops to five kids around candy. kids only. adults will ask. adults cannot have one. it's the law. my law.", nag: "the kids are vibrating. find them.", done: "five sugar-blasted children!! their parents hate us. perfect." },
+    { type: 'elvis', n: 3, reward: 280, title: 'Make Elvis sing 3 times', ask: "the kids want elvis. make him sing three times. he's the lion. don't ask. nobody knows.", nag: "elvis has left the building. please bring him back.", done: "three songs!! one kid cried. happy tears. probably." },
+    { type: 'stock', n: 2, dept: 'candy', reward: 300, title: 'Restock Candy twice', ask: "we're OUT of the sour stuff and a kid bit a display. two candy crates. please. for safety.", nag: "the kid is eyeing another display.", done: "restocked!! the biting has stopped. for now." },
+    { type: 'sample', n: 6, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery', 'health'], kids: true, buy: 'candy', reward: 380, title: 'Give lollipops to 6 kids near Candy',
+      ask: "lollipop day part two!! six kids. it's the sour apple ones. they make your face do a thing.", nag: "six faces must do the thing.", done: "six faces did the thing!! you're my favorite boss. you're my only boss but still." },
+    { type: 'elvis', n: 5, reward: 460, title: 'Make Elvis sing 5 times', ask: "friday concert!! five elvis songs. he gets a little hoarse but he's a professional.", nag: "the crowd wants more!!", done: "five!! elvis needs a nap. so do i. so do you, honestly." },
+  ],
+  dave: [
+    { type: 'sample', n: 8, item: 'mild hot sauce', lines: 'mild', zones: ['hotsauce', 'americas', 'gigante', 'intl'], buy: 'hotsauce', reward: 280, title: 'Hand out mild hot sauce near Hot Sauce',
+      ask: "my friend. today we start gentle. 'mild'. eight samples. hot sauce, americas, mercado. watch their faces. 'mild' is a lie i tell for fun.", nag: "they're waiting to suffer. go.", done: "eight people. four said 'that's not mild'. correct. it's not." },
+    { type: 'sample', n: 10, item: 'ghost pepper sauce', lines: 'ghost', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia'], buy: 'hotsauce', reward: 380, title: 'Hand out ghost pepper sauce near Hot Sauce',
+      ask: "ghost pepper. ten brave people. hot sauce or the international aisles. have milk nearby. i don't. you should.", nag: "the ghosts are restless.", done: "ten souls touched by the ghost. one guy saw his ancestors. good reviews." },
+    { type: 'stock', n: 2, dept: 'hotsauce', reward: 300, title: 'Restock Hot Sauce twice', ask: "my wall of fire is down to embers. two hot sauce crates, my friend.", nag: "embers. only embers.", done: "the wall burns again. you are a true friend of the pepper." },
+    { type: 'help', n: 3, reward: 420, title: 'Walk 3 lost customers to their aisle', ask: "three people wandered in here looking for 'normal ketchup' and now they're scared. help three lost people find their way.", nag: "they keep coming. they keep being lost.", done: "three saved. they will never come back to my aisle. that's fine." },
+    { type: 'sample', n: 12, item: 'the reaper', lines: 'reaper', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia', 'seafood'], buy: 'hotsauce', reward: 560, title: 'Hand out The Reaper near Hot Sauce + Intl',
+      ask: "friday. the reaper. twelve people. i've signed nothing and neither have you. hand it out and walk away fast.", nag: "the reaper is patient. the customers are not.", done: "twelve. three of them are still sweating in the parking lot. legends." },
+  ],
+  deb: [
+    { type: 'scan', n: 15, reward: 260, title: 'Scan 15 items at a register', ask: "hon, the lines are backing up. hop on a register and scan fifteen items. stand on the left side. mash the button.", nag: "the line's out to the jungle scene, hon.", done: "fifteen! you're a natural. a natural on skates, which is weird, but a natural." },
+    { type: 'help', n: 2, reward: 300, title: 'Walk 2 lost customers to their aisle', ask: "i've had six people at my desk asking where things are. help two lost folks so i can drink my coffee.", nag: "my coffee is cold, hon.", done: "two found. coffee's still cold but my heart is warm." },
+    { type: 'scan', n: 25, reward: 360, title: 'Scan 25 items at a register', ask: "wednesday rush. twenty-five items at a register. dolores is on her third break. don't tell her i said that.", nag: "beep beep, hon. beep beep.", done: "twenty-five! dolores is back and she's jealous." },
+    { type: 'mop', n: 4, reward: 400, title: 'Mop 4 spills', ask: "somebody ran a cart full of salsa into the soup can swing. four spills. i've seen things today, hon.", nag: "it's spreading, hon.", done: "clean! i'm putting you up for employee of the month. you're the boss, so you'll win." },
+    { type: 'scan', n: 40, reward: 560, title: 'Scan 40 items at a register', ask: "friday payday crowd. forty items. you can do it. i believe in you more than i believe in the copier.", nag: "keep beeping, hon!", done: "forty! you're a legend. go home. well. after the store closes. you live here, right?" },
+  ],
+};
+// what customers say when handed a sample (one pool per quest `lines`)
+const SAMPLE_LINES = {
+  cheese: ["oh that's a cheese. that's a real cheese.", "i'll take four pounds. don't ask questions.", "free cheese is the best cheese.", "this cheddar has more personality than my husband.", "i came for paper towels. i'm leaving with cheese."],
+  stinky: ["oh no. oh no. why is it good though", "that smells like a gym bag and tastes like heaven.", "my eyes are watering but my mouth is happy.", "is this cheese legal in other states?", "i'm gonna need a minute. and a mint."],
+  gouda: ["notes of... caramel? i don't know. i'm saying caramel.", "nutty. very nutty. like my uncle.", "eight years old? it's more mature than me.", "this pairs with wine. i'm pairing it with more wine.", "oh that's fancy. i feel fancy."],
+  cookie: ["is this chocolate chip? marry me. not you. the cookie.", "i'm on a diet. was. was on a diet.", "warm cookie in a grocery store. this is heaven.", "my grandma made these. better. don't tell rosa.", "i'll take a dozen and a nap."],
+  donut: ["this donut has seen things. still good.", "vintage donut. i get it. i love it.", "a little chewy. like me.", "free donut? i'd eat it off the floor. not literally.", "that's yesterday's donut and today's happiness."],
+  cake: ["it's my birthday? sure. it's my birthday.", "happy birthday to me, a stranger in aisle seven.", "frosting. on a weekday. living the dream.", "this is the best cake i've ever gotten for free.", "do i have to sing? i'm not singing."],
+  survey: ["turkey, swiss, regret.", "honestly? more pickles. always more pickles.", "a sandwich is just a hot dog with ambition.", "whatever's free.", "meat. then more meat. then bread, if there's room.", "peanut butter and sauerkraut. don't knock it."],
+  pickle: ["crunchy. sour. perfect. like my ex.", "can i have the juice? is that weird? i want the juice.", "pickles are just cucumbers that went through something.", "that's a good pickle. a very good pickle.", "i'd fight someone for another one."],
+  meatball: ["tell nonna i love her.", "that's a meatball. that's a capital M meatball.", "pretty g-- AMAZING. it's amazing.", "i'm gonna think about this meatball at work.", "i'd like to be buried with these."],
+  shrimp: ["cold shrimp, warm heart.", "cocktail sauce has horseradish? my sinuses are open.", "fancy. i feel like i'm on a boat.", "that boat over there? that's my boat now.", "i'll take five pounds and a lemon."],
+  cracker: ["four dollars? for a cracker? it IS good though.", "this cracker went to private school.", "crisp. elegant. i don't deserve it.", "i'm gonna need a wine to go with this cracker.", "is there gold in it? it tastes like there's gold in it."],
+  durian: ["what. what IS that. what is HAPPENING.", "it smells like feet and tastes like custard. i'm confused.", "is this fruit or a dare?", "i hate it. give me another one.", "my whole family is going to smell this on me."],
+  dragonfruit: ["it looks like a pokemon!", "tastes like a kiwi in a costume.", "dragon fruit. i feel powerful.", "pretty. like a fruit at a fashion show.", "my kids are gonna lose their minds."],
+  lollipop: ["LOLLIPOP!!!", "is it sour? IT'S SOUR. i love it.", "i'm gonna save it. no i'm not.", "mom! MOM! the skate guy gave me candy!", "my face is doing a thing!!", "this is the best day of my life."],
+  mild: ["MILD?! that's not mild!", "ok... ok... ok that's a lot.", "i can feel my ears.", "mild for who?! for a dragon?", "i'm fine. i'm fine. is there milk."],
+  ghost: ["i see... i see my grandma.", "AAAAAAAAAAAH.", "why did i say yes. why do i always say yes.", "my lips are gone. i had lips.", "this is my villain origin story."],
+  reaper: ["i've made a terrible mistake.", "tell my wife... tell her it was worth it.", "i can taste colors.", "the reaper came. the reaper won.", "i need to lie down in the frozen section."],
+};
+// what a giver says once today's job is done
+const GIVER_IDLE = ["thanks again, boss.", "you're all set here. go help someone else.", "come back tomorrow, i'll have something.", "i'm good. go. skate. be free."];
+// random chatter people say while hanging around
+const CHATTER = ["i'm just looking. i've been just looking for an hour.", "is it me or is that lion staring?", "i love this place. i'm scared of this place.", "i should've made a list.", "how is there a boat in here?", "my cart has a wobbly wheel. like my life.", "do they sell normal stuff? like, normal milk?", "i parked by the elephant. i think.", "smells like cheese and adventure.", "i came for one thing. i have nine things.", "is that guy on skates the manager?", "honey, which way is out?", "this is my third lap. i'm not lost. i'm exercising."];

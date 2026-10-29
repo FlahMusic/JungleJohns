@@ -48,7 +48,7 @@ function musicTick() { // pick the song from where you are; music.js gets there 
   if (!AU.started) return; AU.music.gain.value = AU.musicOn && !document.hidden ? 1 : 0;
   let s = 'market'; const moods = [];
   if (RT.menu === 'title') s = 'title';
-  else if (RT.menu && RT.menu !== 'map') s = 'menu';
+  else if (RT.menu && !['map', 'quests', 'goal'].includes(RT.menu)) s = 'menu';
   else if (RT.sleeping) s = 'sleep';
   else {
     const m = ST.minute, tx = Math.floor(PL.x / T), ty = Math.floor((PL.y - 3) / T), zi = inb(tx, ty) ? W.zone[idx(tx, ty)] : -1, dz = zi >= 0 ? DEPTS[zi].id : null;
@@ -62,7 +62,7 @@ function musicTick() { // pick the song from where you are; music.js gets there 
     else if (stock) s = 'stock';
     else if (outdoor) s = ST.weather === 'rain' ? 'rain' : 'outside';
     else s = AU.zone || 'market';
-    if (m < OPEN_MIN) moods.push('morning');
+    if (RT.dayT < 40) moods.push('morning'); // the store just opened
     if (ST.weather === 'rain') moods.push('rain');
     if (eventToday()) moods.push('fest');
     if (RT.custs.length > 30) moods.push('busy');

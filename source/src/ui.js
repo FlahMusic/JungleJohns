@@ -10,9 +10,14 @@ function initUI() {
 function updateUI(dt) {
   if (!RT.day) return;
   const ev = eventToday();
-  setText('h-day', `${weekday()}, Day ${ST.day}`);
-  setText('h-time', fmtTime(ST.minute));
-  setText('h-wx', (ST.weather === 'rain' ? 'Rain' : ST.weather === 'cloudy' ? 'Cloudy' : 'Sunny') + (isOpen() ? '' : ST.minute < OPEN_MIN ? ', opens 8 AM' : ', closed'));
+  setText('h-day', `${weekday()} · Week ${weekNo()}`);
+  const goal = dayGoal(), got = earnedToday(); setText('h-goal', ST.phase === 'night' ? 'Closed for the night' : `<b class="money">${fmtMoney(got)}</b> / ${fmtMoney(goal)}`);
+  const gb = $('#h-gbar i'); if (gb) { gb.style.width = Math.min(100, got / goal * 100) + '%'; gb.style.background = got >= goal ? '#ffe14d' : '#7dd35a'; }
+  setText('h-wx', ST.weather === 'rain' ? 'Rain' : ST.weather === 'cloudy' ? 'Cloudy' : 'Sunny');
+  const night = ST.phase === 'night'; if (UI.face !== night) { UI.face = night; $('#clockface').src = iconURL(clockFace(night)); }
+  $('#nextday').style.display = RT.goalHit && !night ? 'block' : 'none';
+  const ready = (RT.quests || []).filter(q => q.state === 'ready').length, offers = (RT.quests || []).filter(q => q.state === 'offer').length;
+  setText('qbadge', ready ? `<span class="rdy">${ready}?</span>` : offers ? `<span class="off">${offers}!</span>` : '');
   setText('h-ev', ev ? typo(ev.name) : '');
   setText('h-money', fmtMoney(ST.money));
   const st = stars(); setText('h-stars', '★'.repeat(st) + '<span class="dim">' + '★'.repeat(5 - st) + '</span>');
@@ -32,7 +37,7 @@ function updateUI(dt) {
   if (RT.spills.length) pr.push(`<span class="warn">Spills:</span> ${RT.spills.length}`);
   const br = Object.keys(ANIMS).filter(k => W.anims[k] && ST.anims[k] && ST.anims[k].broken).map(k => ANIMS[k].name); if (br.length) pr.push(`<span class="warn">Broken:</span> ${br.join(', ')}`);
   if (ST.cheeseTemp > 42) pr.push(`<span class="${ST.cheeseTemp > 45 ? 'bad' : 'warn'}">Big Cheese:</span> ${Math.round(ST.cheeseTemp)}°F`);
-  if (!ST.fedToday && ST.minute < 12 * 60) pr.push(`<span class="warn">Fish:</span> feed before noon`);
+  if (!ST.fedToday && (RT.quests || []).some(q => q.def.type === 'feed' && q.state === 'active')) pr.push(`<span class="warn">Fish:</span> hungry`);
   const lost = RT.custs.filter(c => c.state === 'lost').length; if (lost) pr.push(`<span class="q">Lost:</span> ${lost} customer${lost > 1 ? 's' : ''}`);
   const longQ = W.lanes.reduce((a, l) => Math.max(a, l.queue.length), 0); if (longQ >= 4) pr.push(`<span class="warn">Line:</span> ${longQ} deep`);
   const wait = RT.custs.filter(c => c.state === 'sit' && !c.poured).length; if (wait) pr.push(`<span class="q">Tasting bar:</span> ${wait} waiting`);
@@ -61,9 +66,10 @@ function openMenu(kind) {
   RT.menu = kind; document.body.classList.add('inmenu'); const m = $('#menu'); m.style.display = 'flex'; m.className = 'menu ' + kind; const box = $('#menu-box');
   if (kind === 'catalog') { RT.seen.cat = true; box.innerHTML = catalogHTML(); }
   if (kind === 'report') box.innerHTML = reportHTML();
-  if (kind === 'journal') box.innerHTML = journalHTML();
+  if (kind === 'journal' || kind === 'quests') { RT.menu = 'quests'; box.innerHTML = questLogHTML(); }
+  if (kind === 'goal') box.innerHTML = goalHTML();
   if (kind === 'pause') box.innerHTML = pauseHTML();
-  if (kind === 'map') { box.innerHTML = `<h2>Store map</h2><canvas id="mapc"></canvas><p class="small">Yellow ? = lost customer. Red = spill. Orange = broken display. Red sign = empty aisle. <b>M</b> or <b>Esc</b> to close.</p>`; drawMap(); }
+  if (kind === 'map') { box.innerHTML = `<h2>Store map</h2><canvas id="mapc"></canvas><p class="small">Yellow ! = job on offer. Yellow ? = job done. Blue ? = lost customer. Red = spill. Orange = broken display. Red sign = empty aisle. <b>M</b> or <b>Esc</b> to close.</p>`; drawMap(); }
   if (kind === 'title') box.innerHTML = titleHTML();
   bindMenu();
 }
@@ -73,12 +79,12 @@ function bindMenu() {
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { UI.tab = b.dataset.tab; $('#menu-box').innerHTML = catalogHTML(); bindMenu(); });
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
   on('m-close', () => { if (RT.menu === 'catalog' && UI.fromReport) { UI.fromReport = false; openMenu('report'); return; } closeMenu(); });
-  on('m-next', () => { MUSIC.setDay(ST.day + 0); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; startDay(); save(); toast(`${weekday()}, Day ${ST.day}. Store opens at 8 AM.`); const ev = eventToday(); if (ev) toast(`Today: ${ev.name}! Expect a crowd.`, 'good'); });
+  on('m-next', () => { MUSIC.setDay(ST.day + 0); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; startDay(); save(); toast(`${weekday()}, week ${weekNo()}. Goal today: ${fmtMoney(dayGoal())}.`); const ev = eventToday(); if (ev) toast(`Today: ${ev.name}! Expect a crowd.`, 'good'); });
+  on('g-keep', () => closeMenu()); on('g-close', () => { closeMenu(); closeUp(); });
   on('m-cat', () => { UI.fromReport = true; openMenu('catalog'); });
   on('m-resume', () => closeMenu()); on('m-journal', () => openMenu('journal')); on('m-map', () => openMenu('map'));
   on('m-quit', () => { save(); location.reload(); });
   on('s-clean', () => { ST.settings.clean = !ST.settings.clean; openMenu('pause'); });
-  on('s-speed', () => { ST.settings.speed = (ST.settings.speed + 1) % 3; openMenu('pause'); });
   on('s-music', () => { ST.settings.music = !ST.settings.music; AU.musicOn = ST.settings.music; openMenu('pause'); });
   on('s-sfx', () => { ST.settings.sfx = !ST.settings.sfx; AU.sfxOn = ST.settings.sfx; openMenu('pause'); });
   on('t-new', () => { if (hasSave() && !UI.confirmNew) { UI.confirmNew = true; $('#t-new').textContent = 'Erase save and start over?'; return; } beginGame(false); });
@@ -96,39 +102,45 @@ function catalogHTML() {
   <div class="row"><button id="m-close">Done</button></div>`;
 }
 function reportHTML() {
-  const r = RT.report; const net = r.sales + r.tips + r.extra + r.bonus - r.wholesale - r.wages; const avg = r.moods.length ? r.moods.reduce((a, b) => a + b, 0) / r.moods.length : 0;
-  const empt = Object.entries(r.emptyHits).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${DEPT[k].name.replace('International: ', '')} (${v})`).join(', ');
-  const ev = eventToday(); const moodWord = avg > 72 ? 'happy' : avg > 58 ? 'fine' : avg > 45 ? 'grumpy' : 'furious';
-  return `<h2>${r.wd}, Day ${r.day} is done</h2>
+  const r = RT.report; const net = r.sales + r.tips + r.extra + r.quest - r.wholesale - r.wages; const avg = r.moods.length ? r.moods.reduce((a, b) => a + b, 0) / r.moods.length : 0;
+  const ev = eventToday(); const moodWord = !r.moods.length || avg > 58 ? (avg > 72 ? 'happy' : 'fine') : avg > 45 ? 'grumpy' : 'furious'; // nobody left yet = fine
+  const head = r.weekDone ? `<h2 class="big">Week ${r.week} done!</h2><p>Monday to Friday, made it. You earned <b class="money">${fmtMoney(r.weekEarned)}</b> this week.</p>` : `<h2>${r.wd} is done</h2>`;
+  return `${head}
+  <p>Goal ${fmtMoney(r.goal)}. You made <b class="money">${fmtMoney(r.earned)}</b>.</p>
   <table class="rep">
   <tr><td>Register sales</td><td>${fmtMoney(r.sales)}</td></tr>
+  <tr><td>Job rewards</td><td>${fmtMoney(r.quest)}</td></tr>
   <tr><td>Tips</td><td>${fmtMoney(r.tips)}</td></tr>
   <tr><td>Tastings, rides & other</td><td>${fmtMoney(r.extra)}</td></tr>
-  <tr><td>Task bonus</td><td>${fmtMoney(r.bonus)}</td></tr>
   <tr><td>Crates bought</td><td class="neg">-${fmtMoney(r.wholesale)}</td></tr>
   <tr><td>Wages</td><td class="neg">-${fmtMoney(r.wages)}</td></tr>
   <tr class="tot"><td>Net today</td><td class="${net < 0 ? 'neg' : 'pos'}">${net < 0 ? '-' : ''}${fmtMoney(Math.abs(net))}</td></tr>
   </table>
-  <p>${r.served} customers paid. Mood: <b>${moodWord}</b>. ${r.helped} lost people helped.${empt ? ` Empty shelves hit: ${empt}.` : ''}</p>
-  <div class="tasks">${r.tasks.map(t => `<div class="${t.done ? 'ok' : 'no'}">${t.done ? '✔' : '✘'} ${typo(t.text)}</div>`).join('')}</div>
-  <p>Rep ${r.repDelta >= 0 ? 'up' : 'down'} ${Math.abs(r.repDelta).toFixed(1)}. You're at <span class="stars">${'★'.repeat(stars())}</span>. Cash: <b class="money">${fmtMoney(ST.money)}</b></p>
-  <p class="small">Tomorrow: ${weekday()}, Day ${ST.day}${ev ? `. <b>${ev.name}</b>` : ''}. Saved.</p>
-  <div class="row"><button id="m-cat">Catalog</button><button id="m-next" class="buy">Start Day ${ST.day}</button></div>`;
+  <div class="tasks">${r.quests.map(q => `<div class="${q.done ? 'ok' : 'no'}">${q.done ? '✔' : '•'} ${typo(q.who)}: ${typo(q.text)}${q.done ? ` <span class="dim">+${fmtMoney(q.reward)}</span>` : ''}</div>`).join('')}</div>
+  <p>${r.served} customers paid. Mood: <b>${moodWord}</b>. ${r.helped} lost people helped. You're at <span class="stars">${'★'.repeat(stars())}</span>. Cash: <b class="money">${fmtMoney(ST.money)}</b></p>
+  <p class="small">Next: ${weekday()}, week ${weekNo()}. Goal ${fmtMoney(dayGoal())}${ev ? `. <b>${ev.name}</b>` : ''}. Saved.</p>
+  <div class="row"><button id="m-cat">Catalog</button><button id="m-next" class="buy">${r.weekDone ? 'Start next week' : `Start ${weekday()}`}</button></div>`;
 }
-function journalHTML() {
-  return `<h2>Journal</h2><h3>Today</h3><div class="tasks">${ST.tasks.map(t => { let s = t.done ? '✔' : t.fail ? '✘' : '•'; let x = ''; if (t.id === 'help') x = ` (${RT.day.helped}/${t.need})`; if (t.id === 'sales') x = ` (${fmtMoney(RT.day.sales)})`; return `<div class="${t.done ? 'ok' : t.fail ? 'no' : ''}">${s} ${typo(t.text)}${x}</div>`; }).join('')}</div>
-  <h3>Jungle goals</h3><div class="tasks">${GOALS.map(g => `<div class="${ST.goals[g.id] ? 'ok' : ''}">${ST.goals[g.id] ? '✔' : '•'} ${typo(g.text)} <span class="dim">${fmtMoney(g.reward)}</span></div>`).join('')}</div>
-  <p class="small">${ST.totals.served} customers served. ${ST.totals.helped} helped. Best day ${fmtMoney(ST.totals.best)}.</p>
-  <div class="row"><button id="m-close">Close</button></div>`;
+function goalHTML() {
+  return `<h2 class="big">Goal made!</h2><p>You made <b class="money">${fmtMoney(earnedToday())}</b> today. The goal was ${fmtMoney(dayGoal())}.</p>
+  <p>Keep working to bank more, or close up and ${weekday() === 'Fri' ? 'finish the week' : `start ${weekday(ST.day + 1)}`}. The <b>Close up</b> button by the clock stays there.</p>
+  <div class="row"><button id="g-keep">Keep working</button><button id="g-close" class="buy">Close up for the night</button></div>`;
 }
 function pauseHTML() {
-  const sp = ['Slow', 'Normal', 'Fast'][ST.settings.speed];
   return `<h2>Paused</h2><div class="col">
-  <button id="m-resume" class="buy">Resume</button><button id="m-journal">Journal (J)</button><button id="m-map">Map (M)</button>
-  <button id="s-speed">Day speed: ${sp}</button><button id="s-clean">Swearing: ${ST.settings.clean ? 'off (clean mode)' : 'on'}</button>
+  <button id="m-resume" class="buy">Resume</button><button id="m-journal">Quest log (J)</button><button id="m-map">Map (M)</button>
+  <button id="s-clean">Swearing: ${ST.settings.clean ? 'off (clean mode)' : 'on'}</button>
   <button id="s-music">Music: ${ST.settings.music ? 'on' : 'off'}</button><button id="s-sfx">Sound: ${ST.settings.sfx ? 'on' : 'off'}</button>
   <button id="m-quit">Save and quit</button></div>
-  <p class="small">Move: WASD / arrows. Brake: Shift. Use / talk: Space or E. Tools: 1-4 or Q. Map: M. Journal: J.</p>`;
+  <p class="small">Move: WASD / arrows. Brake: Shift. Use / talk: Space or E. Tools: 1-4 or Q. Map: M. Quest log: J. Skates on/off: R.</p>`;
+}
+function clockFace(night) { // 26x26 dial, sun or moon in the middle
+  return spr('clock' + (night ? 'N' : 'D'), 26, 26, g => {
+    disc(g, 13, 13, 12.5, '#2a1d22'); disc(g, 13, 13, 11.5, '#fff4d6'); disc(g, 13, 13, 9, night ? '#1c2f86' : '#7fd4ff');
+    [[12, 2], [12, 22], [2, 12], [22, 12]].forEach(([x, y]) => P(g, x, y, 2, 2, '#2a1d22'));
+    if (night) { disc(g, 13, 13, 5, '#fff4b0'); disc(g, 15.5, 11, 4.4, '#1c2f86'); P(g, 7, 8, 1, 1, '#ffffff'); P(g, 18, 17, 1, 1, '#ffffff'); P(g, 17, 7, 1, 1, '#fff4b0'); }
+    else { for (let a = 0; a < 8; a++) { const x = 13 + Math.cos(a * Math.PI / 4) * 6.5, y = 13 + Math.sin(a * Math.PI / 4) * 6.5; P(g, Math.round(x - 0.5), Math.round(y - 0.5), 1, 1, '#ff9a1a'); } disc(g, 13, 13, 4.5, '#ffd23f'); disc(g, 12, 12, 2, '#fff09a'); }
+  });
 }
 function wizHatSprite() { // original pixel wizard hat for the title
   return spr('wizhat', 40, 46, g => {
@@ -160,6 +172,7 @@ function drawMap() {
   g.font = `${Math.max(10, 13 * sc * 1.6)}px VT323, monospace`; g.fillStyle = '#fff'; g.fillText('Stock Room', 33.5 * T * sc, 16 * T * sc);
   RT.spills.forEach(s => { g.fillStyle = '#ff3a2a'; g.beginPath(); g.arc((s.x + 0.5) * T * sc, (s.y + 0.5) * T * sc, 5, 0, 6.3); g.fill(); });
   Object.keys(ANIMS).forEach(k => { if (!ST.anims[k] || !ST.anims[k].broken) return; const o = W.objs.find(o => o.anim === k); if (!o) return; g.fillStyle = '#ff9a1a'; g.fillRect((o.x + o.w / 2) * T * sc - 6, o.y * T * sc - 6, 12, 12); });
-  RT.custs.forEach(cu => { if (cu.state !== 'lost') return; g.fillStyle = '#ffe14d'; g.font = 'bold 18px sans-serif'; g.fillText('?', cu.x * sc, (cu.y - 8) * sc); });
+  RT.custs.forEach(cu => { if (cu.state !== 'lost') return; g.fillStyle = '#7fd4ff'; g.font = 'bold 18px sans-serif'; g.fillText('?', cu.x * sc, (cu.y - 8) * sc); });
+  (W.givers || []).forEach(gv => { const m = giverMarker(gv); if (!m) return; g.font = 'bold 22px sans-serif'; g.lineWidth = 4; g.strokeStyle = '#2a1d22'; const ch = m === '!' ? '!' : '?'; g.strokeText(ch, gv.px * sc, (gv.py - 14) * sc); g.fillStyle = m === 'grey?' ? '#b9c0c8' : '#ffe14d'; g.fillText(ch, gv.px * sc, (gv.py - 14) * sc); });
   g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(PL.x * sc, (PL.y - 4) * sc, 6, 0, 6.3); g.fill(); g.stroke(); g.fillStyle = '#d8342a'; g.beginPath(); g.arc(PL.x * sc, (PL.y - 4) * sc, 3, 0, 6.3); g.fill();
 }
