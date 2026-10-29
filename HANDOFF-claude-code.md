@@ -5,7 +5,7 @@ Read all of this before touching code. Owner: Flah. He is not a programmer. Talk
 ## 1. What this is
 A top-down SNES-style grocery store game, played in the browser. You are the store boss on roller skates.
 Parody of Jungle Jim's International Market (Fairfield + Eastgate, Ohio). Name in game: "Jungle John's".
-Live copy: https://claude.ai/artifact/M3M1YVBEoMT2pDLgQWMmuY (published from claude.ai chat).
+Live copy (private, Flah's claude.ai account): https://claude.ai/artifact/D8YCgh96zzowjQ2dtvm4KT. Update it each pass by publishing jungle-johns.html to that URL with the Artifact tool. The older link M3M1YVBEoMT2pDLgQWMmuY is the pre-2026-10-29 build.
 
 ## 2. Where everything is (Flah's PC)
 ```
