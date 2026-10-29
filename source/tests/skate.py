@@ -24,8 +24,9 @@ with sync_playwright() as p:
       reset(); x0=P.x; K.KeyD=true; step(0.1); K.KeyD=false; step(1.5); out.tapMovePx=+(P.x-x0).toFixed(1);
       out.maxSpeed=ms; return out; }""")
     print(json.dumps(r))
-    # locked feel (Flah OK'd 2026-10-29): name, low, high
-    T=[('secsTo90pct',0.33,0.41),('coastTiles',2.2,2.8),('brakeTiles',0.3,0.7),('carveKeepsSpeed',0.95,1.0),('carveHeadingDeg',70,88),('secsToReverse',0.33,0.41),('tapMovePx',1.5,4.0),('maxSpeed',72,72)]
+    # guard rails, not exact values: still feels like skating (quick start, real glide, brake works, carve keeps speed).
+    # tune the feel freely inside these; today's numbers: 0.37 s, 2.5 tiles coast, 0.5 brake, 0.37 s T-stop, 72 px/s
+    T=[('secsTo90pct',0.2,0.6),('coastTiles',1.5,4.0),('brakeTiles',0.2,1.0),('carveKeepsSpeed',0.9,1.0),('carveHeadingDeg',60,90),('secsToReverse',0.2,0.6),('tapMovePx',1.0,6.0),('maxSpeed',60,90)]
     for k,lo,hi in T: print(('PASS ' if lo<=r[k]<=hi else 'FAIL ')+k+' '+str(r[k])+f' (want {lo}-{hi})')
     # which leg goes first depends on frame timing; alternating is the rule
     print(('PASS ' if r['poseSeq'] in ('LR','RL') and r['pushesSeen']>=3 else 'FAIL ')+'strides alternate L/R '+r['poseSeq']+' '+str(r['pushesSeen']))

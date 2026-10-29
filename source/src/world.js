@@ -230,6 +230,13 @@ function renderGround() {
     (FLOOR[k] || FLOOR.lino)(g, px, py, r, x, y);
     if (k === 'plywood') { if ((x + y) % 2 === 0) P(g, px, py + 7, 16, 2, '#f2c81c'); }
   }
+  // metal transition strips where two indoor floors meet (dark seam + light lip, lit from the top left)
+  const flr = (x, y) => inb(x, y) && !W.outdoor[idx(x, y)] && !W.wall[idx(x, y)] ? W.ground[idx(x, y)] : null;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const k = flr(x, y); if (!k || k === 'mat') continue; const px = x * T, py = y * T, rt = flr(x + 1, y), dn = flr(x, y + 1);
+    if (rt && rt !== k && rt !== 'mat') { P(g, px + 15, py, 1, 16, '#7d7564'); P(g, px + 16, py, 1, 16, '#d6cfbc'); }
+    if (dn && dn !== k && dn !== 'mat') { P(g, px, py + 15, 16, 1, '#7d7564'); P(g, px, py + 16, 16, 1, '#d6cfbc'); }
+  }
   // parking lines
   W.parking.forEach(p => { const px = p.x * T, py = p.y * T; if (p.side) { P(g, px, py - 1, 16, 1, '#ece8dc'); } else { P(g, px, py, 1, 26, '#ece8dc'); P(g, px + 15, py, 1, 26, '#ece8dc'); } });
   // road dashes + curb

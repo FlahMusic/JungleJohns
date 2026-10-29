@@ -34,25 +34,39 @@ function sfx(n) { if (!AU.sfxOn || !AU.ctx) return; try { if (AU.started && AU.m
 function musicStart() {
   if (!AU.ctx || AU.started) return; AU.started = true; AU.music.gain.value = 1; MUSIC.init(AU.ctx, AU.music); MUSIC.setVolume(0.55); MUSIC.start();
 }
-function musicTick() { // pick the situation from what's happening; the change lands on the next bar
+// which song each department plays (music.js SONGS); anything not listed plays 'market'.
+// three key families: middle = C, west international wing = G, north-east wine/cheese wing = F (when the day is in C).
+// tests/mzone.py checks every pair of departments you can walk between is at most one note apart.
+const ZONE_SONG = {
+  produce: 'fresh', natural: 'fresh', bakery: 'counter', meat: 'counter', frozen: 'frozen', candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy',
+  europe: 'europe', eurosouth: 'europe', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'americas',
+  hotsauce: 'hot', intl: 'souk', seafood: 'harbor', honey: 'herb', herb: 'herb', tiktok: 'viral',
+  wine: 'lounge', liquor: 'lounge', cigars: 'lounge', tasting: 'lounge', cheese: 'bistro', tenants: 'bistro', deli: 'bistro', beer: 'beerhall', sushi: 'sushi',
+};
+const zoneSong = id => ZONE_SONG[id] || 'market';
+function musicTick() { // pick the song from where you are; music.js gets there on the beat
   if (!AU.started) return; AU.music.gain.value = AU.musicOn && !document.hidden ? 1 : 0;
-  let s = 'day';
+  let s = 'market'; const moods = [];
   if (RT.menu === 'title') s = 'title';
   else if (RT.menu && RT.menu !== 'map') s = 'menu';
   else if (RT.sleeping) s = 'sleep';
   else {
     const m = ST.minute, tx = Math.floor(PL.x / T), ty = Math.floor((PL.y - 3) / T), zi = inb(tx, ty) ? W.zone[idx(tx, ty)] : -1, dz = zi >= 0 ? DEPTS[zi].id : null;
     const outdoor = inb(tx, ty) && W.outdoor[idx(tx, ty)], stock = tx >= W.stockRect[0] && tx <= W.stockRect[2] && ty >= W.stockRect[1] && ty <= W.stockRect[3];
+    // a department takes over after ~1.2 s inside it, so skating past a corner can't flip the song.
+    // the open floor between departments keeps the last one. walking in from another place picks it up at once.
+    const wasStore = MUSIC.SONGS[AU.sit] && MUSIC.SONGS[AU.sit].place === 'store';
+    if (dz && dz !== AU.cand) { AU.cand = dz; AU.candN = 0; } else if (dz) AU.candN++;
+    if (dz && (AU.candN >= 3 || !wasStore || !AU.zone)) AU.zone = zoneSong(dz);
     if (m >= CLOSE_MIN || m < DAY_START + 30) s = 'night';
-    else if (PL.onCash) s = 'checkout';
     else if (stock) s = 'stock';
     else if (outdoor) s = ST.weather === 'rain' ? 'rain' : 'outside';
-    else if (ST.weather === 'rain') s = 'rain';
-    else if (m < OPEN_MIN) s = 'prep';
-    else if (['wine', 'tasting', 'cheese', 'liquor', 'cigars'].includes(dz)) s = 'lounge';
-    else if (['candy', 'toys', 'gacha', 'cards'].includes(dz)) s = 'candy';
-    else if (eventToday()) s = 'fest';
-    else if (RT.custs.length > 30) s = 'busy';
+    else s = AU.zone || 'market';
+    if (m < OPEN_MIN) moods.push('morning');
+    if (ST.weather === 'rain') moods.push('rain');
+    if (eventToday()) moods.push('fest');
+    if (RT.custs.length > 30) moods.push('busy');
+    if (PL.onCash) moods.push('checkout');
   }
-  MUSIC.setSituation(s); AU.sit = s;
+  MUSIC.set(s, moods); AU.sit = s;
 }

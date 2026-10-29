@@ -1,0 +1,16 @@
+<html><body><script src="../src/music.js"></script><script>
+// a walk through the store, rendered offline to a WAV so the transitions can be judged by ear
+const ROUTE=[[0,'market'],[12,'fresh'],[26,'counter'],[38,'candy'],[50,'beerhall'],[62,'lounge'],[78,'bistro'],[90,'market'],[100,'outside'],[112,'market']], SEC=124, SR=22050;
+async function run(){
+  const ctx=new OfflineAudioContext(1,SR*SEC,SR); MUSIC.init(ctx,ctx.destination); MUSIC.setVolume(0.55); const M=MUSIC.M;
+  MUSIC.reset('market'); M.step=0; M.next=0.05; M.running=true; const moods=[];
+  for(let t=0;t<SEC-1;t+=0.1){ const hit=ROUTE.filter(r=>r[0]<=t).pop(); MUSIC.set(hit[1],moods); MUSIC.scheduleUntil(t); }
+  const buf=await ctx.startRendering(), d=buf.getChannelData(0), n=d.length, ab=new ArrayBuffer(44+n*2), v=new DataView(ab);
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,SR,true);v.setUint32(28,SR*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  let peak=0; for(let i=0;i<n;i++) peak=Math.max(peak,Math.abs(d[i])); const g=peak>0?Math.min(4,0.7/peak):1; // normalise to a comfortable level
+  for(let i=0;i<n;i++) v.setInt16(44+i*2,Math.max(-1,Math.min(1,d[i]*g))*32767,true);
+  let s=''; const u=new Uint8Array(ab); for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); window.WAV=btoa(s); document.title='done';
+}
+run().catch(e=>document.title="ERR "+e.message);
+</script></body></html>

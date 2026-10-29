@@ -481,39 +481,68 @@ function outline(c, col = OL) {
 function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
 
 // ===================== FLOORS (16x16, drawn into ground canvas) =====================
-function speck(g, x0, y0, r, n, cols) { for (let i = 0; i < n; i++) P(g, x0 + Math.floor(r() * 16), y0 + Math.floor(r() * 16), 1, 1, pick(r, cols)); }
-function checker(g, x0, y0, a, b, sz) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) P(g, x0 + x, y0 + y, sz, sz, ((x + y) / sz) % 2 ? b : a); }
-function tiles(g, x0, y0, a, b, grout, sz, r) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) { P(g, x0 + x, y0 + y, sz, sz, r() < 0.5 ? a : b); P(g, x0 + x, y0 + y, sz, 1, grout); P(g, x0 + x, y0 + y, 1, sz, grout); P(g, x0 + x + 1, y0 + y + 1, 1, 1, shade(a, 0.25)); } }
-function planks(g, x0, y0, a, b, seam, tx, ty) { for (let row = 0; row < 4; row++) { const off = ((ty * 4 + row) * 7) % 16; P(g, x0, y0 + row * 4, 16, 4, (row + tx) % 2 ? a : b); P(g, x0, y0 + row * 4 + 3, 16, 1, seam); P(g, x0 + ((off + tx * 5) % 16), y0 + row * 4, 1, 3, seam); P(g, x0, y0 + row * 4, 16, 1, shade((row + tx) % 2 ? a : b, 0.12)); } }
+// SNES-style: every tile is bevelled (light top-left edge, dark bottom-right), texture comes from ordered dither
+// and a few placed details, never per-pixel random static. light comes from the top left everywhere.
+function bevel(g, x, y, w, h, c, hi = 0.16, lo = -0.13) { P(g, x, y, w, h, c); P(g, x, y, w, 1, shade(c, hi)); P(g, x, y, 1, h, shade(c, hi)); P(g, x, y + h - 1, w, 1, shade(c, lo)); P(g, x + w - 1, y, 1, h, shade(c, lo)); }
+function dither(g, x0, y0, c, gap = 4, off = 0) { for (let y = 1; y < 15; y += 2) for (let x = ((y >> 1) * 2 + off) % gap + 1; x < 15; x += gap) P(g, x0 + x, y0 + y, 1, 1, c); }
+function speck(g, x0, y0, r, n, cols) { for (let i = 0; i < n; i++) P(g, x0 + 2 + Math.floor(r() * 12), y0 + 2 + Math.floor(r() * 12), 1, 1, pick(r, cols)); }
+function checker(g, x0, y0, a, b, sz) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) { const c = ((x + y) / sz) % 2 ? b : a; bevel(g, x0 + x, y0 + y, sz, sz, c, 0.1, -0.12); } }
+function tiles(g, x0, y0, a, b, grout, sz, r) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) { const c = r() < 0.5 ? a : b; bevel(g, x0 + x + 1, y0 + y + 1, sz - 1, sz - 1, c); P(g, x0 + x, y0 + y, sz, 1, grout); P(g, x0 + x, y0 + y, 1, sz, grout); } }
+function planks(g, x0, y0, a, b, seam, tx, ty) {
+  for (let row = 0; row < 4; row++) {
+    const c = (row + tx) % 2 ? a : b, off = ((ty * 4 + row) * 7 + tx * 5) % 16, yy = y0 + row * 4;
+    P(g, x0, yy, 16, 4, c); P(g, x0, yy, 16, 1, shade(c, 0.14)); P(g, x0, yy + 3, 16, 1, seam); P(g, x0 + off, yy, 1, 3, seam); P(g, x0 + off + 1, yy, 1, 3, shade(c, 0.2));
+    P(g, x0 + (off + 6) % 13, yy + 1, 4, 1, shade(c, -0.07)); P(g, x0 + (off + 11) % 14, yy + 2, 2, 1, shade(c, -0.07)); // grain
+  }
+}
+function carpet(g, x, y, base, a, b) { P(g, x, y, 16, 16, base); dither(g, x, y, a, 2, 0); for (let i = 0; i < 16; i += 4) P(g, x + i, y + ((i * 3) % 16), 1, 1, b); }
 const FLOOR = {
-  lino(g, x, y, r) { P(g, x, y, 16, 16, '#ece6d4'); if (r() < 0.08) P(g, x, y, 16, 16, '#cfe0ea'); P(g, x, y, 16, 1, '#d8cfb8'); P(g, x, y, 1, 16, '#d8cfb8'); speck(g, x, y, r, 5, ['#ddd5bf', '#e2dac5']); },
-  lino2(g, x, y, r) { P(g, x, y, 16, 16, '#e4eaf0'); if (r() < 0.1) P(g, x, y, 16, 16, '#d9cdea'); P(g, x, y, 16, 1, '#cbd3dc'); P(g, x, y, 1, 16, '#cbd3dc'); speck(g, x, y, r, 4, ['#d5dce4']); },
+  lino(g, x, y, r) { // big vinyl squares, the odd blue one, a polish glint now and then
+    const blue = r() < 0.08; bevel(g, x, y, 16, 16, blue ? '#cfe0ea' : '#ece6d4', 0.35, -0.08); dither(g, x, y, blue ? '#c4d6e2' : '#e3dcc7', 6);
+    if (r() < 0.18) { P(g, x + 3, y + 3, 3, 1, '#fbf8ee'); P(g, x + 3, y + 4, 1, 1, '#fbf8ee'); }
+  },
+  lino2(g, x, y, r) { const lav = r() < 0.1; bevel(g, x, y, 16, 16, lav ? '#d9cdea' : '#e4eaf0', 0.35, -0.08); dither(g, x, y, lav ? '#cfc2e2' : '#d9e0e8', 6); },
   terra(g, x, y, r) { tiles(g, x, y, '#c8754e', '#bd6a45', '#93492f', 8, r); },
-  terra2(g, x, y, r) { tiles(g, x, y, '#c7925f', '#bb8756', '#8e5f37', 8, r); P(g, x + 7, y + 7, 2, 2, '#2e7d6b'); },
+  terra2(g, x, y, r) { tiles(g, x, y, '#c7925f', '#bb8756', '#8e5f37', 8, r); P(g, x + 7, y + 7, 2, 2, '#2e7d6b'); P(g, x + 7, y + 7, 1, 1, '#4aa08a'); },
   orange(g, x, y, r) { tiles(g, x, y, '#e2a456', '#d9994d', '#a96d2c', 8, r); },
   sand(g, x, y, r) { tiles(g, x, y, '#dcc38d', '#d3b880', '#a88b55', 8, r); },
   redcheck(g, x, y) { checker(g, x, y, '#c63b2e', '#ecdfca', 8); },
-  pink(g, x, y, r) { P(g, x, y, 16, 16, '#f4c9d8'); P(g, x, y, 16, 1, '#e6b2c4'); P(g, x, y, 1, 16, '#e6b2c4'); speck(g, x, y, r, 6, ['#6fc6e8', '#ffe066', '#9be37a', '#ff7aa8']); },
+  pink(g, x, y, r) { // candy floor: placed sprinkles, one of four layouts
+    bevel(g, x, y, 16, 16, '#f4c9d8', 0.3, -0.08); const L = [[[3, 4], [10, 2], [6, 11], [12, 9]], [[2, 9], [8, 5], [13, 12], [5, 2]], [[4, 13], [11, 6], [7, 8], [2, 3]], [[9, 11], [3, 7], [12, 3], [6, 4]]][Math.floor(r() * 4)];
+    L.forEach(([a, b], i) => { const c = ['#6fc6e8', '#ffe066', '#9be37a', '#ff7aa8'][i]; if (i % 2) P(g, x + a, y + b, 2, 1, c); else P(g, x + a, y + b, 1, 2, c); });
+  },
   darkwood(g, x, y, r, tx, ty) { planks(g, x, y, '#634029', '#58381f', '#3a2314', tx, ty); },
   wood(g, x, y, r, tx, ty) { planks(g, x, y, '#b98a55', '#ad7e4a', '#7a542f', tx, ty); },
-  coolblue(g, x, y, r) { P(g, x, y, 16, 16, '#9db3c0'); speck(g, x, y, r, 10, ['#8fa5b2', '#aec2ce']); P(g, x, y, 16, 1, '#8799a5'); },
+  coolblue(g, x, y, r) { bevel(g, x, y, 16, 16, '#9db3c0', 0.18, -0.12); dither(g, x, y, '#a8bdc9', 4); if (r() < 0.2) P(g, x + 4, y + 4, 5, 1, '#b8cbd6'); },
   cheesecheck(g, x, y) { checker(g, x, y, '#f2e7c9', '#34343c', 8); },
-  tatami(g, x, y) { P(g, x, y, 16, 16, '#cfc483'); for (let i = 0; i < 16; i += 2) P(g, x, y + i, 16, 1, '#c2b673'); P(g, x, y, 16, 1, '#4a5a3a'); P(g, x, y, 1, 16, '#4a5a3a'); },
+  tatami(g, x, y) { P(g, x, y, 16, 16, '#cfc483'); for (let i = 1; i < 16; i += 2) P(g, x, y + i, 16, 1, '#c2b673'); P(g, x, y + 1, 16, 1, '#ddd398'); P(g, x, y, 16, 1, '#4a5a3a'); P(g, x, y, 1, 16, '#4a5a3a'); },
   bluetile(g, x, y, r) { tiles(g, x, y, '#94c4d6', '#86b9cc', '#6898ab', 4, r); },
   warm(g, x, y, r) { tiles(g, x, y, '#ebcb9f', '#e2bf90', '#b8915f', 8, r); },
   redtile(g, x, y, r) { tiles(g, x, y, '#c76c5c', '#bb6152', '#8e3f34', 8, r); },
   sage(g, x, y, r) { tiles(g, x, y, '#adc493', '#a2ba88', '#7c9563', 8, r); },
-  neon(g, x, y) { P(g, x, y, 16, 16, '#1b1a26'); P(g, x, y, 16, 1, '#ff2d6f'); P(g, x, y, 1, 16, '#25d4ee'); },
-  ice(g, x, y, r) { tiles(g, x, y, '#d9f0f8', '#cde8f3', '#a9d2e3', 8, r); if (r() < 0.3) P(g, x + 4 + Math.floor(r() * 8), y + 4 + Math.floor(r() * 8), 1, 1, '#ffffff'); },
-  kids(g, x, y, r) { P(g, x, y, 16, 16, '#3f6fd0'); speck(g, x, y, r, 8, ['#ffd23f', '#ff6b6b', '#5ee07a', '#ffffff']); },
-  kids2(g, x, y, r) { P(g, x, y, 16, 16, '#ff9cc6'); disc(g, x + 4, y + 4, 1.6, '#fff3a8'); disc(g, x + 12, y + 12, 1.6, '#9ff0ff'); },
-  bluecarpet(g, x, y, r) { P(g, x, y, 16, 16, '#2f4c9e'); speck(g, x, y, r, 10, ['#3a5ab0', '#263f86']); },
-  concrete(g, x, y, r) { P(g, x, y, 16, 16, '#a9a69c'); speck(g, x, y, r, 14, ['#9b988e', '#b6b3a9', '#8f8c83']); if (r() < 0.15) { P(g, x + 3, y + 9, 5, 1, '#8a877e'); P(g, x + 8, y + 10, 3, 1, '#8a877e'); } },
+  neon(g, x, y) { P(g, x, y, 16, 16, '#1b1a26'); dither(g, x, y, '#24223a', 4); P(g, x, y, 16, 1, '#ff2d6f'); P(g, x, y, 1, 16, '#25d4ee'); P(g, x + 1, y + 1, 15, 1, '#3a1a2e'); },
+  ice(g, x, y, r) { tiles(g, x, y, '#d9f0f8', '#cde8f3', '#a9d2e3', 8, r); if (r() < 0.3) { const a = 3 + Math.floor(r() * 3) * 4; P(g, x + a, y + a, 1, 1, '#ffffff'); P(g, x + a + 1, y + a - 1, 1, 1, '#ffffff'); } },
+  kids(g, x, y, r) { carpet(g, x, y, '#3f6fd0', '#3a66c4', '#5a86e0'); const c = pick(r, ['#ffd23f', '#ff6b6b', '#5ee07a', '#ffffff']); P(g, x + 7, y + 6, 1, 3, c); P(g, x + 6, y + 7, 3, 1, c); },
+  kids2(g, x, y, r) { P(g, x, y, 16, 16, '#ff9cc6'); dither(g, x, y, '#f590bc', 4); disc(g, x + 4, y + 4, 1.6, '#fff3a8'); disc(g, x + 12, y + 12, 1.6, '#9ff0ff'); P(g, x + 3, y + 3, 1, 1, '#ffffff'); P(g, x + 11, y + 11, 1, 1, '#ffffff'); },
+  bluecarpet(g, x, y, r) { carpet(g, x, y, '#2f4c9e', '#2a4590', '#3a5ab0'); },
+  concrete(g, x, y, r, tx, ty) { // stock room: sealed slabs, joints every 2 tiles, the odd crack
+    P(g, x, y, 16, 16, '#a9a69c'); dither(g, x, y, '#a09d93', 3); dither(g, x, y, '#b3b0a6', 5, 2);
+    if (tx % 2 === 0) P(g, x, y, 1, 16, '#8f8c83'); if (ty % 2 === 0) P(g, x, y, 16, 1, '#8f8c83');
+    if (r() < 0.12) { P(g, x + 3, y + 9, 4, 1, '#87847b'); P(g, x + 7, y + 10, 3, 1, '#87847b'); P(g, x + 10, y + 11, 2, 1, '#87847b'); }
+  },
   plywood(g, x, y, r, tx, ty) { planks(g, x, y, '#d2b07a', '#c9a66f', '#a5834f', tx, ty); },
-  asphalt(g, x, y, r) { P(g, x, y, 16, 16, '#4c4c54'); speck(g, x, y, r, 18, ['#56565e', '#43434a', '#5d5d66']); },
-  sidewalk(g, x, y, r) { P(g, x, y, 16, 16, '#d3cebf'); P(g, x, y, 16, 1, '#b5af9f'); P(g, x, y, 1, 16, '#b5af9f'); speck(g, x, y, r, 6, ['#c6c1b2', '#dcd7c9']); },
-  grass(g, x, y, r) { P(g, x, y, 16, 16, '#5fae47'); speck(g, x, y, r, 14, ['#57a341', '#6bba52']); for (let i = 0; i < 3; i++) { const a = Math.floor(r() * 14), b = Math.floor(r() * 13); P(g, x + a, y + b, 1, 2, '#3f8a34'); P(g, x + a + 1, y + b + 1, 1, 2, '#3f8a34'); } if (r() < 0.07) { const a = 3 + Math.floor(r() * 10), b = 3 + Math.floor(r() * 10); const c = pick(r, ['#fff', '#ffe14d', '#ff8fb1']); P(g, x + a, y + b, 1, 1, c); P(g, x + a - 1, y + b, 1, 1, c); P(g, x + a + 1, y + b, 1, 1, c); P(g, x + a, y + b - 1, 1, 1, c); P(g, x + a, y + b + 1, 1, 1, c); P(g, x + a, y + b, 1, 1, '#ffd23f'); } },
-  road(g, x, y, r) { P(g, x, y, 16, 16, '#3d3d44'); speck(g, x, y, r, 12, ['#45454d', '#36363c']); },
+  asphalt(g, x, y, r) { // fine aggregate in an ordered pattern, gravel clumps and the odd crack
+    P(g, x, y, 16, 16, '#4c4c54'); dither(g, x, y, '#55555d', 3); dither(g, x, y, '#45454c', 5, 1);
+    for (let i = 0; i < 2; i++) { const a = 2 + Math.floor(r() * 11), b = 2 + Math.floor(r() * 11); P(g, x + a, y + b, 2, 1, '#62626b'); P(g, x + a, y + b + 1, 1, 1, '#3e3e45'); }
+    if (r() < 0.06) { const a = 2 + Math.floor(r() * 6); for (let i = 0; i < 6; i++) P(g, x + a + i, y + 4 + i + (i > 2 ? 1 : 0), 1, 1, '#38383e'); }
+  },
+  sidewalk(g, x, y, r) { bevel(g, x, y, 16, 16, '#d3cebf', 0.3, -0.16); dither(g, x, y, '#cac5b5', 4); if (r() < 0.15) P(g, x + 4 + Math.floor(r() * 8), y + 5 + Math.floor(r() * 6), 1, 1, '#a9a394'); },
+  grass(g, x, y, r) { // two-tone dither + placed tufts (dark blade, light tip), a few flowers
+    P(g, x, y, 16, 16, '#5fae47'); dither(g, x, y, '#58a442', 4); dither(g, x, y, '#66b84e', 6, 3);
+    for (let i = 0; i < 3; i++) { const a = 1 + Math.floor(r() * 12), b = 2 + Math.floor(r() * 11); P(g, x + a, y + b, 1, 2, '#3f8a34'); P(g, x + a + 2, y + b, 1, 2, '#3f8a34'); P(g, x + a + 1, y + b + 1, 1, 1, '#3f8a34'); P(g, x + a, y + b - 1, 1, 1, '#7cc45e'); P(g, x + a + 2, y + b - 1, 1, 1, '#7cc45e'); }
+    if (r() < 0.07) { const a = 3 + Math.floor(r() * 10), b = 3 + Math.floor(r() * 10); const c = pick(r, ['#fff', '#ffe14d', '#ff8fb1']); P(g, x + a, y + b, 1, 1, c); P(g, x + a - 1, y + b, 1, 1, c); P(g, x + a + 1, y + b, 1, 1, c); P(g, x + a, y + b - 1, 1, 1, c); P(g, x + a, y + b + 1, 1, 1, c); P(g, x + a, y + b, 1, 1, '#ffd23f'); P(g, x + a, y + b + 2, 1, 1, '#3f8a34'); }
+  },
+  road(g, x, y, r) { P(g, x, y, 16, 16, '#3d3d44'); dither(g, x, y, '#45454d', 3); dither(g, x, y, '#36363c', 5, 2); },
 };
 
 // ===================== shelf items (tiny, ~4x6) =====================
@@ -1022,10 +1051,33 @@ function spillSprite(kind) {
 function toolIcon(id) {
   return spr('tool_' + id, 18, 18, g => {
     g.translate(1, 1);
-    if (id === 'hands') { P(g, 4, 6, 8, 8, '#f6f6f2'); P(g, 4, 2, 2, 5, '#f6f6f2'); P(g, 6, 1, 2, 6, '#f6f6f2'); P(g, 8, 1, 2, 6, '#f6f6f2'); P(g, 10, 2, 2, 5, '#f6f6f2'); P(g, 1, 7, 3, 3, '#f6f6f2'); P(g, 5, 9, 6, 1, '#c8c8c0'); P(g, 4, 13, 8, 2, '#d8342a'); }
-    if (id === 'mop') { P(g, 10, 0, 2, 10, '#c89a5a'); P(g, 5, 9, 10, 2, '#5a6a8a'); for (let i = 5; i < 15; i += 2) P(g, i, 11, 1, 4, '#e8e8e0'); }
-    if (id === 'wrench') { P(g, 4, 9, 3, 3, '#a8b0ba'); for (let i = 0; i < 7; i++) P(g, 6 + i, 8 - i, 2, 2, '#a8b0ba'); disc(g, 12.5, 3.5, 3, '#a8b0ba'); P(g, 12, 1, 2, 3, '#1b1a26'); disc(g, 4.5, 11.5, 1, '#6a7280'); }
-    if (id === 'food') { P(g, 3, 3, 10, 12, '#f2c230'); P(g, 3, 3, 10, 2, '#e8e8f0'); P(g, 5, 8, 5, 3, '#ff7a2a'); P(g, 10, 7, 2, 5, '#ff7a2a'); P(g, 6, 9, 1, 1, '#1a1a1a'); }
+    // 3 tones per material (light, base, shade) + outline, lit from the top left like the rest of the game
+    if (id === 'hands') { // work glove
+      const w = '#fbfbf5', ws = '#cfcfc4', wh = '#ffffff', r = '#d8342a', rd = '#9a2018', rh = '#f2604e';
+      [[4, 3], [6, 1], [8, 1], [10, 2]].forEach(([x, y]) => { P(g, x, y, 2, 8 - y, w); P(g, x + 1, y + 1, 1, 7 - y, ws); P(g, x, y, 1, 1, wh); });
+      P(g, 4, 7, 8, 6, w); P(g, 11, 7, 1, 6, ws); P(g, 4, 12, 8, 1, ws); P(g, 5, 8, 2, 2, wh); P(g, 5, 7, 6, 1, ws);
+      P(g, 1, 8, 3, 3, w); P(g, 1, 8, 2, 1, wh); P(g, 2, 10, 2, 1, ws);
+      P(g, 3, 13, 10, 3, r); P(g, 3, 13, 10, 1, rh); P(g, 3, 15, 10, 1, rd); P(g, 12, 13, 1, 3, rd);
+    }
+    if (id === 'mop') {
+      P(g, 9, 0, 2, 9, '#c89a5a'); P(g, 9, 0, 1, 9, '#e2b97c'); P(g, 10, 0, 1, 9, '#93683a');
+      P(g, 5, 8, 10, 2, '#9aa3ad'); P(g, 5, 8, 10, 1, '#d4dae0'); P(g, 5, 9, 10, 1, '#6a7280');
+      for (let i = 0; i < 5; i++) { const x = 5 + i * 2, h = i % 2 ? 4 : 5; P(g, x, 10, 2, h, '#ece6d0'); P(g, x + 1, 10, 1, h, '#bfb8a0'); }
+      P(g, 2, 12, 1, 2, '#7cc4f0'); P(g, 2, 12, 1, 1, '#d8f0ff'); // a drip
+    }
+    if (id === 'wrench') {
+      const b = '#a8b0ba', hi = '#e4e9ee', lo = '#6a7280';
+      disc(g, 3.5, 12.5, 2.8, b); P(g, 2, 10, 2, 1, hi); P(g, 1, 11, 1, 2, hi);
+      for (let i = 0; i < 7; i++) { P(g, 4 + i, 10 - i, 2, 2, b); P(g, 4 + i, 10 - i, 1, 1, hi); P(g, 5 + i, 11 - i, 1, 1, lo); }
+      disc(g, 12.5, 3.5, 3.3, b); P(g, 10, 1, 2, 1, hi); P(g, 9, 2, 1, 2, hi); P(g, 14, 4, 1, 2, lo); P(g, 12, 6, 2, 1, lo);
+      g.clearRect(12, -1, 3, 4); disc(g, 3.5, 12.5, 1, '#3a3f48');
+    }
+    if (id === 'food') { // fish food tin
+      P(g, 3, 4, 10, 11, '#f2c230'); P(g, 3, 4, 2, 11, '#f8dc70'); P(g, 11, 4, 2, 11, '#c8981c'); P(g, 3, 14, 10, 1, '#9a7414');
+      P(g, 3, 2, 10, 3, '#e8e8f0'); P(g, 3, 2, 10, 1, '#ffffff'); P(g, 3, 4, 10, 1, '#b8bcc8');
+      P(g, 3, 7, 10, 6, '#2e7de2'); P(g, 3, 7, 2, 6, '#5a9cf0'); P(g, 11, 7, 2, 6, '#1f5aae');
+      P(g, 5, 9, 4, 2, '#ff8a2a'); P(g, 5, 9, 3, 1, '#ffb060'); P(g, 9, 8, 1, 4, '#ff8a2a'); P(g, 10, 8, 1, 1, '#ff8a2a'); P(g, 10, 11, 1, 1, '#ff8a2a'); P(g, 6, 9, 1, 1, '#1a1a1a');
+    }
   }, true);
 }
 
@@ -1336,6 +1388,13 @@ function renderGround() {
     (FLOOR[k] || FLOOR.lino)(g, px, py, r, x, y);
     if (k === 'plywood') { if ((x + y) % 2 === 0) P(g, px, py + 7, 16, 2, '#f2c81c'); }
   }
+  // metal transition strips where two indoor floors meet (dark seam + light lip, lit from the top left)
+  const flr = (x, y) => inb(x, y) && !W.outdoor[idx(x, y)] && !W.wall[idx(x, y)] ? W.ground[idx(x, y)] : null;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const k = flr(x, y); if (!k || k === 'mat') continue; const px = x * T, py = y * T, rt = flr(x + 1, y), dn = flr(x, y + 1);
+    if (rt && rt !== k && rt !== 'mat') { P(g, px + 15, py, 1, 16, '#7d7564'); P(g, px + 16, py, 1, 16, '#d6cfbc'); }
+    if (dn && dn !== k && dn !== 'mat') { P(g, px, py + 15, 16, 1, '#7d7564'); P(g, px, py + 16, 16, 1, '#d6cfbc'); }
+  }
   // parking lines
   W.parking.forEach(p => { const px = p.x * T, py = p.y * T; if (p.side) { P(g, px, py - 1, 16, 1, '#ece8dc'); } else { P(g, px, py, 1, 26, '#ece8dc'); P(g, px + 15, py, 1, 26, '#ece8dc'); } });
   // road dashes + curb
@@ -1375,35 +1434,74 @@ const MUSIC = (() => {
     bossa: { K: rep([0, 6, 8, 14], 4), h: rep([0, 2, 4, 6, 8, 10, 12, 14], 4), cl: rep([0, 3, 6, 10, 13], 4) },
     pop: { K: rep([0, 6, 10], 4), s: bars([4, 12], [4, 12], [4, 12], [4, 10, 12]), h: bars([0, 2, 4, 6, 8, 10, 12, 14], [0, 2, 4, 6, 8, 10, 12, 15], [0, 2, 4, 6, 8, 10, 12, 14], [0, 2, 4, 6, 8, 10, 12]) },
     march: { K: rep([0, 8], 4), s: rep([4, 6, 12, 14, 15], 4), h: rep([0, 4, 8, 12], 4) },
+    polka: { K: rep([0, 8], 4), s: rep([4, 12], 4), h: rep([2, 6, 10, 14], 4) },
     conga: { K: rep([0, 8], 4), r: rep([4, 12], 4), c: rep([2, 7, 11], 4), C: rep([3, 6, 14], 4) },
     samba: { K: rep([0, 8], 4), c: rep([2, 6, 10, 14], 4), C: rep([3, 7, 11, 15], 4), r: rep([0, 3, 6, 10, 12], 4), h: rep([0, 2, 4, 6, 8, 10, 12, 14], 4) },
     jazz: { y: rep([0, 4, 6, 8, 12, 14], 4), h: rep([4, 12], 4), K: bars([0], [], [0], [10]), s: bars([], [14], [6], [10, 14]) },
   };
-  const KITVOICE = { chip: { lo: 'K', mid: 's', hi: 'h' }, bossa: { lo: 'K', mid: 'r', hi: 'h' }, pop: { lo: 'K', mid: 's', hi: 'h' }, march: { lo: 'K', mid: 's', hi: 'h' }, conga: { lo: 'K', mid: 'C', hi: 'h' }, samba: { lo: 'K', mid: 'r', hi: 'h' }, jazz: { lo: 'K', mid: 's', hi: 'y' } };
-  const FEEL = { pop: { dyn: .35, time: .25, sw16: 0, sw8: 0 }, bossa: { dyn: .5, time: .45, sw16: .18, sw8: 0 }, jazz: { dyn: .6, time: .5, sw8: .85, sw16: 0 } };
-  const CHORD_NEXT = { use: [1, 0.6, 0.3, 1, 1, 0.85, 0.08], next: { 1: { 4: 1.8 }, 2: { 3: 1.7, 5: 1.7 }, 3: { 0: 1.3, 4: 1.4 }, 4: { 0: 1.8, 5: 1.3 }, 5: { 3: 1.4, 1: 1.3 } } };
-  const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], lydian: [0, 2, 4, 6, 7, 9, 11], dorian: [0, 2, 3, 5, 7, 9, 10], mixolydian: [0, 2, 4, 5, 7, 9, 10], minor: [0, 2, 3, 5, 7, 8, 10] };
-  const PENT = [0, 1, 2, 4, 5]; // scale degrees of the major pentatonic inside a 7-note major scale
-  // situations = bundles of knobs. tempos, meters, modes and the accordion/tuba/flute palette come from
-  // measuring 11 Harvest Moon (SNES) fan MIDI transcriptions: 95-180 bpm, mostly major, waltzes in 3/4,
-  // fall/winter in minor, 5-10 lead notes a bar, 4-10 voices. key: semitones from the day's root.
-  const SIT = {
-    title:    { kit: 'bossa', bpm: 120, meter: 4, key: 0, scale: 'major', lead: 'accordion', bassV: 'tuba', dens: 3, x: 0.25, drums: 0.5, comp: 0, pad: 0.6, bass: 1 },
-    prep:     { kit: null, bpm: 108, meter: 3, key: 0, scale: 'major', lead: 'flute', bassV: 'tuba', dens: 2, x: 0, drums: 0, comp: 0, pad: 0.7, bass: 1 },
-    day:      { kit: 'pop', bpm: 120, meter: 4, key: 0, scale: 'major', lead: 'accordion', bassV: 'tuba', dens: 3, x: 0.28, drums: 0.5, comp: 4, pad: 0.5, bass: 1 },
-    busy:     { kit: 'pop', bpm: 126, meter: 4, key: 0, scale: 'major', lead: 'accordion', bassV: 'tuba', dens: 4, x: 0.4, drums: 0.6, comp: 2, pad: 0.5, bass: 1 },
-    lounge:   { kit: 'jazz', bpm: 96, meter: 4, key: 2, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2, x: 0.3, drums: 0.45, comp: 4, pad: 0.7, bass: 1 },
-    candy:    { kit: 'chip', bpm: 132, meter: 4, key: 7, scale: 'major', lead: 'square', bassV: 'tuba', dens: 4, x: 0.35, drums: 0.5, comp: 2, pad: 0.4, bass: 1 },
-    checkout: { kit: 'chip', bpm: 120, meter: 4, key: 7, scale: 'mixolydian', lead: 'pluck', bassV: 'tuba', dens: 3, x: 0.3, drums: 0.5, comp: 2, pad: 0.5, bass: 1 },
-    stock:    { kit: 'march', bpm: 110, meter: 4, key: 0, scale: 'major', lead: 'pluck', bassV: 'tuba', dens: 2, x: 0.12, drums: 0.4, comp: 0, pad: 0.5, bass: 1 },
-    outside:  { kit: 'conga', bpm: 116, meter: 4, key: 5, scale: 'major', lead: 'flute', bassV: 'tuba', dens: 3, x: 0.3, drums: 0.5, comp: 0, pad: 0.6, bass: 1 },
-    rain:     { kit: null, bpm: 92, meter: 3, key: -3, scale: 'minor', lead: 'flute', bassV: 'pluck', dens: 2, x: 0, drums: 0, comp: 0, pad: 0.9, bass: 1 },
-    fest:     { kit: 'samba', bpm: 132, meter: 4, key: 0, scale: 'major', lead: 'accordion', bassV: 'tuba', dens: 5, x: 0.45, drums: 0.6, comp: 2, pad: 0.5, bass: 1 },
-    night:    { kit: null, bpm: 80, meter: 3, key: 5, scale: 'lydian', lead: 'flute', bassV: 'pluck', dens: 1, x: 0, drums: 0, comp: 0, pad: 0.8, bass: 0.7 },
-    menu:     { kit: null, bpm: 100, meter: 4, key: 0, scale: 'major', lead: null, bassV: 'pluck', dens: 0, x: 0, drums: 0, comp: 0, pad: 0.7, bass: 1 },
-    sleep:    { kit: null, bpm: 70, meter: 3, key: 5, scale: 'lydian', lead: 'flute', bassV: null, dens: 0.5, x: 0, drums: 0, comp: 0, pad: 0.6, bass: 0 },
+  const KITVOICE = { chip: { lo: 'K', mid: 's', hi: 'h' }, bossa: { lo: 'K', mid: 'r', hi: 'h' }, pop: { lo: 'K', mid: 's', hi: 'h' }, march: { lo: 'K', mid: 's', hi: 'h' }, polka: { lo: 'K', mid: 's', hi: 'h' }, conga: { lo: 'K', mid: 'C', hi: 'h' }, samba: { lo: 'K', mid: 'r', hi: 'h' }, jazz: { lo: 'K', mid: 's', hi: 'y' } };
+  const FEEL = { pop: { dyn: .35, time: .25, sw16: 0 }, bossa: { dyn: .5, time: .45, sw16: .18 }, jazz: { dyn: .6, time: .5, sw16: 0 } };
+  const CHORD_NEXT = { use: [1, 0.6, 0.3, 1, 1, 0.85, 0.6], next: { 1: { 4: 1.8 }, 2: { 3: 1.7, 5: 1.7 }, 3: { 0: 1.3, 4: 1.4 }, 4: { 0: 1.8, 5: 1.3 }, 5: { 3: 1.4, 1: 1.3 } } };
+  const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], lydian: [0, 2, 4, 6, 7, 9, 11], mixolydian: [0, 2, 4, 5, 7, 9, 10], dorian: [0, 2, 3, 5, 7, 9, 10], minor: [0, 2, 3, 5, 7, 8, 10], phrygian: [0, 1, 3, 5, 7, 8, 10] };
+  const DIM = { major: 6, lydian: 3, mixolydian: 2, dorian: 5, minor: 1, phrygian: 4 }; // the diminished chord in each mode: almost never used
+  // the two chords of a turnaround bar, picked per mode so they pull hard into that mode's home chord
+  const APPROACH = { major: [3, 4], lydian: [1, 4], mixolydian: [3, 6], dorian: [3, 6], minor: [5, 6], phrygian: [6, 1] };
+  const PENTS = { major: [0, 1, 2, 4, 5], minor: [0, 2, 3, 4, 6] }; // scale degrees of the pentatonic inside each 7-note scale
+
+  // songs. tempos, meters, modes and the accordion/tuba/flute palette come from measuring 11 Harvest Moon (SNES)
+  // fan MIDI transcriptions: 95-180 bpm, mostly major, waltzes in 3/4, 5-10 lead notes a bar, 4-10 voices.
+  // key: semitones from the day's root. place: songs in the same place hand over at the end of a 4-bar phrase
+  // through a turnaround bar; a new place cuts in on the next bar line after a drum fill.
+  // store songs sit in three key families a fifth apart (C / G / F when the day's root is C). every department
+  // borders only its own family or the middle one, so walking between two never moves more than one note.
+  const S = o => Object.assign({ place: 'store', meter: 4, bassV: 'tuba', dens: 3, x: 0.28, drums: 0.5, comp: 4, pad: 0.5, bass: 1, swing: 0, pent: false }, o);
+  const SONGS = {
+    // middle of the store: C family
+    market:   S({ kit: 'pop', bpm: 116, key: 0, scale: 'major', lead: 'accordion' }),
+    fresh:    S({ kit: 'bossa', bpm: 112, key: 5, scale: 'lydian', lead: 'flute', bassV: 'pluck', dens: 2.5, comp: 0, pad: 0.6, swing: 0.1 }),
+    counter:  S({ kit: 'march', bpm: 120, key: 7, scale: 'mixolydian', lead: 'accordion', drums: 0.4, comp: 2 }),
+    frozen:   S({ kit: 'chip', bpm: 110, key: 2, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2.5, x: 0.25, drums: 0.38, comp: 0, pad: 0.8 }),
+    candy:    S({ kit: 'chip', bpm: 124, key: 0, scale: 'major', lead: 'square', dens: 4, x: 0.35, comp: 2, pad: 0.4 }),
+    // international wing (west): G family
+    europe:   S({ kit: 'march', bpm: 114, key: 7, scale: 'major', lead: 'accordion', drums: 0.35, comp: 2, swing: 0.2 }),
+    asia:     S({ kit: 'conga', bpm: 108, key: 7, scale: 'major', lead: 'pluck', bassV: 'pluck', dens: 3, x: 0.35, drums: 0.4, comp: 0, pad: 0.85, pent: true }),
+    americas: S({ kit: 'conga', bpm: 120, key: 2, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.35, comp: 2 }),
+    hot:      S({ kit: 'samba', bpm: 122, key: -1, scale: 'phrygian', lead: 'pluck', dens: 4, x: 0.4, drums: 0.55, comp: 2 }),
+    souk:     S({ kit: 'conga', bpm: 112, key: -3, scale: 'dorian', lead: 'flute', bassV: 'pluck', comp: 0, pad: 0.6, swing: 0.25 }),
+    harbor:   S({ kit: 'pop', bpm: 114, key: 4, scale: 'minor', lead: 'accordion', x: 0.2, drums: 0.4, comp: 2, swing: 0.6 }),
+    herb:     S({ kit: 'bossa', bpm: 110, key: 0, scale: 'lydian', lead: 'flute', bassV: 'pluck', dens: 2.5, comp: 0, pad: 0.7, swing: 0.1 }),
+    viral:    S({ kit: 'chip', bpm: 124, key: 7, scale: 'major', lead: 'square', dens: 4, x: 0.4, comp: 2, pad: 0.4 }),
+    // wine + cheese wing (north-east): F family
+    lounge:   S({ kit: 'jazz', bpm: 100, key: 7, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2, x: 0.3, drums: 0.45, pad: 0.7, swing: 0.85 }),
+    bistro:   S({ kit: 'bossa', bpm: 108, key: 5, scale: 'major', lead: 'accordion', dens: 2.5, pad: 0.6, swing: 0.15 }),
+    beerhall: S({ kit: 'polka', bpm: 120, key: 0, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.3, comp: 2 }),
+    sushi:    S({ kit: 'conga', bpm: 106, key: 2, scale: 'minor', lead: 'pluck', bassV: 'pluck', dens: 3, x: 0.32, drums: 0.38, comp: 0, pad: 0.85, pent: true }),
+    // other places
+    title:    S({ place: 'title', kit: 'bossa', bpm: 120, key: 0, scale: 'major', lead: 'accordion', x: 0.25, comp: 0, pad: 0.6 }),
+    outside:  S({ place: 'outside', kit: 'conga', bpm: 116, key: 5, scale: 'major', lead: 'flute', comp: 0, pad: 0.6, x: 0.3 }),
+    rain:     S({ place: 'outside', kit: null, bpm: 92, meter: 3, key: -3, scale: 'minor', lead: 'flute', bassV: 'pluck', dens: 2, x: 0, drums: 0, comp: 0, pad: 0.9 }),
+    stock:    S({ place: 'stock', kit: 'march', bpm: 110, key: 0, scale: 'major', lead: 'pluck', dens: 2, x: 0.12, drums: 0.4, comp: 0 }),
+    night:    S({ place: 'night', kit: null, bpm: 80, meter: 3, key: 5, scale: 'lydian', lead: 'flute', bassV: 'pluck', dens: 1, x: 0, drums: 0, comp: 0, pad: 0.8, bass: 0.7 }),
+    menu:     S({ place: 'menu', kit: null, bpm: 100, key: 0, scale: 'major', lead: null, bassV: 'pluck', dens: 0, x: 0, drums: 0, comp: 0, pad: 0.7 }),
+    sleep:    S({ place: 'sleep', kit: null, bpm: 70, meter: 3, key: 5, scale: 'lydian', lead: 'flute', bassV: null, dens: 0.5, x: 0, drums: 0, comp: 0, pad: 0.6, bass: 0 }),
   };
-  const M = { ctx: null, out: null, bus: null, echo: null, running: false, cur: 'title', want: 'title', p: SIT.title, root: 57, step: 0, next: 0, chord: 0, timer: null, voices: [], log: null, vol: 0.5, noise: null, lastMel: 0 };
+  // moods change how full the current song is, never its key. they land on the next bar line.
+  const MOOD = {
+    morning:  { places: ['store'], add: { bpm: -8, dens: -1, pad: 0.25, x: -0.1 }, mul: { drums: 0.4 }, set: { comp: 0 } },
+    busy:     { places: ['store'], add: { bpm: 4, dens: 1, x: 0.12, drums: 0.08 } },
+    fest:     { places: ['store', 'outside'], add: { bpm: 6, dens: 1, x: 0.15 }, set: { perc: 'samba' } },
+    rain:     { places: ['store'], add: { bpm: -6, pad: 0.3 }, mul: { drums: 0.5 } },
+    checkout: { places: ['store'], add: { x: 0.1 }, set: { comp: 1 } },
+  };
+  const M = { ctx: null, out: null, bus: null, echo: null, running: false, cur: 'title', want: 'title', moods: [], p: null, kp: null, root: 57, step: 0, next: 0, chord: 0, chord2: null, bpm: 120, sw: 0, bar: 0, pb: -1, turn: null, land: false, jumpPending: false, crash: 0, timer: null, voices: [], log: null, vol: 0.5, noise: null, lastMel: undefined };
+
+  function build(name) { // song + active moods = the knobs this bar plays with
+    const s = SONGS[name], p = Object.assign({}, s); p.name = name;
+    for (const m of M.moods) { const d = MOOD[m]; if (!d || !d.places.includes(s.place)) continue; for (const k in d.add || {}) p[k] += d.add[k]; for (const k in d.mul || {}) p[k] *= d.mul[k]; Object.assign(p, d.set || {}); }
+    p.dens = Math.max(s.dens ? 1 : 0, p.dens); p.x = Math.min(0.6, Math.max(0, p.x)); p.drums = Math.min(0.7, p.drums); p.pad = Math.min(1, p.pad); return p;
+  }
+  function reset(name, moods) { M.cur = M.want = name; M.moods = moods || []; M.p = M.kp = build(name); M.bpm = M.p.bpm; M.sw = M.p.swing; M.bar = 0; M.pb = -1; M.turn = null; M.land = false; M.jumpPending = false; M.motif = null; M.barLen = undefined; M.lastMel = undefined; M.voices = []; }
+  reset('title');
 
   function init(ctx, dest) {
     M.ctx = ctx; M.out = ctx.createGain(); M.out.gain.value = M.vol;
@@ -1416,14 +1514,14 @@ const MUSIC = (() => {
     const b = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), a = b.getChannelData(0); for (let i = 0; i < a.length; i++) a[i] = Math.random() * 2 - 1; M.noise = b;
     setTempo();
   }
-  const sd = () => 60 / M.p.bpm / 4; // one 16th in seconds
-  function setTempo() { M.delay.delayTime.value = Math.min(1.4, sd() * 6); }
+  const sd = () => 60 / M.bpm / 4; // one 16th in seconds
+  function setTempo() { if (M.delay) M.delay.delayTime.value = Math.min(1.4, sd() * 6); }
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
-  function scale() { return SCALES[M.p.scale] || SCALES.major; }
-  function degNote(deg, oct) { const s = scale(), n = s.length; const o = Math.floor(deg / n); return M.root + (M.p.key || 0) + 12 * (oct + o) + s[((deg % n) + n) % n]; }
+  function scale() { return SCALES[M.kp.scale] || SCALES.major; }
+  function degNote(deg, oct) { const s = scale(), n = s.length; const o = Math.floor(deg / n); return M.root + (M.kp.key || 0) + 12 * (oct + o) + s[((deg % n) + n) % n]; }
   // 8 voice cap: drums and tones share it, like the real chip
-  function grab(t, dur, lim = 6) { M.voices = M.voices.filter(e => e > t); if (M.voices.length >= lim) return false; M.voices.push(t + dur); if (M.log) M.log.maxV = Math.max(M.log.maxV, M.voices.length); return true; }
-  function note(kind, t, dur) { if (M.log) { M.log.n++; M.log.kinds[kind] = (M.log.kinds[kind] || 0) + 1; } }
+  function grab(t, dur, lim = 6) { M.voices = M.voices.filter(e => e > t); if (M.voices.length >= lim) { if (M.log) M.log.drops = (M.log.drops || 0) + 1; return false; } M.voices.push(t + dur); if (M.log) M.log.maxV = Math.max(M.log.maxV, M.voices.length); return true; }
+  function note(kind) { if (M.log) { M.log.n++; M.log.kinds[kind] = (M.log.kinds[kind] || 0) + 1; } }
 
   // ---- voices ----
   function tone(m, t, dur, vel, type, dest, att = 0.01, filt, lim) {
@@ -1431,6 +1529,12 @@ const MUSIC = (() => {
     o.type = type; o.frequency.value = mtof(m); lp.type = 'lowpass'; lp.frequency.value = filt || Math.min(9000, mtof(m) * 6);
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vel, t + att); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
     o.connect(lp); lp.connect(g); g.connect(dest || M.bus); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function padTone(m, t, dur, vel, type) { // held string pad: swell in, hold, let go at the end (a decaying pad leaves the bar hollow)
+    if (!grab(t, dur)) return; const c = M.ctx, o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter(); const att = Math.min(0.4, dur * 0.3), rel = Math.min(0.35, dur * 0.25);
+    o.type = type; o.frequency.value = mtof(m); lp.type = 'lowpass'; lp.frequency.value = 1800;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vel, t + att); g.gain.linearRampToValueAtTime(vel * 0.7, t + dur - rel); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    o.connect(lp); lp.connect(g); g.connect(M.bus); o.start(t); o.stop(t + dur + 0.05);
   }
   function pluck(m, t, vel) { // Slimehedron's comp voice: triangle body + a whisper of square, pitch-tracked filter that closes fast
     if (!grab(t, 0.3)) return; const c = M.ctx, o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter(), f0 = mtof(m);
@@ -1440,6 +1544,7 @@ const MUSIC = (() => {
     o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(M.bus); o.start(t); o2.start(t); o.stop(t + 0.35); o2.stop(t + 0.35);
   }
   function lead(kind, m, t, dur, vel) { // the palette measured in those MIDIs: accordion (GM 21), flute/piccolo (72), pizz pluck (45), plus chip square
+    if (M.log && M.log.mel) M.log.mel.push({ step: M.step, m, song: M.turn || M.cur });
     if (kind === 'pluck') return pluck(m, t, vel);
     if (!grab(t, dur, 8)) return; const c = M.ctx, g = c.createGain(), lp = c.createBiquadFilter(), f0 = mtof(m); lp.type = 'lowpass';
     const oscs = []; const add = (type, det, lvl) => { const o = c.createOscillator(), og = c.createGain(); o.type = type; o.frequency.value = f0; o.detune.value = det; og.gain.value = lvl; o.connect(og); og.connect(lp); oscs.push(o); return o; };
@@ -1455,12 +1560,13 @@ const MUSIC = (() => {
   }
   function tuba(m, t, dur, vel) { if (!grab(t, dur)) return; const c = M.ctx, o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.value = mtof(m); lp.type = 'lowpass'; lp.frequency.setValueAtTime(700, t); lp.frequency.exponentialRampToValueAtTime(320, t + dur); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.14 * vel, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0005, t + dur); o.connect(lp); lp.connect(g); g.connect(M.bus); o.start(t); o.stop(t + dur + 0.05); }
   function noiseHit(t, type, f, q, lvl, dur) { if (!grab(t, dur)) return; const c = M.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = M.noise; fl.type = type; fl.frequency.value = f; fl.Q.value = q; g.gain.setValueAtTime(lvl, t); g.gain.exponentialRampToValueAtTime(0.0005, t + dur); s.connect(fl); fl.connect(g); g.connect(M.bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02); }
-  function drum(v, t, a) { // trimmed versions of Slimehedron's dHit voices
-    const c = M.ctx, lvl = a * M.p.drums; t = Math.max(c.currentTime, t);
+  function drum(v, t, a, lvlOverride) { // trimmed versions of Slimehedron's dHit voices
+    const c = M.ctx, lvl = a * (lvlOverride !== undefined ? lvlOverride : M.p.drums); t = Math.max(c.currentTime, t); if (lvl <= 0) return;
     if (v === 'K') { if (!grab(t, 0.3)) return; const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.1); g.gain.setValueAtTime(0.7 * lvl, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28); o.connect(g); g.connect(M.bus); o.start(t); o.stop(t + 0.3); }
     else if (v === 's') { noiseHit(t, 'bandpass', 1900, 1.1, 0.28 * lvl, 0.12); tone(46, t, 0.08, 0.12 * lvl, 'triangle'); }
     else if (v === 'h') noiseHit(t, 'highpass', 8000, 0.7, 0.09 * lvl, 0.03);
     else if (v === 'y') noiseHit(t, 'highpass', 6000, 0.5, 0.07 * lvl, 0.25);
+    else if (v === 'X') noiseHit(t, 'highpass', 4500, 0.4, 0.13 * lvl, 0.9); // crash on the downbeat of a new song
     else if (v === 'r') noiseHit(t, 'bandpass', 2100, 2.4, 0.22 * lvl, 0.028);
     else if (v === 'cl') { if (!grab(t, 0.06)) return; const o = c.createOscillator(), g = c.createGain(); o.type = 'triangle'; o.frequency.value = 2500; g.gain.setValueAtTime(0.16 * lvl, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05); o.connect(g); g.connect(M.bus); o.start(t); o.stop(t + 0.07); }
     else if (v === 'c' || v === 'C') { if (!grab(t, 0.2)) return; const o = c.createOscillator(), g = c.createGain(), f0 = v === 'C' ? 300 : 210; o.type = 'triangle'; o.frequency.setValueAtTime(f0 * 1.18, t); o.frequency.exponentialRampToValueAtTime(f0 * 0.68, t + 0.1); g.gain.setValueAtTime(0.4 * lvl, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.17); o.connect(g); g.connect(M.bus); o.start(t); o.stop(t + 0.2); }
@@ -1474,52 +1580,92 @@ const MUSIC = (() => {
     if (v === vm.hi) return (inBar % 4 === 0) || keep > 0.45;
     return keep > 0.3;
   }
-  // ---- chord brain (CHORD_FN.major odds) ----
+  // ---- chord brain (CHORD_FN.major odds, diminished chord muted per mode) ----
   function nextChord() {
-    const cur = M.chord, bias = CHORD_NEXT.next[cur] || {}; let tot = 0; const w = CHORD_NEXT.use.map((u, d) => { const v = d === cur ? 0 : u * (bias[d] || 1); tot += v; return v; });
+    const cur = M.chord, bias = CHORD_NEXT.next[cur] || {}, dim = DIM[M.kp.scale]; let tot = 0;
+    const w = CHORD_NEXT.use.map((u, d) => { const v = d === cur ? 0 : d === dim ? 0.02 : u * (bias[d] || 1); tot += v; return v; });
     let r = Math.random() * tot; for (let d = 0; d < 7; d++) { r -= w[d]; if (r <= 0) return d; } return 0;
   }
   // ---- the conductor: one grid, scheduled ahead ----
-  function newMotif() { // a 2-bar rhythm + contour; replayed with variations so it evolves but stays a tune
+  function newMotif(fromTop) { // a 2-bar rhythm + contour; replayed with variations so it evolves but stays a tune
     const P = M.p, len = P.meter * 4 * 2, n = Math.max(1, Math.round(P.dens * 2)); const grid = []; for (let k = 0; k < len; k += 2) grid.push(k);
-    const pos = grid.sort(() => Math.random() - 0.5).slice(0, Math.min(grid.length, n)).sort((a2, b2) => a2 - b2); if (!pos.includes(0) && Math.random() < 0.7) pos[0] = 0;
+    const pos = grid.sort(() => Math.random() - 0.5).slice(0, Math.min(grid.length, n)).sort((a2, b2) => a2 - b2); if (!pos.includes(0) && (fromTop || Math.random() < 0.7)) pos[0] = 0;
     const steps = pos.map(() => [-2, -1, -1, 1, 1, 2, 0][Math.floor(Math.random() * 7)]); M.motif = { pos, steps, len };
   }
+  const nearest = (d, opts) => opts.reduce((a, b) => Math.abs(b - d) < Math.abs(a - d) ? b : a);
+  function barLine(i) {
+    M.barStart = i; M.bar++; M.pb = (M.pb + 1) % 4; M.land = false; M.crash = 0;
+    const from = M.cur;
+    if (M.want !== M.cur && SONGS[M.want].place !== SONGS[M.cur].place) { // new place: cut in now, tempo snaps
+      M.cur = M.want; M.turn = null; M.land = true; M.crash = 0.9; M.p = build(M.cur); M.bpm = M.p.bpm; M.sw = M.p.swing;
+    } else if (M.turn) { M.cur = M.turn; M.turn = null; M.land = true; M.crash = 0.45; } // turnaround done: land on the new song
+    M.jumpPending = false;
+    if (M.land) { M.pb = 0; M.bar = 0; if (M.log && M.log.sw) M.log.sw.push({ step: i, from, to: M.cur, kind: SONGS[from].place === SONGS[M.cur].place ? 'phrase' : 'place' }); }
+    M.p = build(M.cur);
+    if (!M.land && M.pb === 3 && M.want !== M.cur) M.turn = M.want; // last bar of the phrase: turn around into the next song
+    // tempo and swing ease toward where the music is heading, a little each bar
+    const target = M.turn ? build(M.turn) : M.p, cl = (v, a) => Math.max(-a, Math.min(a, v));
+    M.bpm += cl(target.bpm - M.bpm, 2); M.sw += cl(target.swing - M.sw, 0.2); setTempo();
+    M.kp = M.turn ? SONGS[M.turn] : M.p; M.barLen = M.p.meter * 4;
+    if (M.log && M.log.bars) M.log.bars.push([i, +M.bpm.toFixed(2), M.cur]);
+    // chords: the phrase opens on home, the turnaround plays its two approach chords, the 4th bar leans home
+    const slow = M.p.bpm < 95 || M.p.meter === 3; M.chord2 = null;
+    if (M.turn) { const ap = APPROACH[M.kp.scale] || APPROACH.major; M.chord = ap[0]; M.chord2 = ap[1]; }
+    else if (M.pb === 0) M.chord = 0;
+    else if (M.pb === 3) M.chord = Math.random() < 0.6 ? (APPROACH[M.kp.scale] || APPROACH.major)[1] : nextChord();
+    else if (M.pb === 2 || slow) M.chord = nextChord();
+    if (!M.motif || M.land || (M.pb === 0 && M.bar % 8 === 0)) newMotif(M.land);
+    // where the turnaround's last melody note goes: the motif's last note in this bar, or beat 4 if it ends early
+    if (M.turn && M.motif) { const bl = M.barLen, off = (M.bar % 2) * bl, mine = M.motif.pos.filter(p => p >= off && p < off + bl).map(p => p - off); M.apPos = Math.max(mine.length ? mine[mine.length - 1] : 0, bl - 4); }
+  }
   function stepAt(i, t) {
-    if (M.barLen === undefined || i >= M.barStart + M.barLen || i < M.barStart) { // a bar line
-      M.barStart = i; M.bar = (M.bar || 0) + 1;
-      if (M.want !== M.cur) { M.cur = M.want; M.p = SIT[M.cur]; setTempo(); M.motif = null; M.bar = 0; } // changes land on the bar line only
-      M.barLen = M.p.meter * 4; const slow = M.p.bpm < 95 || M.p.meter === 3;
-      if (M.bar % 2 === 0 || slow) M.chord = M.bar % 8 === 0 ? 0 : nextChord();
-      if (!M.motif || M.bar % 8 === 0) newMotif();
-    }
-    const P = M.p, inBar = i - M.barStart, bar = M.bar, sixteenth = sd(), ch = M.chord, beat = 4, bl = M.barLen;
-    const feel = FEEL[P.kit] || FEEL.pop; let tt = t; if (feel.sw8 && inBar % 4 === 2) tt += feel.sw8 * 0.667 * sixteenth; if (feel.sw16 && inBar % 2 === 1) tt += feel.sw16 * 0.333 * sixteenth;
+    if (M.barLen === undefined || i >= M.barStart + M.barLen || i < M.barStart) barLine(i);
+    const P = M.p, inBar = i - M.barStart, bar = M.bar, sixteenth = sd(), bl = M.barLen, beat = 4;
+    const ch = M.chord2 !== null && inBar >= 8 ? M.chord2 : M.chord;
+    const feel = FEEL[P.kit] || FEEL.pop; let tt = t; if (M.sw && inBar % 4 === 2) tt += M.sw * 0.667 * sixteenth; if (feel.sw16 && inBar % 2 === 1) tt += feel.sw16 * 0.333 * sixteenth;
     const slow = P.bpm < 95 || P.meter === 3;
-    if (inBar === 0 && P.pad > 0 && (bar % 2 === 0 || slow)) { const len = sixteenth * bl * (slow ? 1 : 2) - 0.05; [0, 2, 4].forEach((k, j) => tone(degNote(ch + k, 0), t, len, 0.04 * P.pad, j ? 'sine' : 'triangle', null, 0.4, 1800)); note('pad'); }
-    // bass: oom-pah. 4/4 = root on 1, fifth on 3. 3/4 = root on 1, chord stabs on 2 and 3 (waltz)
+    // pad: held chord; in a turnaround it moves with each approach chord
+    const padHit = M.turn ? (inBar === 0 || inBar === 8) : inBar === 0 && (bar % 2 === 0 || slow);
+    if (padHit && P.pad > 0) { const len = M.turn ? sixteenth * (inBar === 0 ? 8 : bl - 8) - 0.05 : sixteenth * bl * (slow ? 1 : 2) - 0.05; [2, 4].forEach((k, j) => padTone(degNote(ch + k, 0), t, len, 0.035 * P.pad, j ? 'sine' : 'triangle')); note('pad'); } // the bass has the root
+    // bass: oom-pah. 4/4 = root on 1, fifth on 3 (turnaround: each chord's root). 3/4 = root on 1, chord stabs on 2 and 3 (waltz)
     if (P.bass > 0 && P.bassV) {
       const hit = (deg, len) => { const m = degNote(ch + deg, -2); if (P.bassV === 'tuba') tuba(m, t, len, P.bass); else tone(m, t, len, 0.16 * P.bass, 'triangle', null, 0.008, 900); note('bass'); };
-      if (P.meter === 4 && (inBar === 0 || inBar === 8)) hit(inBar === 8 ? 4 : 0, sixteenth * 3);
-      if (P.meter === 3) { if (inBar === 0) hit(0, sixteenth * 3); else if ((inBar === 4 || inBar === 8) && P.comp !== -1) { [2, 4].forEach(k => pluck(degNote(ch + k, 0), tt, 0.45)); note('comp'); } }
+      if (P.meter === 4 && (inBar === 0 || inBar === 8)) hit(inBar === 8 && !M.turn ? 4 : 0, sixteenth * 3);
+      if (P.meter === 3) { if (inBar === 0 || (M.turn && inBar === 8)) hit(0, sixteenth * 3); else if (inBar === 4 || inBar === 8) { [2, 4].forEach(k => pluck(degNote(ch + k, 0), tt, 0.45)); note('comp'); } }
     }
     if (P.comp > 0 && P.meter === 4 && bar % P.comp === P.comp - 1 && (inBar === 6 || inBar === 14)) { [0, 2, 4].forEach(k => pluck(degNote(ch + k, 0), tt, 0.7)); note('comp'); }
-    // drums (4/4 kits), or a soft waltz tick in 3/4
-    if (P.kit && P.drums > 0) {
+    // drums: a fill on the last beat before any song change, a crash on the new downbeat
+    const fillAt = bl - 4, filling = (M.turn || M.jumpPending) && inBar >= fillAt;
+    if (inBar === 0 && M.crash) drum('X', tt, M.crash);
+    if (filling) { const k = inBar - fillAt, lv = Math.max(P.drums, 0.3); drum('s', tt, 0.45 + k * 0.15, lv); if (k === 0) drum('K', tt, 0.8, lv); }
+    else if (P.kit && P.drums > 0) {
       if (P.meter === 4) { const kit = KITS[P.kit], pos = (bar % 4) * 16 + inBar; for (const v in kit) if (kit[v].includes(pos) && keeps(v, inBar)) { const hum = 1 + (Math.random() - 0.5) * (feel.dyn || 0.3) * 0.6; drum(v, tt + (Math.random() - 0.5) * (feel.time || 0.2) * 0.008, (inBar % 4 === 0 ? 1 : 0.75) * hum); } }
       else { if (inBar === 0) drum('K', tt, 0.8); else if (inBar % 4 === 0) drum('h', tt, 0.7); }
     }
-    // lead: the motif, played over 2 bars, re-fitted to the current chord, rested every 4th pair of bars
-    if (P.lead && M.motif && Math.floor(bar / 2) % 4 !== 3) {
+    if (P.perc && P.meter === 4 && !filling) { const kit = KITS[P.perc], pos = (bar % 4) * 16 + inBar; for (const v of ['c', 'C', 'r']) if (kit[v] && kit[v].includes(pos)) drum(v, tt, 0.6, Math.max(P.drums, 0.35)); }
+    // lead: the motif over 2 bars, re-fitted to the chord, rested every 4th pair of bars (never across a song change)
+    if (!P.lead || !M.motif) return;
+    if (M.turn) { // turnaround: motif up to the last note, which steps next to the new home note
       const mo = M.motif, local = (bar % 2) * bl + inBar, k = mo.pos.indexOf(local);
-      if (k >= 0) {
-        let d = M.lastMel === undefined ? ch + 4 : M.lastMel; d += mo.steps[k] + (bar % 8 >= 4 && k === mo.pos.length - 1 ? 1 : 0);
-        if (local % beat === 0) { const tones = [ch, ch + 2, ch + 4, ch + 7]; d = tones.reduce((a2, b2) => Math.abs(b2 - d) < Math.abs(a2 - d) ? b2 : a2); } // on the beat: land on a chord tone
-        d = Math.max(-1, Math.min(10, d)); M.lastMel = d;
-        const nxt = mo.pos[k + 1] !== undefined ? mo.pos[k + 1] : mo.len; const len = Math.min(sixteenth * (nxt - local), sixteenth * 6);
-        lead(P.lead, degNote(d, 1), tt, Math.max(len - 0.02, 0.08), 0.9); note('mel');
-      }
+      if (inBar === M.apPos) { const d = nearest(M.lastMel === undefined ? 4 : M.lastMel, [-1, 1, 6, 8]); M.lastMel = d; lead(P.lead, degNote(d, 1), tt, Math.max(sixteenth * (bl - inBar) - 0.02, 0.08), 0.9); note('mel'); }
+      else if (k >= 0 && inBar < M.apPos) playMotif(P, k, local, tt, sixteenth, ch, beat);
+      return;
     }
+    if (M.land && inBar === 0) { const d = nearest(M.lastMel === undefined ? 4 : M.lastMel, [0, 7]); M.lastMel = d; const mo = M.motif, nx = mo.pos[1] !== undefined ? mo.pos[1] : mo.len; lead(P.lead, degNote(d, 1), tt, Math.max(Math.min(sixteenth * nx, sixteenth * 6) - 0.02, 0.08), 0.95); note('mel'); return; }
+    if (Math.floor(bar / 2) % 4 === 3) { // the lead breathes: a broken chord keeps the bar from going hollow
+      if (inBar % 4 === 0) { pluck(degNote(ch + [0, 2, 4, 7][inBar / 4], 1), tt, 0.5); note('arp'); }
+      return;
+    }
+    const mo = M.motif, local = (bar % 2) * bl + inBar, k = mo.pos.indexOf(local);
+    if (k >= 0) playMotif(P, k, local, tt, sixteenth, ch, beat);
+  }
+  function playMotif(P, k, local, tt, sixteenth, ch, beat) {
+    const mo = M.motif; let d = M.lastMel === undefined ? ch + 4 : M.lastMel; d += mo.steps[k] + (M.bar % 8 >= 4 && k === mo.pos.length - 1 ? 1 : 0);
+    if (local % beat === 0) d = nearest(d, [ch, ch + 2, ch + 4, ch + 7]); // on the beat: land on a chord tone
+    if (P.pent) { const pe = PENTS[['minor', 'dorian', 'phrygian'].includes(M.kp.scale) ? 'minor' : 'major'], n = Math.floor(d / 7) * 7; d = nearest(d, [...pe.map(x => n - 7 + x), ...pe.map(x => n + x), ...pe.map(x => n + 7 + x)]); }
+    d = Math.max(-1, Math.min(10, d)); M.lastMel = d;
+    const nxt = mo.pos[k + 1] !== undefined ? mo.pos[k + 1] : mo.len; const len = Math.min(sixteenth * (nxt - local), sixteenth * 6);
+    lead(P.lead, degNote(d, 1), tt, Math.max(len - 0.02, 0.08), 0.9); note('mel');
   }
   function scheduleUntil(tEnd) { while (M.next < tEnd) { stepAt(M.step, M.next); M.step++; M.next += sd(); } }
   function tick() {
@@ -1528,11 +1674,15 @@ const MUSIC = (() => {
     scheduleUntil(now + 0.15);
   }
   return {
-    SIT, M,
-    init, scheduleUntil,
+    SONGS, MOOD, SCALES, M,
+    init, scheduleUntil, reset,
     start() { if (!M.ctx || M.running) return; M.running = true; M.step = 0; M.next = M.ctx.currentTime + 0.1; M.timer = setInterval(tick, 25); },
     stop() { M.running = false; clearInterval(M.timer); },
-    setSituation(n) { if (SIT[n]) M.want = n; },
+    set(song, moods) { // what should play; it gets there musically (see barLine)
+      if (!SONGS[song]) return;
+      M.jumpPending = SONGS[song].place !== SONGS[M.cur].place;
+      M.want = song; M.moods = moods || [];
+    },
     setDay(day) { let r = 57 + ((day - 1) * 7) % 12; while (r > 62) r -= 12; while (r < 52) r += 12; M.root = r; }, // one fifth further round the circle each day
     setVolume(v) { M.vol = v; if (M.out) M.out.gain.value = v; },
     sting(name) { // short cue on the next 16th, in key
@@ -1579,27 +1729,41 @@ function sfx(n) { if (!AU.sfxOn || !AU.ctx) return; try { if (AU.started && AU.m
 function musicStart() {
   if (!AU.ctx || AU.started) return; AU.started = true; AU.music.gain.value = 1; MUSIC.init(AU.ctx, AU.music); MUSIC.setVolume(0.55); MUSIC.start();
 }
-function musicTick() { // pick the situation from what's happening; the change lands on the next bar
+// which song each department plays (music.js SONGS); anything not listed plays 'market'.
+// three key families: middle = C, west international wing = G, north-east wine/cheese wing = F (when the day is in C).
+// tests/mzone.py checks every pair of departments you can walk between is at most one note apart.
+const ZONE_SONG = {
+  produce: 'fresh', natural: 'fresh', bakery: 'counter', meat: 'counter', frozen: 'frozen', candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy',
+  europe: 'europe', eurosouth: 'europe', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'americas',
+  hotsauce: 'hot', intl: 'souk', seafood: 'harbor', honey: 'herb', herb: 'herb', tiktok: 'viral',
+  wine: 'lounge', liquor: 'lounge', cigars: 'lounge', tasting: 'lounge', cheese: 'bistro', tenants: 'bistro', deli: 'bistro', beer: 'beerhall', sushi: 'sushi',
+};
+const zoneSong = id => ZONE_SONG[id] || 'market';
+function musicTick() { // pick the song from where you are; music.js gets there on the beat
   if (!AU.started) return; AU.music.gain.value = AU.musicOn && !document.hidden ? 1 : 0;
-  let s = 'day';
+  let s = 'market'; const moods = [];
   if (RT.menu === 'title') s = 'title';
   else if (RT.menu && RT.menu !== 'map') s = 'menu';
   else if (RT.sleeping) s = 'sleep';
   else {
     const m = ST.minute, tx = Math.floor(PL.x / T), ty = Math.floor((PL.y - 3) / T), zi = inb(tx, ty) ? W.zone[idx(tx, ty)] : -1, dz = zi >= 0 ? DEPTS[zi].id : null;
     const outdoor = inb(tx, ty) && W.outdoor[idx(tx, ty)], stock = tx >= W.stockRect[0] && tx <= W.stockRect[2] && ty >= W.stockRect[1] && ty <= W.stockRect[3];
+    // a department takes over after ~1.2 s inside it, so skating past a corner can't flip the song.
+    // the open floor between departments keeps the last one. walking in from another place picks it up at once.
+    const wasStore = MUSIC.SONGS[AU.sit] && MUSIC.SONGS[AU.sit].place === 'store';
+    if (dz && dz !== AU.cand) { AU.cand = dz; AU.candN = 0; } else if (dz) AU.candN++;
+    if (dz && (AU.candN >= 3 || !wasStore || !AU.zone)) AU.zone = zoneSong(dz);
     if (m >= CLOSE_MIN || m < DAY_START + 30) s = 'night';
-    else if (PL.onCash) s = 'checkout';
     else if (stock) s = 'stock';
     else if (outdoor) s = ST.weather === 'rain' ? 'rain' : 'outside';
-    else if (ST.weather === 'rain') s = 'rain';
-    else if (m < OPEN_MIN) s = 'prep';
-    else if (['wine', 'tasting', 'cheese', 'liquor', 'cigars'].includes(dz)) s = 'lounge';
-    else if (['candy', 'toys', 'gacha', 'cards'].includes(dz)) s = 'candy';
-    else if (eventToday()) s = 'fest';
-    else if (RT.custs.length > 30) s = 'busy';
+    else s = AU.zone || 'market';
+    if (m < OPEN_MIN) moods.push('morning');
+    if (ST.weather === 'rain') moods.push('rain');
+    if (eventToday()) moods.push('fest');
+    if (RT.custs.length > 30) moods.push('busy');
+    if (PL.onCash) moods.push('checkout');
   }
-  MUSIC.setSituation(s); AU.sit = s;
+  MUSIC.set(s, moods); AU.sit = s;
 }
 
 // ===== core game =====

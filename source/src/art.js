@@ -18,39 +18,68 @@ function outline(c, col = OL) {
 function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
 
 // ===================== FLOORS (16x16, drawn into ground canvas) =====================
-function speck(g, x0, y0, r, n, cols) { for (let i = 0; i < n; i++) P(g, x0 + Math.floor(r() * 16), y0 + Math.floor(r() * 16), 1, 1, pick(r, cols)); }
-function checker(g, x0, y0, a, b, sz) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) P(g, x0 + x, y0 + y, sz, sz, ((x + y) / sz) % 2 ? b : a); }
-function tiles(g, x0, y0, a, b, grout, sz, r) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) { P(g, x0 + x, y0 + y, sz, sz, r() < 0.5 ? a : b); P(g, x0 + x, y0 + y, sz, 1, grout); P(g, x0 + x, y0 + y, 1, sz, grout); P(g, x0 + x + 1, y0 + y + 1, 1, 1, shade(a, 0.25)); } }
-function planks(g, x0, y0, a, b, seam, tx, ty) { for (let row = 0; row < 4; row++) { const off = ((ty * 4 + row) * 7) % 16; P(g, x0, y0 + row * 4, 16, 4, (row + tx) % 2 ? a : b); P(g, x0, y0 + row * 4 + 3, 16, 1, seam); P(g, x0 + ((off + tx * 5) % 16), y0 + row * 4, 1, 3, seam); P(g, x0, y0 + row * 4, 16, 1, shade((row + tx) % 2 ? a : b, 0.12)); } }
+// SNES-style: every tile is bevelled (light top-left edge, dark bottom-right), texture comes from ordered dither
+// and a few placed details, never per-pixel random static. light comes from the top left everywhere.
+function bevel(g, x, y, w, h, c, hi = 0.16, lo = -0.13) { P(g, x, y, w, h, c); P(g, x, y, w, 1, shade(c, hi)); P(g, x, y, 1, h, shade(c, hi)); P(g, x, y + h - 1, w, 1, shade(c, lo)); P(g, x + w - 1, y, 1, h, shade(c, lo)); }
+function dither(g, x0, y0, c, gap = 4, off = 0) { for (let y = 1; y < 15; y += 2) for (let x = ((y >> 1) * 2 + off) % gap + 1; x < 15; x += gap) P(g, x0 + x, y0 + y, 1, 1, c); }
+function speck(g, x0, y0, r, n, cols) { for (let i = 0; i < n; i++) P(g, x0 + 2 + Math.floor(r() * 12), y0 + 2 + Math.floor(r() * 12), 1, 1, pick(r, cols)); }
+function checker(g, x0, y0, a, b, sz) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) { const c = ((x + y) / sz) % 2 ? b : a; bevel(g, x0 + x, y0 + y, sz, sz, c, 0.1, -0.12); } }
+function tiles(g, x0, y0, a, b, grout, sz, r) { for (let y = 0; y < 16; y += sz) for (let x = 0; x < 16; x += sz) { const c = r() < 0.5 ? a : b; bevel(g, x0 + x + 1, y0 + y + 1, sz - 1, sz - 1, c); P(g, x0 + x, y0 + y, sz, 1, grout); P(g, x0 + x, y0 + y, 1, sz, grout); } }
+function planks(g, x0, y0, a, b, seam, tx, ty) {
+  for (let row = 0; row < 4; row++) {
+    const c = (row + tx) % 2 ? a : b, off = ((ty * 4 + row) * 7 + tx * 5) % 16, yy = y0 + row * 4;
+    P(g, x0, yy, 16, 4, c); P(g, x0, yy, 16, 1, shade(c, 0.14)); P(g, x0, yy + 3, 16, 1, seam); P(g, x0 + off, yy, 1, 3, seam); P(g, x0 + off + 1, yy, 1, 3, shade(c, 0.2));
+    P(g, x0 + (off + 6) % 13, yy + 1, 4, 1, shade(c, -0.07)); P(g, x0 + (off + 11) % 14, yy + 2, 2, 1, shade(c, -0.07)); // grain
+  }
+}
+function carpet(g, x, y, base, a, b) { P(g, x, y, 16, 16, base); dither(g, x, y, a, 2, 0); for (let i = 0; i < 16; i += 4) P(g, x + i, y + ((i * 3) % 16), 1, 1, b); }
 const FLOOR = {
-  lino(g, x, y, r) { P(g, x, y, 16, 16, '#ece6d4'); if (r() < 0.08) P(g, x, y, 16, 16, '#cfe0ea'); P(g, x, y, 16, 1, '#d8cfb8'); P(g, x, y, 1, 16, '#d8cfb8'); speck(g, x, y, r, 5, ['#ddd5bf', '#e2dac5']); },
-  lino2(g, x, y, r) { P(g, x, y, 16, 16, '#e4eaf0'); if (r() < 0.1) P(g, x, y, 16, 16, '#d9cdea'); P(g, x, y, 16, 1, '#cbd3dc'); P(g, x, y, 1, 16, '#cbd3dc'); speck(g, x, y, r, 4, ['#d5dce4']); },
+  lino(g, x, y, r) { // big vinyl squares, the odd blue one, a polish glint now and then
+    const blue = r() < 0.08; bevel(g, x, y, 16, 16, blue ? '#cfe0ea' : '#ece6d4', 0.35, -0.08); dither(g, x, y, blue ? '#c4d6e2' : '#e3dcc7', 6);
+    if (r() < 0.18) { P(g, x + 3, y + 3, 3, 1, '#fbf8ee'); P(g, x + 3, y + 4, 1, 1, '#fbf8ee'); }
+  },
+  lino2(g, x, y, r) { const lav = r() < 0.1; bevel(g, x, y, 16, 16, lav ? '#d9cdea' : '#e4eaf0', 0.35, -0.08); dither(g, x, y, lav ? '#cfc2e2' : '#d9e0e8', 6); },
   terra(g, x, y, r) { tiles(g, x, y, '#c8754e', '#bd6a45', '#93492f', 8, r); },
-  terra2(g, x, y, r) { tiles(g, x, y, '#c7925f', '#bb8756', '#8e5f37', 8, r); P(g, x + 7, y + 7, 2, 2, '#2e7d6b'); },
+  terra2(g, x, y, r) { tiles(g, x, y, '#c7925f', '#bb8756', '#8e5f37', 8, r); P(g, x + 7, y + 7, 2, 2, '#2e7d6b'); P(g, x + 7, y + 7, 1, 1, '#4aa08a'); },
   orange(g, x, y, r) { tiles(g, x, y, '#e2a456', '#d9994d', '#a96d2c', 8, r); },
   sand(g, x, y, r) { tiles(g, x, y, '#dcc38d', '#d3b880', '#a88b55', 8, r); },
   redcheck(g, x, y) { checker(g, x, y, '#c63b2e', '#ecdfca', 8); },
-  pink(g, x, y, r) { P(g, x, y, 16, 16, '#f4c9d8'); P(g, x, y, 16, 1, '#e6b2c4'); P(g, x, y, 1, 16, '#e6b2c4'); speck(g, x, y, r, 6, ['#6fc6e8', '#ffe066', '#9be37a', '#ff7aa8']); },
+  pink(g, x, y, r) { // candy floor: placed sprinkles, one of four layouts
+    bevel(g, x, y, 16, 16, '#f4c9d8', 0.3, -0.08); const L = [[[3, 4], [10, 2], [6, 11], [12, 9]], [[2, 9], [8, 5], [13, 12], [5, 2]], [[4, 13], [11, 6], [7, 8], [2, 3]], [[9, 11], [3, 7], [12, 3], [6, 4]]][Math.floor(r() * 4)];
+    L.forEach(([a, b], i) => { const c = ['#6fc6e8', '#ffe066', '#9be37a', '#ff7aa8'][i]; if (i % 2) P(g, x + a, y + b, 2, 1, c); else P(g, x + a, y + b, 1, 2, c); });
+  },
   darkwood(g, x, y, r, tx, ty) { planks(g, x, y, '#634029', '#58381f', '#3a2314', tx, ty); },
   wood(g, x, y, r, tx, ty) { planks(g, x, y, '#b98a55', '#ad7e4a', '#7a542f', tx, ty); },
-  coolblue(g, x, y, r) { P(g, x, y, 16, 16, '#9db3c0'); speck(g, x, y, r, 10, ['#8fa5b2', '#aec2ce']); P(g, x, y, 16, 1, '#8799a5'); },
+  coolblue(g, x, y, r) { bevel(g, x, y, 16, 16, '#9db3c0', 0.18, -0.12); dither(g, x, y, '#a8bdc9', 4); if (r() < 0.2) P(g, x + 4, y + 4, 5, 1, '#b8cbd6'); },
   cheesecheck(g, x, y) { checker(g, x, y, '#f2e7c9', '#34343c', 8); },
-  tatami(g, x, y) { P(g, x, y, 16, 16, '#cfc483'); for (let i = 0; i < 16; i += 2) P(g, x, y + i, 16, 1, '#c2b673'); P(g, x, y, 16, 1, '#4a5a3a'); P(g, x, y, 1, 16, '#4a5a3a'); },
+  tatami(g, x, y) { P(g, x, y, 16, 16, '#cfc483'); for (let i = 1; i < 16; i += 2) P(g, x, y + i, 16, 1, '#c2b673'); P(g, x, y + 1, 16, 1, '#ddd398'); P(g, x, y, 16, 1, '#4a5a3a'); P(g, x, y, 1, 16, '#4a5a3a'); },
   bluetile(g, x, y, r) { tiles(g, x, y, '#94c4d6', '#86b9cc', '#6898ab', 4, r); },
   warm(g, x, y, r) { tiles(g, x, y, '#ebcb9f', '#e2bf90', '#b8915f', 8, r); },
   redtile(g, x, y, r) { tiles(g, x, y, '#c76c5c', '#bb6152', '#8e3f34', 8, r); },
   sage(g, x, y, r) { tiles(g, x, y, '#adc493', '#a2ba88', '#7c9563', 8, r); },
-  neon(g, x, y) { P(g, x, y, 16, 16, '#1b1a26'); P(g, x, y, 16, 1, '#ff2d6f'); P(g, x, y, 1, 16, '#25d4ee'); },
-  ice(g, x, y, r) { tiles(g, x, y, '#d9f0f8', '#cde8f3', '#a9d2e3', 8, r); if (r() < 0.3) P(g, x + 4 + Math.floor(r() * 8), y + 4 + Math.floor(r() * 8), 1, 1, '#ffffff'); },
-  kids(g, x, y, r) { P(g, x, y, 16, 16, '#3f6fd0'); speck(g, x, y, r, 8, ['#ffd23f', '#ff6b6b', '#5ee07a', '#ffffff']); },
-  kids2(g, x, y, r) { P(g, x, y, 16, 16, '#ff9cc6'); disc(g, x + 4, y + 4, 1.6, '#fff3a8'); disc(g, x + 12, y + 12, 1.6, '#9ff0ff'); },
-  bluecarpet(g, x, y, r) { P(g, x, y, 16, 16, '#2f4c9e'); speck(g, x, y, r, 10, ['#3a5ab0', '#263f86']); },
-  concrete(g, x, y, r) { P(g, x, y, 16, 16, '#a9a69c'); speck(g, x, y, r, 14, ['#9b988e', '#b6b3a9', '#8f8c83']); if (r() < 0.15) { P(g, x + 3, y + 9, 5, 1, '#8a877e'); P(g, x + 8, y + 10, 3, 1, '#8a877e'); } },
+  neon(g, x, y) { P(g, x, y, 16, 16, '#1b1a26'); dither(g, x, y, '#24223a', 4); P(g, x, y, 16, 1, '#ff2d6f'); P(g, x, y, 1, 16, '#25d4ee'); P(g, x + 1, y + 1, 15, 1, '#3a1a2e'); },
+  ice(g, x, y, r) { tiles(g, x, y, '#d9f0f8', '#cde8f3', '#a9d2e3', 8, r); if (r() < 0.3) { const a = 3 + Math.floor(r() * 3) * 4; P(g, x + a, y + a, 1, 1, '#ffffff'); P(g, x + a + 1, y + a - 1, 1, 1, '#ffffff'); } },
+  kids(g, x, y, r) { carpet(g, x, y, '#3f6fd0', '#3a66c4', '#5a86e0'); const c = pick(r, ['#ffd23f', '#ff6b6b', '#5ee07a', '#ffffff']); P(g, x + 7, y + 6, 1, 3, c); P(g, x + 6, y + 7, 3, 1, c); },
+  kids2(g, x, y, r) { P(g, x, y, 16, 16, '#ff9cc6'); dither(g, x, y, '#f590bc', 4); disc(g, x + 4, y + 4, 1.6, '#fff3a8'); disc(g, x + 12, y + 12, 1.6, '#9ff0ff'); P(g, x + 3, y + 3, 1, 1, '#ffffff'); P(g, x + 11, y + 11, 1, 1, '#ffffff'); },
+  bluecarpet(g, x, y, r) { carpet(g, x, y, '#2f4c9e', '#2a4590', '#3a5ab0'); },
+  concrete(g, x, y, r, tx, ty) { // stock room: sealed slabs, joints every 2 tiles, the odd crack
+    P(g, x, y, 16, 16, '#a9a69c'); dither(g, x, y, '#a09d93', 3); dither(g, x, y, '#b3b0a6', 5, 2);
+    if (tx % 2 === 0) P(g, x, y, 1, 16, '#8f8c83'); if (ty % 2 === 0) P(g, x, y, 16, 1, '#8f8c83');
+    if (r() < 0.12) { P(g, x + 3, y + 9, 4, 1, '#87847b'); P(g, x + 7, y + 10, 3, 1, '#87847b'); P(g, x + 10, y + 11, 2, 1, '#87847b'); }
+  },
   plywood(g, x, y, r, tx, ty) { planks(g, x, y, '#d2b07a', '#c9a66f', '#a5834f', tx, ty); },
-  asphalt(g, x, y, r) { P(g, x, y, 16, 16, '#4c4c54'); speck(g, x, y, r, 18, ['#56565e', '#43434a', '#5d5d66']); },
-  sidewalk(g, x, y, r) { P(g, x, y, 16, 16, '#d3cebf'); P(g, x, y, 16, 1, '#b5af9f'); P(g, x, y, 1, 16, '#b5af9f'); speck(g, x, y, r, 6, ['#c6c1b2', '#dcd7c9']); },
-  grass(g, x, y, r) { P(g, x, y, 16, 16, '#5fae47'); speck(g, x, y, r, 14, ['#57a341', '#6bba52']); for (let i = 0; i < 3; i++) { const a = Math.floor(r() * 14), b = Math.floor(r() * 13); P(g, x + a, y + b, 1, 2, '#3f8a34'); P(g, x + a + 1, y + b + 1, 1, 2, '#3f8a34'); } if (r() < 0.07) { const a = 3 + Math.floor(r() * 10), b = 3 + Math.floor(r() * 10); const c = pick(r, ['#fff', '#ffe14d', '#ff8fb1']); P(g, x + a, y + b, 1, 1, c); P(g, x + a - 1, y + b, 1, 1, c); P(g, x + a + 1, y + b, 1, 1, c); P(g, x + a, y + b - 1, 1, 1, c); P(g, x + a, y + b + 1, 1, 1, c); P(g, x + a, y + b, 1, 1, '#ffd23f'); } },
-  road(g, x, y, r) { P(g, x, y, 16, 16, '#3d3d44'); speck(g, x, y, r, 12, ['#45454d', '#36363c']); },
+  asphalt(g, x, y, r) { // fine aggregate in an ordered pattern, gravel clumps and the odd crack
+    P(g, x, y, 16, 16, '#4c4c54'); dither(g, x, y, '#55555d', 3); dither(g, x, y, '#45454c', 5, 1);
+    for (let i = 0; i < 2; i++) { const a = 2 + Math.floor(r() * 11), b = 2 + Math.floor(r() * 11); P(g, x + a, y + b, 2, 1, '#62626b'); P(g, x + a, y + b + 1, 1, 1, '#3e3e45'); }
+    if (r() < 0.06) { const a = 2 + Math.floor(r() * 6); for (let i = 0; i < 6; i++) P(g, x + a + i, y + 4 + i + (i > 2 ? 1 : 0), 1, 1, '#38383e'); }
+  },
+  sidewalk(g, x, y, r) { bevel(g, x, y, 16, 16, '#d3cebf', 0.3, -0.16); dither(g, x, y, '#cac5b5', 4); if (r() < 0.15) P(g, x + 4 + Math.floor(r() * 8), y + 5 + Math.floor(r() * 6), 1, 1, '#a9a394'); },
+  grass(g, x, y, r) { // two-tone dither + placed tufts (dark blade, light tip), a few flowers
+    P(g, x, y, 16, 16, '#5fae47'); dither(g, x, y, '#58a442', 4); dither(g, x, y, '#66b84e', 6, 3);
+    for (let i = 0; i < 3; i++) { const a = 1 + Math.floor(r() * 12), b = 2 + Math.floor(r() * 11); P(g, x + a, y + b, 1, 2, '#3f8a34'); P(g, x + a + 2, y + b, 1, 2, '#3f8a34'); P(g, x + a + 1, y + b + 1, 1, 1, '#3f8a34'); P(g, x + a, y + b - 1, 1, 1, '#7cc45e'); P(g, x + a + 2, y + b - 1, 1, 1, '#7cc45e'); }
+    if (r() < 0.07) { const a = 3 + Math.floor(r() * 10), b = 3 + Math.floor(r() * 10); const c = pick(r, ['#fff', '#ffe14d', '#ff8fb1']); P(g, x + a, y + b, 1, 1, c); P(g, x + a - 1, y + b, 1, 1, c); P(g, x + a + 1, y + b, 1, 1, c); P(g, x + a, y + b - 1, 1, 1, c); P(g, x + a, y + b + 1, 1, 1, c); P(g, x + a, y + b, 1, 1, '#ffd23f'); P(g, x + a, y + b + 2, 1, 1, '#3f8a34'); }
+  },
+  road(g, x, y, r) { P(g, x, y, 16, 16, '#3d3d44'); dither(g, x, y, '#45454d', 3); dither(g, x, y, '#36363c', 5, 2); },
 };
 
 // ===================== shelf items (tiny, ~4x6) =====================
@@ -559,9 +588,32 @@ function spillSprite(kind) {
 function toolIcon(id) {
   return spr('tool_' + id, 18, 18, g => {
     g.translate(1, 1);
-    if (id === 'hands') { P(g, 4, 6, 8, 8, '#f6f6f2'); P(g, 4, 2, 2, 5, '#f6f6f2'); P(g, 6, 1, 2, 6, '#f6f6f2'); P(g, 8, 1, 2, 6, '#f6f6f2'); P(g, 10, 2, 2, 5, '#f6f6f2'); P(g, 1, 7, 3, 3, '#f6f6f2'); P(g, 5, 9, 6, 1, '#c8c8c0'); P(g, 4, 13, 8, 2, '#d8342a'); }
-    if (id === 'mop') { P(g, 10, 0, 2, 10, '#c89a5a'); P(g, 5, 9, 10, 2, '#5a6a8a'); for (let i = 5; i < 15; i += 2) P(g, i, 11, 1, 4, '#e8e8e0'); }
-    if (id === 'wrench') { P(g, 4, 9, 3, 3, '#a8b0ba'); for (let i = 0; i < 7; i++) P(g, 6 + i, 8 - i, 2, 2, '#a8b0ba'); disc(g, 12.5, 3.5, 3, '#a8b0ba'); P(g, 12, 1, 2, 3, '#1b1a26'); disc(g, 4.5, 11.5, 1, '#6a7280'); }
-    if (id === 'food') { P(g, 3, 3, 10, 12, '#f2c230'); P(g, 3, 3, 10, 2, '#e8e8f0'); P(g, 5, 8, 5, 3, '#ff7a2a'); P(g, 10, 7, 2, 5, '#ff7a2a'); P(g, 6, 9, 1, 1, '#1a1a1a'); }
+    // 3 tones per material (light, base, shade) + outline, lit from the top left like the rest of the game
+    if (id === 'hands') { // work glove
+      const w = '#fbfbf5', ws = '#cfcfc4', wh = '#ffffff', r = '#d8342a', rd = '#9a2018', rh = '#f2604e';
+      [[4, 3], [6, 1], [8, 1], [10, 2]].forEach(([x, y]) => { P(g, x, y, 2, 8 - y, w); P(g, x + 1, y + 1, 1, 7 - y, ws); P(g, x, y, 1, 1, wh); });
+      P(g, 4, 7, 8, 6, w); P(g, 11, 7, 1, 6, ws); P(g, 4, 12, 8, 1, ws); P(g, 5, 8, 2, 2, wh); P(g, 5, 7, 6, 1, ws);
+      P(g, 1, 8, 3, 3, w); P(g, 1, 8, 2, 1, wh); P(g, 2, 10, 2, 1, ws);
+      P(g, 3, 13, 10, 3, r); P(g, 3, 13, 10, 1, rh); P(g, 3, 15, 10, 1, rd); P(g, 12, 13, 1, 3, rd);
+    }
+    if (id === 'mop') {
+      P(g, 9, 0, 2, 9, '#c89a5a'); P(g, 9, 0, 1, 9, '#e2b97c'); P(g, 10, 0, 1, 9, '#93683a');
+      P(g, 5, 8, 10, 2, '#9aa3ad'); P(g, 5, 8, 10, 1, '#d4dae0'); P(g, 5, 9, 10, 1, '#6a7280');
+      for (let i = 0; i < 5; i++) { const x = 5 + i * 2, h = i % 2 ? 4 : 5; P(g, x, 10, 2, h, '#ece6d0'); P(g, x + 1, 10, 1, h, '#bfb8a0'); }
+      P(g, 2, 12, 1, 2, '#7cc4f0'); P(g, 2, 12, 1, 1, '#d8f0ff'); // a drip
+    }
+    if (id === 'wrench') {
+      const b = '#a8b0ba', hi = '#e4e9ee', lo = '#6a7280';
+      disc(g, 3.5, 12.5, 2.8, b); P(g, 2, 10, 2, 1, hi); P(g, 1, 11, 1, 2, hi);
+      for (let i = 0; i < 7; i++) { P(g, 4 + i, 10 - i, 2, 2, b); P(g, 4 + i, 10 - i, 1, 1, hi); P(g, 5 + i, 11 - i, 1, 1, lo); }
+      disc(g, 12.5, 3.5, 3.3, b); P(g, 10, 1, 2, 1, hi); P(g, 9, 2, 1, 2, hi); P(g, 14, 4, 1, 2, lo); P(g, 12, 6, 2, 1, lo);
+      g.clearRect(12, -1, 3, 4); disc(g, 3.5, 12.5, 1, '#3a3f48');
+    }
+    if (id === 'food') { // fish food tin
+      P(g, 3, 4, 10, 11, '#f2c230'); P(g, 3, 4, 2, 11, '#f8dc70'); P(g, 11, 4, 2, 11, '#c8981c'); P(g, 3, 14, 10, 1, '#9a7414');
+      P(g, 3, 2, 10, 3, '#e8e8f0'); P(g, 3, 2, 10, 1, '#ffffff'); P(g, 3, 4, 10, 1, '#b8bcc8');
+      P(g, 3, 7, 10, 6, '#2e7de2'); P(g, 3, 7, 2, 6, '#5a9cf0'); P(g, 11, 7, 2, 6, '#1f5aae');
+      P(g, 5, 9, 4, 2, '#ff8a2a'); P(g, 5, 9, 3, 1, '#ffb060'); P(g, 9, 8, 1, 4, '#ff8a2a'); P(g, 10, 8, 1, 1, '#ff8a2a'); P(g, 10, 11, 1, 1, '#ff8a2a'); P(g, 6, 9, 1, 1, '#1a1a1a');
+    }
   }, true);
 }

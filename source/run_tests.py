@@ -12,7 +12,7 @@ def reach_ok(out):
 def sim_ok(out):
     return all(json.loads(l)['fail']==0 for l in out.splitlines() if l.startswith('{'))
 
-SUITES=[('t2',[],None),('reach',[],reach_ok),('skate',[],None),('sim',['2'],sim_ok),('mtest',[],None)]
+SUITES=[('t2',[],None),('reach',[],reach_ok),('skate',[],None),('sim',['2'],sim_ok),('mtest',[],None),('mzone',[],None)]
 b=run('build.py')
 if b.returncode: print(b.stdout+b.stderr); print('BUILD FAILED'); sys.exit(1)
 bad=[]

@@ -1,17 +1,48 @@
 <html><body><script src="../src/music.js"></script><script>
-async function run(src){
-  const out={};
-  for(const name of Object.keys(MUSIC.SIT)){
-    const sec=24, ctx=new OfflineAudioContext(2,44100*sec,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
-    M.log={n:0,kinds:{},maxV:0}; M.cur=M.want=name; M.p=MUSIC.SIT[name]; M.step=0; M.next=0.05; M.voices=[]; M.running=true; M.barLen=undefined; M.bar=0; M.motif=null;
-    MUSIC.scheduleUntil(sec-1); const barsN=Math.max(1,M.bar); const buf=await ctx.startRendering();
-    let peak=0,nan=false; for(let c=0;c<2;c++){const d=buf.getChannelData(c); for(let i=0;i<d.length;i++){const v=Math.abs(d[i]); if(v!==v)nan=true; if(v>peak)peak=v;}}
-    document.title="prog "+name; out[name]={perBar:+(M.log.n/barsN).toFixed(1), mel:+((M.log.kinds.mel||0)/barsN).toFixed(2), maxV:M.log.maxV, peakDb:+(20*Math.log10(peak||1e-9)).toFixed(1), nan};
+const fresh=()=>({n:0,kinds:{},maxV:0,mel:[],sw:[],bars:[]});
+async function render(song,moods,sec){
+  const ctx=new OfflineAudioContext(2,44100*sec,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
+  MUSIC.reset(song,moods); M.log=fresh(); M.step=0; M.next=0.05; M.running=true;
+  MUSIC.scheduleUntil(sec-1); const barsN=Math.max(1,M.log.bars.length); const buf=await ctx.startRendering();
+  let peak=0,nan=false; for(let c=0;c<2;c++){const d=buf.getChannelData(c); for(let i=0;i<d.length;i++){const v=Math.abs(d[i]); if(v!==v)nan=true; if(v>peak)peak=v;}}
+  const d0=buf.getChannelData(0), win=22050, w=[]; for(let i=110250;i+win<d0.length-66150;i+=win){ let q=0; for(let j=i;j<i+win;j++) q+=d0[j]*d0[j]; w.push(20*Math.log10(Math.sqrt(q/win)+1e-9)); }
+  return {hole:+(Math.max(...w)-Math.min(...w)).toFixed(1), perBar:+(M.log.n/barsN).toFixed(1), mel:+((M.log.kinds.mel||0)/barsN).toFixed(2), maxV:M.log.maxV, peakDb:+(20*Math.log10(peak||1e-9)).toFixed(1), nan};
+}
+// drive the conductor without rendering: start on a song, ask for another at step `at`, run `steps` 16ths
+function drive(from,to,at,steps,moods){
+  const ctx=new OfflineAudioContext(2,44100,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
+  MUSIC.reset(from,moods); M.log=fresh(); M.step=0; M.next=0;
+  for(let i=0;i<steps;i++){ if(i===at) MUSIC.set(to,moods); MUSIC.scheduleUntil(M.next+1e-6); }
+  return M.log;
+}
+const pc=n=>((n%12)+12)%12;
+async function run(){
+  const S=MUSIC.SONGS, out={songs:{},moods:{},store:Object.keys(S).filter(k=>S[k].place==='store')};
+  for(const name of Object.keys(S)) { out.songs[name]=await render(name,[],24); document.title='prog '+name; }
+  for(const m of Object.keys(MUSIC.MOOD)) out.moods[m]=await render('market',[m],16);
+  out.moods['busy+fest+checkout']=await render('market',['busy','fest','checkout'],16);
+  // every store song into every other store song, asked for at a few different moments
+  const store=Object.keys(S).filter(k=>S[k].place==='store'), bad=[]; let n=0, maxWait=0;
+  for(const a of store) for(const b of store) if(a!==b) for(const at of [5,23,40]){
+    const L=drive(a,b,at,260), sw=L.sw[0]; n++;
+    if(!sw){ bad.push([a,b,at,'never switched']); continue; }
+    const barIdx=L.bars.findIndex(r=>r[0]===sw.step);
+    if(sw.kind!=='phrase' || barIdx%4!==0) bad.push([a,b,at,'not on a phrase end',barIdx]);
+    maxWait=Math.max(maxWait,sw.step-at);
+    const root=pc(MUSIC.M.root+S[b].key), before=L.mel.filter(e=>e.step<sw.step).pop(), first=L.mel.find(e=>e.step>=sw.step);
+    if(!first || first.step!==sw.step || pc(first.m)!==root) bad.push([a,b,at,'downbeat not the new root',first&&pc(first.m),root]);
+    if(S[a].lead && (!before || Math.min(pc(before.m-root),pc(root-before.m))>2)) bad.push([a,b,at,'last note not next to new root',before&&pc(before.m),root]);
+    for(let i=1;i<L.bars.length;i++) if(Math.abs(L.bars[i][1]-L.bars[i-1][1])>2.0001) { bad.push([a,b,at,'tempo jump',L.bars[i-1][1],L.bars[i][1]]); break; }
   }
-  // bar-line switch test
-  const ctx=new OfflineAudioContext(2,44100*4,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M; M.cur=M.want='day'; M.p=MUSIC.SIT.day; M.step=0; M.next=0; M.log=null; M.barLen=undefined; M.bar=0;
-  let flips=[]; for(let i=0;i<70;i++){ const before=M.cur; if(i===21) MUSIC.setSituation('lounge'); if(i===45) MUSIC.setSituation('night'); if(i===21||i===45){} MUSIC.scheduleUntil(M.next+1e-6); if(M.cur!==before) flips.push(M.step-1); }
-  out.switchSteps=flips;
+  out.zone={pairs:n,bad:bad.slice(0,8),badN:bad.length,maxWaitSteps:maxWait};
+  // new place: cuts in on the next bar line, with a fill before it
+  const pl=[]; for(const [a,b] of [['market','outside'],['outside','market'],['lounge','stock'],['market','menu'],['night','market']]) for(const at of [3,21,46]){
+    const L=drive(a,b,at,120), sw=L.sw[0], nextBar=L.bars.find(r=>r[0]>at);
+    pl.push(!!sw && sw.kind==='place' && nextBar && sw.step===nextBar[0]);
+  }
+  out.place={ok:pl.filter(Boolean).length,of:pl.length};
+  // no request = no switch, and asking for what's already playing does nothing
+  out.steady=drive('market','market',10,300).sw.length;
   document.title=JSON.stringify(out);
 }
 run().catch(e=>document.title="ERR "+e.message+" "+e.stack.slice(0,300));
