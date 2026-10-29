@@ -18,7 +18,7 @@ function updateUI(dt) {
   const st = stars(); setText('h-stars', '★'.repeat(st) + '<span class="dim">' + '★'.repeat(5 - st) + '</span>');
   const e = $('#h-energy i'); if (e) { e.style.width = Math.round(ST.energy) + '%'; e.style.background = ST.energy < 25 ? '#ff5a4a' : '#7dd35a'; }
   TOOLS.forEach((t, i) => { const el = document.getElementById('tool' + i); if (el) el.classList.toggle('on', PL.tool === i); });
-  setText('h-tool', TOOLS[PL.tool].name + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : ''));
+  setText('h-tool', TOOLS[PL.tool].name + (PL.walk ? '<br><small>walking (R for skates)</small>' : '') + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : ''));
   // prompt
   let p = ''; if (flashMsg) p = flashMsg.text; else if (RT.target && RT.target.label) p = typo(RT.target.label); const hint = currentHint();
   setText('prompt', p ? `<b>${p}</b>` : ''); $('#prompt').style.display = p ? 'block' : 'none';
@@ -148,7 +148,7 @@ function titleHTML() {
   return `${gi}<h1>${typo(CONFIG.storeName)}</h1><div class="tsub">International Market</div>
   <p class="tblurb">You run the wildest grocery store in Ohio. On roller skates. Keep the shelves full, the fish fed, the Big Cheese cold and the lion singing.</p>
   <div class="col tbtn">${hasSave() ? '<button id="t-cont" class="buy">Continue</button>' : ''}<button id="t-new" class="${hasSave() ? '' : 'buy'}">New game</button></div>
-  <p class="small">WASD / arrows to skate. Space to do stuff. 1-4 swap tools. M for the map. Esc pauses.</p>`;
+  <p class="small">WASD / arrows to skate. R takes skates off to walk. Space to do stuff. 1-4 swap tools. M for the map. Esc pauses.</p>`;
 }
 function drawMap() {
   const c = $('#mapc'); const maxW = Math.min(innerWidth - 80, 1100), maxH = innerHeight - 200; const sc = Math.min(maxW / (MW * T), maxH / (MH * T)); c.width = MW * T * sc; c.height = MH * T * sc;

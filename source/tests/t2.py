@@ -17,6 +17,13 @@ with sync_playwright() as p:
     E=lambda js: pg.evaluate(js)
     x0=E("__game.PL.x"); pg.keyboard.down('ArrowLeft'); pg.wait_for_timeout(700); pg.keyboard.up('ArrowLeft'); x1=E("__game.PL.x")
     check('holding left skates player left', x1 < x0-20, (x0,x1))
+    pg.wait_for_timeout(1500); pg.keyboard.press('KeyR'); pg.wait_for_timeout(100)
+    check('R takes skates off', E("__game.PL.walk")==True and 'walking' in pg.inner_text('#h-tool'), pg.inner_text('#h-tool'))
+    x0=E("__game.PL.x"); pg.keyboard.down('ArrowLeft'); pg.wait_for_timeout(500); pg.keyboard.up('ArrowLeft'); x1=E("__game.PL.x"); pg.wait_for_timeout(300); x2=E("__game.PL.x")
+    check('walking moves, slower than skating', 10 < x0-x1 < 30, (x0,x1))
+    check('walking stops dead on release', abs(x2-x1) < 2, (x1,x2))
+    pg.keyboard.press('KeyR'); pg.wait_for_timeout(50)
+    check('R puts skates back on', not E("__game.PL.walk"))
     # freeze sim clock: run updates manually
     E("window.U=window.update; window.update=()=>{}; window.step=(s)=>{for(let i=0;i<s*20;i++) U(0.05)}")
     def place(tx,ty,d): E(f"(()=>{{const P=__game.PL;P.x={tx}*16+8;P.y={ty}*16+12;P.vx=P.vy=0;P.dir='{d}';}})()")

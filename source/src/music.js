@@ -1,4 +1,4 @@
-// ===== situational music: lifted from Slimehedron (c) FlahMusic, GPL-3.0-or-later =====
+// ===== situational music: lifted from Slimehedron (c) FlahMusic; same owner, so it's under this game's LICENSE.txt =====
 // Reused from Slimehedron: the rep()/bars() step format, the kit patterns, KITVOICE roles, the padKeeps()
 // "simple <-> complex" thinning rule, KITFEEL humanize amounts, CHORD_FN.major chord odds, the one-fifth
 // key journey, and the pluck() voice design. Drum patterns in pop/bossa/jazz were derived from

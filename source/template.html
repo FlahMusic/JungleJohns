@@ -94,9 +94,10 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
 #touch { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 6; }
 #t-pad { position: absolute; left: 24px; bottom: 96px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,244,214,.12); box-shadow: 0 0 0 3px rgba(42,29,34,.6); pointer-events: auto; touch-action: none; }
 #t-knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: rgba(242,200,28,.7); }
-#t-a, #t-tool, #t-menu { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; display: grid; place-items: center; font-family: 'Press Start 2P', monospace; color: var(--ink); box-shadow: 0 0 0 3px var(--ink); }
+#t-a, #t-tool, #t-skate, #t-menu { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; display: grid; place-items: center; font-family: 'Press Start 2P', monospace; color: var(--ink); box-shadow: 0 0 0 3px var(--ink); }
 #t-a { right: 28px; bottom: 110px; width: 84px; height: 84px; background: var(--gold); font-size: 22px; }
 #t-tool { right: 126px; bottom: 90px; width: 58px; height: 58px; background: var(--cream); font-size: 10px; }
+#t-skate { right: 126px; bottom: 160px; width: 58px; height: 58px; background: var(--cream); font-size: 9px; }
 #t-menu { right: 28px; top: 120px; width: 46px; height: 46px; background: var(--cream); font-size: 12px; }
 @media (max-width: 760px) { #problems { top: auto; bottom: 230px; font-size: 17px; max-width: 220px; } #hint { max-width: 90vw; top: 118px; font-size: 18px; } body { font-size: 18px; } #toasts { top: 120px; max-width: 220px; } }
 @media (prefers-reduced-motion: reduce) { #dl-more { animation: none; } }
@@ -115,7 +116,7 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
 </div>
 <div id="dialog" class="px"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div><div id="dl-more">▼</div></div>
 <div id="menu" class="menu"><div id="menu-box"></div></div>
-<div id="touch"><div id="t-pad"><div id="t-knob"></div></div><div id="t-a">A</div><div id="t-tool">TOOL</div><div id="t-menu">II</div></div>
+<div id="touch"><div id="t-pad"><div id="t-knob"></div></div><div id="t-a">A</div><div id="t-tool">TOOL</div><div id="t-skate">WALK</div><div id="t-menu">II</div></div>
 <script>
 __JS__
 </script>

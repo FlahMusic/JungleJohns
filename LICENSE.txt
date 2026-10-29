@@ -1,0 +1,19 @@
+Jungle John's
+Copyright (C) 2026 FlahMusic (Flah). All rights reserved.
+
+You can play it. Don't copy, share, sell or change it without Flah's OK.
+
+The music code reuses parts of Slimehedron, which Flah also wrote and owns.
+Slimehedron's GPL license is for other people using Slimehedron. It does not
+apply to Flah's own use, so it does not apply to this game.
+
+Credits:
+- Press Start 2P font by CodeMan38, SIL Open Font License 1.1
+  (https://openfontlicense.org). Embedded in the game file.
+- VT323 font by Peter Hull, SIL Open Font License 1.1
+  (https://openfontlicense.org). Embedded in the game file.
+- Some drum patterns came from casio-music-data by Nicholas Opuni
+  (https://github.com/nicholasopuni31/casio-music-data). Its README asks for credit.
+
+Jungle John's is a parody. It is not made by, linked to, or approved by
+Jungle Jim's International Market.

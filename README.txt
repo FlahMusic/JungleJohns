@@ -30,6 +30,10 @@ WHAT'S WHERE (source/src)
   ui.js      menus and HUD
   main.js    controls and start-up
 
-MUSIC CREDIT
-  music.js reuses Slimehedron (c) FlahMusic, GPL-3.0-or-later.
-  Some drum patterns came from casio-music-data. See Slimehedron's THIRD-PARTY.md.
+CONTROLS
+  WASD / arrows move. R takes skates off (walk, no sliding) and puts them back on.
+  On a phone: the WALK / SKATE button.
+
+LICENSE
+  See LICENSE.txt. All rights reserved, yours. music.js reuses your own
+  Slimehedron code, so its GPL doesn't apply here. Font and drum credits are in there.

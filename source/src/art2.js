@@ -24,16 +24,22 @@ function tagSprite(text) { return spr('tag_' + text, pxTextW(text) + 4, 8, g => 
 function floatSprite(text, col) { return spr('fl_' + col + text, pxTextW(text) + 2, 7, g => { pxText(g, text, 1, 2, '#2a1d22'); pxText(g, text, 2, 1, '#2a1d22'); pxText(g, text, 1, 1, col); }); }
 
 // ===== the boss: original design, built for skating =====
-// pose: idle | glide | pushL | pushR. dir: down | up | side
-const BOSS = { skin: '#f2c49a', hair: '#3a2414', shirt: '#2e9a4a', leaf: '#f2d23a', shorts: '#2a4a8a', boot: '#f6f6f2', stripe: '#e2342a', wheel: '#ffb21c', pad: '#e2342a' };
-function bossSprite(dir, pose, carry, wheelF) {
-  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}`, 20, 31, g => {
+// pose: idle | glide | pushL | pushR | brake | walkL | walkR. dir: down | up | side. shoes: skates off
+const BOSS = { skin: '#f2c49a', hair: '#3a2414', shirt: '#2e9a4a', leaf: '#f2d23a', shorts: '#2a4a8a', boot: '#f6f6f2', stripe: '#e2342a', wheel: '#ffb21c', pad: '#e2342a', sole: '#3a3a40' };
+function bossSprite(dir, pose, carry, wheelF, shoes) {
+  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}_${shoes ? 1 : 0}`, 20, 31, g => {
     g.translate(2, 4); const B = BOSS, sk = B.skin, sd = shade(sk, -0.18);
-    const crouch = pose === 'glide' || pose === 'brake' ? 1 : 0; const lean = dir === 'side' && pose !== 'idle' ? 1 : 0;
+    const crouch = pose === 'glide' || pose === 'brake' ? 1 : 0; const lean = dir === 'side' && pose !== 'idle' && !shoes ? 1 : 0;
     const wcol = wheelF ? B.wheel : shade(B.wheel, -0.25);
-    const skate = (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, 1, 1, wcol); P(g, x + w - 1, y + 2, 1, 1, wcol); if (w > 3) P(g, x + 1, y + 2, w - 2, 1, '#6a6f78'); };
-    // legs + skates
-    if (pose === 'brake') { if (dir === 'side') { P(g, 2, 18, 4, 3, B.shorts); P(g, 1, 20, 3, 1, B.pad); skate(-2, 21, 6); P(g, 8, 18, 3, 3, B.shorts); P(g, 8, 20, 3, 1, B.pad); skate(8, 21, 3); } else { P(g, 4, 18, 3, 3, B.shorts); P(g, 9, 18, 3, 3, B.shorts); P(g, 4, 20, 3, 1, B.pad); P(g, 9, 20, 3, 1, B.pad); skate(2, 21, 5); skate(10, 21, 3); } }
+    const skate = shoes ? (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, w, 1, B.sole); }
+      : (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, 1, 1, wcol); P(g, x + w - 1, y + 2, 1, 1, wcol); if (w > 3) P(g, x + 1, y + 2, w - 2, 1, '#6a6f78'); };
+    // legs + skates (or sneakers)
+    if (pose === 'walkL' || pose === 'walkR') {
+      const L = pose === 'walkL';
+      if (dir === 'side') { if (L) { P(g, 3, 17, 3, 3, B.shorts); P(g, 3, 20, 3, 1, B.pad); skate(2, 21, 4); P(g, 8, 17, 3, 3, B.shorts); P(g, 8, 20, 3, 1, B.pad); skate(8, 21, 4); } else { P(g, 5, 17, 5, 3, B.shorts); P(g, 6, 20, 3, 1, B.pad); skate(5, 21, 5); } }
+      else { const l = L ? 1 : 0, r = 1 - l; P(g, 4, 17, 3, 3 - l, B.shorts); P(g, 4, 20 - l, 3, 1, B.pad); skate(3, 21 - l, 4); P(g, 9, 17, 3, 3 - r, B.shorts); P(g, 9, 20 - r, 3, 1, B.pad); skate(9, 21 - r, 4); }
+    }
+    else if (pose === 'brake') { if (dir === 'side') { P(g, 2, 18, 4, 3, B.shorts); P(g, 1, 20, 3, 1, B.pad); skate(-2, 21, 6); P(g, 8, 18, 3, 3, B.shorts); P(g, 8, 20, 3, 1, B.pad); skate(8, 21, 3); } else { P(g, 4, 18, 3, 3, B.shorts); P(g, 9, 18, 3, 3, B.shorts); P(g, 4, 20, 3, 1, B.pad); P(g, 9, 20, 3, 1, B.pad); skate(2, 21, 5); skate(10, 21, 3); } }
     else if (dir === 'side') {
       if (pose === 'pushL' || pose === 'pushR') { P(g, 3, 17, 3, 3, B.shorts); P(g, 2, 19, 2, 2, sk); P(g, 1, 20, 2, 1, B.pad); skate(-1, 21, 5); P(g, 7, 17, 3, 4, B.shorts); P(g, 8, 20, 2, 1, B.pad); P(g, 8, 21, 2, 1, sk); skate(7, 21, 5); }
       else { P(g, 5, 17 + crouch, 5, 3, B.shorts); P(g, 6, 20, 3, 1, B.pad); skate(4, 21, 7); }
@@ -49,9 +55,9 @@ function bossSprite(dir, pose, carry, wheelF) {
     if (dir === 'down') { P(g, tx + 4, ty, 2, 2, sk); P(g, tx + 6, ty + 2, 2, 2, '#fff'); P(g, tx + 6, ty + 2, 2, 1, '#e2342a'); }
     // arms: out for balance when gliding, swinging when pushing, up when carrying
     if (carry) { if (dir === 'side') { P(g, tx + 5, ty - 5, 2, 6, B.shirt); P(g, tx + 5, ty - 6, 2, 1, sk); } else { P(g, tx - 2, ty - 5, 2, 7, B.shirt); P(g, tx + 10, ty - 5, 2, 7, B.shirt); P(g, tx - 2, ty - 6, 2, 1, sk); P(g, tx + 10, ty - 6, 2, 1, sk); } }
-    else if (dir === 'side') { const sw = pose === 'pushL' ? -2 : pose === 'pushR' ? 2 : 0; P(g, tx + 4 + sw, ty + 1, 2, 5, shade(B.shirt, -0.12)); P(g, tx + 4 + sw, ty + 6, 2, 2, sk); }
+    else if (dir === 'side') { const sw = pose === 'pushL' ? -2 : pose === 'pushR' || pose === 'walkL' ? 2 : 0; P(g, tx + 4 + sw, ty + 1, 2, 5, shade(B.shirt, -0.12)); P(g, tx + 4 + sw, ty + 6, 2, 2, sk); }
     else if (pose === 'glide' || pose === 'brake') { P(g, tx - 3, ty + 1, 3, 2, B.shirt); P(g, tx - 5, ty + 1, 2, 2, sk); P(g, tx + 10, ty + 1, 3, 2, B.shirt); P(g, tx + 13, ty + 1, 2, 2, sk); }
-    else { const a = pose === 'pushL' ? 1 : 0, b = pose === 'pushR' ? 1 : 0; P(g, tx - 1, ty + 1 + a, 1, 5, shade(B.shirt, -0.12)); P(g, tx + 10, ty + 1 + b, 1, 5, shade(B.shirt, -0.12)); P(g, tx - 1, ty + 6 + a, 1, 2, sk); P(g, tx + 10, ty + 6 + b, 1, 2, sk); P(g, tx - 1, ty + 5 + a, 1, 1, '#f2d23a'); P(g, tx + 10, ty + 5 + b, 1, 1, '#f2d23a'); }
+    else { const a = pose === 'pushL' || pose === 'walkR' ? 1 : 0, b = pose === 'pushR' || pose === 'walkL' ? 1 : 0; P(g, tx - 1, ty + 1 + a, 1, 5, shade(B.shirt, -0.12)); P(g, tx + 10, ty + 1 + b, 1, 5, shade(B.shirt, -0.12)); P(g, tx - 1, ty + 6 + a, 1, 2, sk); P(g, tx + 10, ty + 6 + b, 1, 2, sk); P(g, tx - 1, ty + 5 + a, 1, 1, '#f2d23a'); P(g, tx + 10, ty + 5 + b, 1, 1, '#f2d23a'); }
     // head
     const hy = crouch, hx = 3 + lean;
     [[2, 6], [1, 8], [0, 10], [0, 10], [0, 10], [0, 10], [0, 10], [1, 8], [2, 6]].forEach(([o, w], i) => P(g, hx + o, hy + i, w, 1, sk));

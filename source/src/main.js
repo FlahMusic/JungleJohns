@@ -22,6 +22,7 @@ function bindInput() {
     if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') doAction();
     if (e.code >= 'Digit1' && e.code <= 'Digit4') PL.tool = +e.code.slice(5) - 1;
     if (e.code === 'KeyQ' || e.code === 'Tab') PL.tool = (PL.tool + 1) % TOOLS.length;
+    if (e.code === 'KeyR') toggleSkates();
   });
   addEventListener('keyup', e => { KEYS[e.code] = false; });
   addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
@@ -35,6 +36,7 @@ function bindInput() {
     const up = () => { id = null; VK.x = VK.y = 0; knob.style.transform = ''; setK(); }; pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up);
     $('#t-a').addEventListener('pointerdown', e => { e.preventDefault(); if (RT.dialog) advanceDialog(); else if (!RT.menu) doAction(); });
     $('#t-tool').addEventListener('pointerdown', e => { e.preventDefault(); PL.tool = (PL.tool + 1) % TOOLS.length; });
+    $('#t-skate').addEventListener('pointerdown', e => { e.preventDefault(); if (!RT.menu && !RT.dialog) { toggleSkates(); $('#t-skate').textContent = PL.walk ? 'SKATE' : 'WALK'; } });
     $('#t-menu').addEventListener('pointerdown', e => { e.preventDefault(); if (RT.menu && RT.menu !== 'report' && RT.menu !== 'title') closeMenu(); else if (!RT.menu) openMenu('pause'); });
   }
   $('#dialog').addEventListener('click', () => { if (RT.dialog && !RT.dialog.choices) advanceDialog(); });

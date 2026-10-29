@@ -36,7 +36,7 @@ Keep all game files inside `C:\jungle jim\jungle-johns-game-folder\game\`.
 - Art: match the established pixel style. Never swap illustrated art for flat vector/chart glyphs. Ask before changing art direction.
 - UI copy: short, plain, concrete. No flavour text, no "AI words".
 - Don't describe the project as a version or successor of anything.
-- End every pass with a plain list of what to upload/delete on GitHub (there is no repo yet; see backlog).
+- LOCAL ONLY. Commit to the local git repo in the game folder. Never push, never ask about GitHub, no upload lists. Never write game files or commits into the Slimehedron repo (C:\jungle jim\plinky).
 
 ## 4. Code map (source\src, plain JS, no framework, one canvas)
 | file | what |
@@ -51,12 +51,13 @@ Keep all game files inside `C:\jungle jim\jungle-johns-game-folder\game\`.
 | music.js | generative music (built from Slimehedron, section 5) |
 | audio.js | sound effects + musicTick() which picks the music situation |
 | main.js | input (keyboard + touch), loop, start-up |
+Walk mode: R (touch: WALK/SKATE button) toggles `PL.walk`. Walking = WALK_SPEED 44 px/s, no glide, stops dead; sprite swaps skates for sneakers (poses walkL/walkR). Not saved; each load starts on skates.
 Debug hook: `window.__game` exposes state. Save key: `localStorage['jungle-store-save-v1']` (saves at end of each day).
 
 Rename the store: data.js -> CONFIG.storeName / ownerName, then rebuild.
 
 ## 5. Music: what exists and what's next
-music.js reuses Slimehedron (c) FlahMusic, GPL-3.0-or-later, taken from the PUBLIC GitHub repo FlahMusic/Slimehedron (cloned 2026-10-28), not from the files Flah put in C:\jungle jim.
+music.js reuses Slimehedron (c) FlahMusic, taken from the PUBLIC GitHub repo FlahMusic/Slimehedron (cloned 2026-10-28), not from the files Flah put in C:\jungle jim. Every Slimehedron commit is by FlahMusic, so Flah owns that code and the game is NOT bound by Slimehedron's GPL. Game license: LICENSE.txt, all rights reserved (Flah chose "not a pain", 2026-10-29). Keep its font + casio-music-data credits.
 Reused: rep()/bars() step format, KITS (chip, bossa, pop, march, conga, samba, jazz), KITVOICE, padKeeps() thinning, FEEL humanize, CHORD_FN.major odds, one-fifth key journey per day, pluck() voice.
 Credit: pop/bossa/jazz patterns came from casio-music-data via Slimehedron; see its THIRD-PARTY.md before anything public/commercial.
 
@@ -77,7 +78,9 @@ Next for music (ask Flah first):
 
 ## 6. Tests (run them, keep them green, add to them)
 Setup once: `pip install playwright mido` then `python -m playwright install chromium` (done on Flah's PC 2026-10-29).
-One command: `python source\run_tests.py` builds, runs all five, prints PASS/FAIL per suite, exits 1 if any are red (`-v` prints full output). It checks FAIL lines, page errors, reach blocked lists and sim path failures. Skate numbers have no targets yet, so it only checks skate runs clean.
+One command: `python source\run_tests.py` builds, runs all five, prints PASS/FAIL per suite, exits 1 if any are red (`-v` prints full output). It checks FAIL lines, page errors, reach blocked lists and sim path failures.
+Skate feel is LOCKED (Flah OK'd 2026-10-29): skate.py prints PASS/FAIL against ranges around 0.37 s to top speed, 2.5-tile coast, 0.5-tile brake, 0.37 s T-stop, 72 px/s top. Changing skate feel on purpose = update the ranges in skate.py in the same pass, with Flah's OK. Which leg pushes first varies with frame timing; only alternation is checked.
+t2 also checks walk mode (R toggles, walk is slower, stops dead on release).
 Build output uses LF line endings, so a fresh build is byte-identical to jungle-johns.html when nothing changed.
 - tests\t2.py: 21 real-keypress flows (skate, crates, restock, lost customer escort, mop, wrench, fish, cheese cooler, register scan, sleep, report, catalog buy, next day, save/continue)
 - tests\reach.py: every aisle, pallet, register lane and door reachable on foot (with and without upgrades)
@@ -109,10 +112,9 @@ Last known results: all green. Music peak about -14 dB, max 7 voices. Skate: 0.3
 1. Sound check with Flah, tune situations by ear (music.js SIT table).
 2. Skate feel tuning with Flah (game.js updatePlayer, SK constants).
 3. Art quality: customers, counter cases, tasting bar, registers. Same pixel style. Show Flah before/after.
-4. Local git repo exists (2026-10-29). Still open: GitHub remote (where? FlahMusic?), and a license (music.js is GPL-3.0-or-later code, so the game likely has to be GPL too if shared; ask Flah). Give the upload/delete list each pass.
-5. Rhino entrance "quick trips" register (map has registers there).
-6. Save mid-day (now only at day end).
-7. Skate targets in run_tests (needs Flah's OK on the numbers).
+4. Rhino entrance "quick trips" register (map has registers there).
+5. Save mid-day (now only at day end).
+6. Walk speed (44) by feel with Flah.
 
 ## 10. Skills to use
 - prove-it-works: verify outcomes a human notices (playable/readable/findable), not "it ran".

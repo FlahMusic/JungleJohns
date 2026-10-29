@@ -25,5 +25,4 @@ for name,args,extra in SUITES:
     if not ok or '-v' in sys.argv: print(out)
     if not ok: bad.append(name)
 print('ALL GREEN' if not bad else 'RED: '+', '.join(bad))
-print('skate numbers are not checked against targets; run "python tests/skate.py" to see them.')
 sys.exit(1 if bad else 0)

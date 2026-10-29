@@ -99,10 +99,11 @@ function drawPerson(e, look, carryList) {
 
 function drawBoss() {
   const s = Math.hypot(PL.vx, PL.vy); let pose = 'idle';
-  if (s > 6) { if (PL.braking) pose = 'brake'; else if (PL.input) { const ph = (PL.stride || 0) / (PL.period || 0.34); pose = ph < 0.45 ? (PL.side ? 'pushL' : 'pushR') : 'glide'; } else pose = 'glide'; }
+  if (PL.walk) { if (s > 6) pose = Math.floor((PL.stride || 0) / 0.2) % 2 ? 'walkL' : 'walkR'; }
+  else if (s > 6) { if (PL.braking) pose = 'brake'; else if (PL.input) { const ph = (PL.stride || 0) / (PL.period || 0.34); pose = ph < 0.45 ? (PL.side ? 'pushL' : 'pushR') : 'glide'; } else pose = 'glide'; }
   const dk = PL.dir === 'left' || PL.dir === 'right' ? 'side' : PL.dir; const wf = Math.floor(PL.anim / 3) % 2;
   shadow(PL.x, PL.y + 0.5, 6);
-  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, wf), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
+  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
   PL.carry.forEach((k, i) => drawSpr(crateSprite(k), PL.x - 7, PL.y - 36 - i * 8));
   if (s > 55 && Math.random() < 0.35) RT.parts.push({ x: PL.x - PL.vx * 0.06 + (Math.random() - 0.5) * 6, y: PL.y - 1, vx: -PL.vx * 0.2, vy: -6, t: 0.35, c: '#ffffff', dust: true });
 }

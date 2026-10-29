@@ -23,4 +23,10 @@ with sync_playwright() as p:
       // precision tap from rest
       reset(); x0=P.x; K.KeyD=true; step(0.1); K.KeyD=false; step(1.5); out.tapMovePx=+(P.x-x0).toFixed(1);
       out.maxSpeed=ms; return out; }""")
-    print(json.dumps(r)); print(errs); b.close()
+    print(json.dumps(r))
+    # locked feel (Flah OK'd 2026-10-29): name, low, high
+    T=[('secsTo90pct',0.33,0.41),('coastTiles',2.2,2.8),('brakeTiles',0.3,0.7),('carveKeepsSpeed',0.95,1.0),('carveHeadingDeg',70,88),('secsToReverse',0.33,0.41),('tapMovePx',1.5,4.0),('maxSpeed',72,72)]
+    for k,lo,hi in T: print(('PASS ' if lo<=r[k]<=hi else 'FAIL ')+k+' '+str(r[k])+f' (want {lo}-{hi})')
+    # which leg goes first depends on frame timing; alternating is the rule
+    print(('PASS ' if r['poseSeq'] in ('LR','RL') and r['pushesSeen']>=3 else 'FAIL ')+'strides alternate L/R '+r['poseSeq']+' '+str(r['pushesSeen']))
+    print(errs); b.close()

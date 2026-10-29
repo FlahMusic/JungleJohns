@@ -94,9 +94,10 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
 #touch { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 6; }
 #t-pad { position: absolute; left: 24px; bottom: 96px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,244,214,.12); box-shadow: 0 0 0 3px rgba(42,29,34,.6); pointer-events: auto; touch-action: none; }
 #t-knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: rgba(242,200,28,.7); }
-#t-a, #t-tool, #t-menu { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; display: grid; place-items: center; font-family: 'Press Start 2P', monospace; color: var(--ink); box-shadow: 0 0 0 3px var(--ink); }
+#t-a, #t-tool, #t-skate, #t-menu { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; display: grid; place-items: center; font-family: 'Press Start 2P', monospace; color: var(--ink); box-shadow: 0 0 0 3px var(--ink); }
 #t-a { right: 28px; bottom: 110px; width: 84px; height: 84px; background: var(--gold); font-size: 22px; }
 #t-tool { right: 126px; bottom: 90px; width: 58px; height: 58px; background: var(--cream); font-size: 10px; }
+#t-skate { right: 126px; bottom: 160px; width: 58px; height: 58px; background: var(--cream); font-size: 9px; }
 #t-menu { right: 28px; top: 120px; width: 46px; height: 46px; background: var(--cream); font-size: 12px; }
 @media (max-width: 760px) { #problems { top: auto; bottom: 230px; font-size: 17px; max-width: 220px; } #hint { max-width: 90vw; top: 118px; font-size: 18px; } body { font-size: 18px; } #toasts { top: 120px; max-width: 220px; } }
 @media (prefers-reduced-motion: reduce) { #dl-more { animation: none; } }
@@ -115,7 +116,7 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
 </div>
 <div id="dialog" class="px"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div><div id="dl-more">▼</div></div>
 <div id="menu" class="menu"><div id="menu-box"></div></div>
-<div id="touch"><div id="t-pad"><div id="t-knob"></div></div><div id="t-a">A</div><div id="t-tool">TOOL</div><div id="t-menu">II</div></div>
+<div id="touch"><div id="t-pad"><div id="t-knob"></div></div><div id="t-a">A</div><div id="t-tool">TOOL</div><div id="t-skate">WALK</div><div id="t-menu">II</div></div>
 <script>
 // ===== CONFIG: change these two lines to rename the store =====
 const CONFIG = {
@@ -1054,16 +1055,22 @@ function tagSprite(text) { return spr('tag_' + text, pxTextW(text) + 4, 8, g => 
 function floatSprite(text, col) { return spr('fl_' + col + text, pxTextW(text) + 2, 7, g => { pxText(g, text, 1, 2, '#2a1d22'); pxText(g, text, 2, 1, '#2a1d22'); pxText(g, text, 1, 1, col); }); }
 
 // ===== the boss: original design, built for skating =====
-// pose: idle | glide | pushL | pushR. dir: down | up | side
-const BOSS = { skin: '#f2c49a', hair: '#3a2414', shirt: '#2e9a4a', leaf: '#f2d23a', shorts: '#2a4a8a', boot: '#f6f6f2', stripe: '#e2342a', wheel: '#ffb21c', pad: '#e2342a' };
-function bossSprite(dir, pose, carry, wheelF) {
-  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}`, 20, 31, g => {
+// pose: idle | glide | pushL | pushR | brake | walkL | walkR. dir: down | up | side. shoes: skates off
+const BOSS = { skin: '#f2c49a', hair: '#3a2414', shirt: '#2e9a4a', leaf: '#f2d23a', shorts: '#2a4a8a', boot: '#f6f6f2', stripe: '#e2342a', wheel: '#ffb21c', pad: '#e2342a', sole: '#3a3a40' };
+function bossSprite(dir, pose, carry, wheelF, shoes) {
+  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}_${shoes ? 1 : 0}`, 20, 31, g => {
     g.translate(2, 4); const B = BOSS, sk = B.skin, sd = shade(sk, -0.18);
-    const crouch = pose === 'glide' || pose === 'brake' ? 1 : 0; const lean = dir === 'side' && pose !== 'idle' ? 1 : 0;
+    const crouch = pose === 'glide' || pose === 'brake' ? 1 : 0; const lean = dir === 'side' && pose !== 'idle' && !shoes ? 1 : 0;
     const wcol = wheelF ? B.wheel : shade(B.wheel, -0.25);
-    const skate = (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, 1, 1, wcol); P(g, x + w - 1, y + 2, 1, 1, wcol); if (w > 3) P(g, x + 1, y + 2, w - 2, 1, '#6a6f78'); };
-    // legs + skates
-    if (pose === 'brake') { if (dir === 'side') { P(g, 2, 18, 4, 3, B.shorts); P(g, 1, 20, 3, 1, B.pad); skate(-2, 21, 6); P(g, 8, 18, 3, 3, B.shorts); P(g, 8, 20, 3, 1, B.pad); skate(8, 21, 3); } else { P(g, 4, 18, 3, 3, B.shorts); P(g, 9, 18, 3, 3, B.shorts); P(g, 4, 20, 3, 1, B.pad); P(g, 9, 20, 3, 1, B.pad); skate(2, 21, 5); skate(10, 21, 3); } }
+    const skate = shoes ? (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, w, 1, B.sole); }
+      : (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, 1, 1, wcol); P(g, x + w - 1, y + 2, 1, 1, wcol); if (w > 3) P(g, x + 1, y + 2, w - 2, 1, '#6a6f78'); };
+    // legs + skates (or sneakers)
+    if (pose === 'walkL' || pose === 'walkR') {
+      const L = pose === 'walkL';
+      if (dir === 'side') { if (L) { P(g, 3, 17, 3, 3, B.shorts); P(g, 3, 20, 3, 1, B.pad); skate(2, 21, 4); P(g, 8, 17, 3, 3, B.shorts); P(g, 8, 20, 3, 1, B.pad); skate(8, 21, 4); } else { P(g, 5, 17, 5, 3, B.shorts); P(g, 6, 20, 3, 1, B.pad); skate(5, 21, 5); } }
+      else { const l = L ? 1 : 0, r = 1 - l; P(g, 4, 17, 3, 3 - l, B.shorts); P(g, 4, 20 - l, 3, 1, B.pad); skate(3, 21 - l, 4); P(g, 9, 17, 3, 3 - r, B.shorts); P(g, 9, 20 - r, 3, 1, B.pad); skate(9, 21 - r, 4); }
+    }
+    else if (pose === 'brake') { if (dir === 'side') { P(g, 2, 18, 4, 3, B.shorts); P(g, 1, 20, 3, 1, B.pad); skate(-2, 21, 6); P(g, 8, 18, 3, 3, B.shorts); P(g, 8, 20, 3, 1, B.pad); skate(8, 21, 3); } else { P(g, 4, 18, 3, 3, B.shorts); P(g, 9, 18, 3, 3, B.shorts); P(g, 4, 20, 3, 1, B.pad); P(g, 9, 20, 3, 1, B.pad); skate(2, 21, 5); skate(10, 21, 3); } }
     else if (dir === 'side') {
       if (pose === 'pushL' || pose === 'pushR') { P(g, 3, 17, 3, 3, B.shorts); P(g, 2, 19, 2, 2, sk); P(g, 1, 20, 2, 1, B.pad); skate(-1, 21, 5); P(g, 7, 17, 3, 4, B.shorts); P(g, 8, 20, 2, 1, B.pad); P(g, 8, 21, 2, 1, sk); skate(7, 21, 5); }
       else { P(g, 5, 17 + crouch, 5, 3, B.shorts); P(g, 6, 20, 3, 1, B.pad); skate(4, 21, 7); }
@@ -1079,9 +1086,9 @@ function bossSprite(dir, pose, carry, wheelF) {
     if (dir === 'down') { P(g, tx + 4, ty, 2, 2, sk); P(g, tx + 6, ty + 2, 2, 2, '#fff'); P(g, tx + 6, ty + 2, 2, 1, '#e2342a'); }
     // arms: out for balance when gliding, swinging when pushing, up when carrying
     if (carry) { if (dir === 'side') { P(g, tx + 5, ty - 5, 2, 6, B.shirt); P(g, tx + 5, ty - 6, 2, 1, sk); } else { P(g, tx - 2, ty - 5, 2, 7, B.shirt); P(g, tx + 10, ty - 5, 2, 7, B.shirt); P(g, tx - 2, ty - 6, 2, 1, sk); P(g, tx + 10, ty - 6, 2, 1, sk); } }
-    else if (dir === 'side') { const sw = pose === 'pushL' ? -2 : pose === 'pushR' ? 2 : 0; P(g, tx + 4 + sw, ty + 1, 2, 5, shade(B.shirt, -0.12)); P(g, tx + 4 + sw, ty + 6, 2, 2, sk); }
+    else if (dir === 'side') { const sw = pose === 'pushL' ? -2 : pose === 'pushR' || pose === 'walkL' ? 2 : 0; P(g, tx + 4 + sw, ty + 1, 2, 5, shade(B.shirt, -0.12)); P(g, tx + 4 + sw, ty + 6, 2, 2, sk); }
     else if (pose === 'glide' || pose === 'brake') { P(g, tx - 3, ty + 1, 3, 2, B.shirt); P(g, tx - 5, ty + 1, 2, 2, sk); P(g, tx + 10, ty + 1, 3, 2, B.shirt); P(g, tx + 13, ty + 1, 2, 2, sk); }
-    else { const a = pose === 'pushL' ? 1 : 0, b = pose === 'pushR' ? 1 : 0; P(g, tx - 1, ty + 1 + a, 1, 5, shade(B.shirt, -0.12)); P(g, tx + 10, ty + 1 + b, 1, 5, shade(B.shirt, -0.12)); P(g, tx - 1, ty + 6 + a, 1, 2, sk); P(g, tx + 10, ty + 6 + b, 1, 2, sk); P(g, tx - 1, ty + 5 + a, 1, 1, '#f2d23a'); P(g, tx + 10, ty + 5 + b, 1, 1, '#f2d23a'); }
+    else { const a = pose === 'pushL' || pose === 'walkR' ? 1 : 0, b = pose === 'pushR' || pose === 'walkL' ? 1 : 0; P(g, tx - 1, ty + 1 + a, 1, 5, shade(B.shirt, -0.12)); P(g, tx + 10, ty + 1 + b, 1, 5, shade(B.shirt, -0.12)); P(g, tx - 1, ty + 6 + a, 1, 2, sk); P(g, tx + 10, ty + 6 + b, 1, 2, sk); P(g, tx - 1, ty + 5 + a, 1, 1, '#f2d23a'); P(g, tx + 10, ty + 5 + b, 1, 1, '#f2d23a'); }
     // head
     const hy = crouch, hx = 3 + lean;
     [[2, 6], [1, 8], [0, 10], [0, 10], [0, 10], [0, 10], [0, 10], [1, 8], [2, 6]].forEach(([o, w], i) => P(g, hx + o, hy + i, w, 1, sk));
@@ -1355,7 +1362,7 @@ function renderGround() {
   for (let y = 0; y < MH - 1; y++) for (let x = 0; x < MW; x++) if (W.wall[idx(x, y)] && !W.wall[idx(x, y + 1)] && !W.outdoor[idx(x, y + 1)]) { g.globalAlpha = 0.18; P(g, x * T, (y + 1) * T, 16, 3, '#000'); g.globalAlpha = 1; }
 }
 
-// ===== situational music: lifted from Slimehedron (c) FlahMusic, GPL-3.0-or-later =====
+// ===== situational music: lifted from Slimehedron (c) FlahMusic; same owner, so it's under this game's LICENSE.txt =====
 // Reused from Slimehedron: the rep()/bars() step format, the kit patterns, KITVOICE roles, the padKeeps()
 // "simple <-> complex" thinning rule, KITFEEL humanize amounts, CHORD_FN.major chord odds, the one-fifth
 // key journey, and the pluck() voice design. Drum patterns in pop/bossa/jazz were derived from
@@ -1629,6 +1636,8 @@ function addRep(n) { ST.rep = Math.max(0, Math.min(100, ST.rep + n)); RT.day.rep
 function crateCost(type) { const ds = DEPTS.filter(d => d.crate === type); const p = ds.reduce((a, d) => a + d.price, 0) / Math.max(1, ds.length); return Math.round(CRATES[type].units * p * 0.5); }
 function carryCap() { return ST.ups.pallet ? 3 : ST.ups.dolly ? 2 : 1; }
 function maxSpeed() { return 72 * (ST.ups.skates3 ? 1.6 : ST.ups.skates2 ? 1.3 : 1); }
+const WALK_SPEED = 44; // skates off (R)
+function toggleSkates() { PL.walk = !PL.walk; PL.vx = PL.vy = 0; }
 function deptOpen(d) { return d && (!d.lock || ST.ups[d.lock]); }
 function fill(id) { const d = DEPT[id]; return d && d.max ? (ST.stock[id] || 0) / d.max : 1; }
 
@@ -1900,24 +1909,29 @@ function updatePlayer(dt) {
   let ix = 0, iy = 0; if (KEYS.ArrowLeft || KEYS.KeyA) ix--; if (KEYS.ArrowRight || KEYS.KeyD) ix++; if (KEYS.ArrowUp || KEYS.KeyW) iy--; if (KEYS.ArrowDown || KEYS.KeyS) iy++;
   PL.input = !!(ix || iy);
   if (ix || iy) { hint('moved'); const l = Math.hypot(ix, iy); ix /= l; iy /= l; PL.dir = Math.abs(ix) > Math.abs(iy) ? (ix > 0 ? 'right' : 'left') : (iy > 0 ? 'down' : 'up'); }
-  // roller skates: push strides, carve turns, coast, T-stop to reverse
-  const tired = ST.energy <= 0 ? 0.55 : 1; const ms = maxSpeed() * tired * (PL.carry.length ? 0.9 : 1);
-  let sp = Math.hypot(PL.vx, PL.vy); const brake = KEYS.ShiftLeft || KEYS.ShiftRight; PL.braking = false; PL.lean = 0;
-  const SK = { period: 0.34, kick: 26, push: 110, turn: 4.5, coast: 1.6, brakeK: 7 };
-  if (ix || iy) {
-    if (sp > 14) {
-      const va = Math.atan2(PL.vy, PL.vx), ia = Math.atan2(iy, ix); let da = ia - va; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
-      if (Math.abs(da) > 2.2) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; } // pushing the other way = T-stop first
-      else { const na = va + Math.max(-SK.turn * dt, Math.min(SK.turn * dt, da)); PL.vx = Math.cos(na) * sp; PL.vy = Math.sin(na) * sp; PL.lean = Math.sign(da) * Math.min(1, Math.abs(da)); }
-    }
-    PL.stride = (PL.stride || 0) + dt;
-    if (PL.stride >= SK.period) { PL.stride -= SK.period; PL.side = !PL.side; sp = Math.hypot(PL.vx, PL.vy); if (sp < ms && !PL.braking) { const b = Math.min(SK.kick, ms - sp); PL.vx += ix * b; PL.vy += iy * b; } }
-    if (!PL.braking) { PL.vx += ix * SK.push * dt; PL.vy += iy * SK.push * dt; }
-  } else { PL.stride = SK.period * 0.6; const k = Math.exp(-(Math.hypot(PL.vx, PL.vy) < 10 ? 7 : SK.coast) * dt); PL.vx *= k; PL.vy *= k; }
-  if (brake) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; }
-  sp = Math.hypot(PL.vx, PL.vy); if (sp > ms) { const k = Math.max(ms / sp, Math.exp(-3 * dt)); PL.vx *= k; PL.vy *= k; }
-  if (PL.braking && sp > 30 && Math.random() < 0.6) RT.parts.push({ x: PL.x + (Math.random() - 0.5) * 8, y: PL.y - 1, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 20, t: 0.3, c: Math.random() < 0.5 ? '#ffd23f' : '#ff8a2a' });
-  PL.period = SK.period;
+  const tired = ST.energy <= 0 ? 0.55 : 1;
+  if (PL.walk) { // skates off: walk, no glide, stop dead
+    const ws = WALK_SPEED * tired; PL.vx = ix * ws; PL.vy = iy * ws; PL.braking = false; PL.lean = 0; PL.stride = (PL.stride || 0) + dt;
+  } else {
+    // roller skates: push strides, carve turns, coast, T-stop to reverse
+    const ms = maxSpeed() * tired * (PL.carry.length ? 0.9 : 1);
+    let sp = Math.hypot(PL.vx, PL.vy); const brake = KEYS.ShiftLeft || KEYS.ShiftRight; PL.braking = false; PL.lean = 0;
+    const SK = { period: 0.34, kick: 26, push: 110, turn: 4.5, coast: 1.6, brakeK: 7 };
+    if (ix || iy) {
+      if (sp > 14) {
+        const va = Math.atan2(PL.vy, PL.vx), ia = Math.atan2(iy, ix); let da = ia - va; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        if (Math.abs(da) > 2.2) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; } // pushing the other way = T-stop first
+        else { const na = va + Math.max(-SK.turn * dt, Math.min(SK.turn * dt, da)); PL.vx = Math.cos(na) * sp; PL.vy = Math.sin(na) * sp; PL.lean = Math.sign(da) * Math.min(1, Math.abs(da)); }
+      }
+      PL.stride = (PL.stride || 0) + dt;
+      if (PL.stride >= SK.period) { PL.stride -= SK.period; PL.side = !PL.side; sp = Math.hypot(PL.vx, PL.vy); if (sp < ms && !PL.braking) { const b = Math.min(SK.kick, ms - sp); PL.vx += ix * b; PL.vy += iy * b; } }
+      if (!PL.braking) { PL.vx += ix * SK.push * dt; PL.vy += iy * SK.push * dt; }
+    } else { PL.stride = SK.period * 0.6; const k = Math.exp(-(Math.hypot(PL.vx, PL.vy) < 10 ? 7 : SK.coast) * dt); PL.vx *= k; PL.vy *= k; }
+    if (brake) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; }
+    sp = Math.hypot(PL.vx, PL.vy); if (sp > ms) { const k = Math.max(ms / sp, Math.exp(-3 * dt)); PL.vx *= k; PL.vy *= k; }
+    if (PL.braking && sp > 30 && Math.random() < 0.6) RT.parts.push({ x: PL.x + (Math.random() - 0.5) * 8, y: PL.y - 1, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 20, t: 0.3, c: Math.random() < 0.5 ? '#ffd23f' : '#ff8a2a' });
+    PL.period = SK.period;
+  }
   moveAxis(PL.vx * dt, 0); moveAxis(0, PL.vy * dt);
   const s2 = Math.hypot(PL.vx, PL.vy); PL.anim += s2 * dt; PL.frame = 0; PL.bumpT -= dt;
   // standing on a register cashier spot?
@@ -2198,10 +2212,11 @@ function drawPerson(e, look, carryList) {
 
 function drawBoss() {
   const s = Math.hypot(PL.vx, PL.vy); let pose = 'idle';
-  if (s > 6) { if (PL.braking) pose = 'brake'; else if (PL.input) { const ph = (PL.stride || 0) / (PL.period || 0.34); pose = ph < 0.45 ? (PL.side ? 'pushL' : 'pushR') : 'glide'; } else pose = 'glide'; }
+  if (PL.walk) { if (s > 6) pose = Math.floor((PL.stride || 0) / 0.2) % 2 ? 'walkL' : 'walkR'; }
+  else if (s > 6) { if (PL.braking) pose = 'brake'; else if (PL.input) { const ph = (PL.stride || 0) / (PL.period || 0.34); pose = ph < 0.45 ? (PL.side ? 'pushL' : 'pushR') : 'glide'; } else pose = 'glide'; }
   const dk = PL.dir === 'left' || PL.dir === 'right' ? 'side' : PL.dir; const wf = Math.floor(PL.anim / 3) % 2;
   shadow(PL.x, PL.y + 0.5, 6);
-  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, wf), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
+  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
   PL.carry.forEach((k, i) => drawSpr(crateSprite(k), PL.x - 7, PL.y - 36 - i * 8));
   if (s > 55 && Math.random() < 0.35) RT.parts.push({ x: PL.x - PL.vx * 0.06 + (Math.random() - 0.5) * 6, y: PL.y - 1, vx: -PL.vx * 0.2, vy: -6, t: 0.35, c: '#ffffff', dust: true });
 }
@@ -2381,7 +2396,7 @@ function updateUI(dt) {
   const st = stars(); setText('h-stars', '★'.repeat(st) + '<span class="dim">' + '★'.repeat(5 - st) + '</span>');
   const e = $('#h-energy i'); if (e) { e.style.width = Math.round(ST.energy) + '%'; e.style.background = ST.energy < 25 ? '#ff5a4a' : '#7dd35a'; }
   TOOLS.forEach((t, i) => { const el = document.getElementById('tool' + i); if (el) el.classList.toggle('on', PL.tool === i); });
-  setText('h-tool', TOOLS[PL.tool].name + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : ''));
+  setText('h-tool', TOOLS[PL.tool].name + (PL.walk ? '<br><small>walking (R for skates)</small>' : '') + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : ''));
   // prompt
   let p = ''; if (flashMsg) p = flashMsg.text; else if (RT.target && RT.target.label) p = typo(RT.target.label); const hint = currentHint();
   setText('prompt', p ? `<b>${p}</b>` : ''); $('#prompt').style.display = p ? 'block' : 'none';
@@ -2511,7 +2526,7 @@ function titleHTML() {
   return `${gi}<h1>${typo(CONFIG.storeName)}</h1><div class="tsub">International Market</div>
   <p class="tblurb">You run the wildest grocery store in Ohio. On roller skates. Keep the shelves full, the fish fed, the Big Cheese cold and the lion singing.</p>
   <div class="col tbtn">${hasSave() ? '<button id="t-cont" class="buy">Continue</button>' : ''}<button id="t-new" class="${hasSave() ? '' : 'buy'}">New game</button></div>
-  <p class="small">WASD / arrows to skate. Space to do stuff. 1-4 swap tools. M for the map. Esc pauses.</p>`;
+  <p class="small">WASD / arrows to skate. R takes skates off to walk. Space to do stuff. 1-4 swap tools. M for the map. Esc pauses.</p>`;
 }
 function drawMap() {
   const c = $('#mapc'); const maxW = Math.min(innerWidth - 80, 1100), maxH = innerHeight - 200; const sc = Math.min(maxW / (MW * T), maxH / (MH * T)); c.width = MW * T * sc; c.height = MH * T * sc;
@@ -2551,6 +2566,7 @@ function bindInput() {
     if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') doAction();
     if (e.code >= 'Digit1' && e.code <= 'Digit4') PL.tool = +e.code.slice(5) - 1;
     if (e.code === 'KeyQ' || e.code === 'Tab') PL.tool = (PL.tool + 1) % TOOLS.length;
+    if (e.code === 'KeyR') toggleSkates();
   });
   addEventListener('keyup', e => { KEYS[e.code] = false; });
   addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
@@ -2564,6 +2580,7 @@ function bindInput() {
     const up = () => { id = null; VK.x = VK.y = 0; knob.style.transform = ''; setK(); }; pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up);
     $('#t-a').addEventListener('pointerdown', e => { e.preventDefault(); if (RT.dialog) advanceDialog(); else if (!RT.menu) doAction(); });
     $('#t-tool').addEventListener('pointerdown', e => { e.preventDefault(); PL.tool = (PL.tool + 1) % TOOLS.length; });
+    $('#t-skate').addEventListener('pointerdown', e => { e.preventDefault(); if (!RT.menu && !RT.dialog) { toggleSkates(); $('#t-skate').textContent = PL.walk ? 'SKATE' : 'WALK'; } });
     $('#t-menu').addEventListener('pointerdown', e => { e.preventDefault(); if (RT.menu && RT.menu !== 'report' && RT.menu !== 'title') closeMenu(); else if (!RT.menu) openMenu('pause'); });
   }
   $('#dialog').addEventListener('click', () => { if (RT.dialog && !RT.dialog.choices) advanceDialog(); });

@@ -1,3 +1,4 @@
 source/dist.html
 source/tests/out/
 __pycache__/
+source/tests/out_*.png

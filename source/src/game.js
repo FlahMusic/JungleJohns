@@ -32,6 +32,8 @@ function addRep(n) { ST.rep = Math.max(0, Math.min(100, ST.rep + n)); RT.day.rep
 function crateCost(type) { const ds = DEPTS.filter(d => d.crate === type); const p = ds.reduce((a, d) => a + d.price, 0) / Math.max(1, ds.length); return Math.round(CRATES[type].units * p * 0.5); }
 function carryCap() { return ST.ups.pallet ? 3 : ST.ups.dolly ? 2 : 1; }
 function maxSpeed() { return 72 * (ST.ups.skates3 ? 1.6 : ST.ups.skates2 ? 1.3 : 1); }
+const WALK_SPEED = 44; // skates off (R)
+function toggleSkates() { PL.walk = !PL.walk; PL.vx = PL.vy = 0; }
 function deptOpen(d) { return d && (!d.lock || ST.ups[d.lock]); }
 function fill(id) { const d = DEPT[id]; return d && d.max ? (ST.stock[id] || 0) / d.max : 1; }
 
@@ -303,24 +305,29 @@ function updatePlayer(dt) {
   let ix = 0, iy = 0; if (KEYS.ArrowLeft || KEYS.KeyA) ix--; if (KEYS.ArrowRight || KEYS.KeyD) ix++; if (KEYS.ArrowUp || KEYS.KeyW) iy--; if (KEYS.ArrowDown || KEYS.KeyS) iy++;
   PL.input = !!(ix || iy);
   if (ix || iy) { hint('moved'); const l = Math.hypot(ix, iy); ix /= l; iy /= l; PL.dir = Math.abs(ix) > Math.abs(iy) ? (ix > 0 ? 'right' : 'left') : (iy > 0 ? 'down' : 'up'); }
-  // roller skates: push strides, carve turns, coast, T-stop to reverse
-  const tired = ST.energy <= 0 ? 0.55 : 1; const ms = maxSpeed() * tired * (PL.carry.length ? 0.9 : 1);
-  let sp = Math.hypot(PL.vx, PL.vy); const brake = KEYS.ShiftLeft || KEYS.ShiftRight; PL.braking = false; PL.lean = 0;
-  const SK = { period: 0.34, kick: 26, push: 110, turn: 4.5, coast: 1.6, brakeK: 7 };
-  if (ix || iy) {
-    if (sp > 14) {
-      const va = Math.atan2(PL.vy, PL.vx), ia = Math.atan2(iy, ix); let da = ia - va; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
-      if (Math.abs(da) > 2.2) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; } // pushing the other way = T-stop first
-      else { const na = va + Math.max(-SK.turn * dt, Math.min(SK.turn * dt, da)); PL.vx = Math.cos(na) * sp; PL.vy = Math.sin(na) * sp; PL.lean = Math.sign(da) * Math.min(1, Math.abs(da)); }
-    }
-    PL.stride = (PL.stride || 0) + dt;
-    if (PL.stride >= SK.period) { PL.stride -= SK.period; PL.side = !PL.side; sp = Math.hypot(PL.vx, PL.vy); if (sp < ms && !PL.braking) { const b = Math.min(SK.kick, ms - sp); PL.vx += ix * b; PL.vy += iy * b; } }
-    if (!PL.braking) { PL.vx += ix * SK.push * dt; PL.vy += iy * SK.push * dt; }
-  } else { PL.stride = SK.period * 0.6; const k = Math.exp(-(Math.hypot(PL.vx, PL.vy) < 10 ? 7 : SK.coast) * dt); PL.vx *= k; PL.vy *= k; }
-  if (brake) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; }
-  sp = Math.hypot(PL.vx, PL.vy); if (sp > ms) { const k = Math.max(ms / sp, Math.exp(-3 * dt)); PL.vx *= k; PL.vy *= k; }
-  if (PL.braking && sp > 30 && Math.random() < 0.6) RT.parts.push({ x: PL.x + (Math.random() - 0.5) * 8, y: PL.y - 1, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 20, t: 0.3, c: Math.random() < 0.5 ? '#ffd23f' : '#ff8a2a' });
-  PL.period = SK.period;
+  const tired = ST.energy <= 0 ? 0.55 : 1;
+  if (PL.walk) { // skates off: walk, no glide, stop dead
+    const ws = WALK_SPEED * tired; PL.vx = ix * ws; PL.vy = iy * ws; PL.braking = false; PL.lean = 0; PL.stride = (PL.stride || 0) + dt;
+  } else {
+    // roller skates: push strides, carve turns, coast, T-stop to reverse
+    const ms = maxSpeed() * tired * (PL.carry.length ? 0.9 : 1);
+    let sp = Math.hypot(PL.vx, PL.vy); const brake = KEYS.ShiftLeft || KEYS.ShiftRight; PL.braking = false; PL.lean = 0;
+    const SK = { period: 0.34, kick: 26, push: 110, turn: 4.5, coast: 1.6, brakeK: 7 };
+    if (ix || iy) {
+      if (sp > 14) {
+        const va = Math.atan2(PL.vy, PL.vx), ia = Math.atan2(iy, ix); let da = ia - va; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        if (Math.abs(da) > 2.2) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; } // pushing the other way = T-stop first
+        else { const na = va + Math.max(-SK.turn * dt, Math.min(SK.turn * dt, da)); PL.vx = Math.cos(na) * sp; PL.vy = Math.sin(na) * sp; PL.lean = Math.sign(da) * Math.min(1, Math.abs(da)); }
+      }
+      PL.stride = (PL.stride || 0) + dt;
+      if (PL.stride >= SK.period) { PL.stride -= SK.period; PL.side = !PL.side; sp = Math.hypot(PL.vx, PL.vy); if (sp < ms && !PL.braking) { const b = Math.min(SK.kick, ms - sp); PL.vx += ix * b; PL.vy += iy * b; } }
+      if (!PL.braking) { PL.vx += ix * SK.push * dt; PL.vy += iy * SK.push * dt; }
+    } else { PL.stride = SK.period * 0.6; const k = Math.exp(-(Math.hypot(PL.vx, PL.vy) < 10 ? 7 : SK.coast) * dt); PL.vx *= k; PL.vy *= k; }
+    if (brake) { const k = Math.exp(-SK.brakeK * dt); PL.vx *= k; PL.vy *= k; PL.braking = true; }
+    sp = Math.hypot(PL.vx, PL.vy); if (sp > ms) { const k = Math.max(ms / sp, Math.exp(-3 * dt)); PL.vx *= k; PL.vy *= k; }
+    if (PL.braking && sp > 30 && Math.random() < 0.6) RT.parts.push({ x: PL.x + (Math.random() - 0.5) * 8, y: PL.y - 1, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 20, t: 0.3, c: Math.random() < 0.5 ? '#ffd23f' : '#ff8a2a' });
+    PL.period = SK.period;
+  }
   moveAxis(PL.vx * dt, 0); moveAxis(0, PL.vy * dt);
   const s2 = Math.hypot(PL.vx, PL.vy); PL.anim += s2 * dt; PL.frame = 0; PL.bumpT -= dt;
   // standing on a register cashier spot?
