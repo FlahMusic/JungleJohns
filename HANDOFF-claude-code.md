@@ -51,9 +51,12 @@ Keep all game files inside `C:\jungle jim\jungle-johns-game-folder\game\`.
 | ui.js | DOM HUD, dialog, title, catalog, report, journal, map, pause |
 | music.js | generative music (built from Slimehedron, section 5) |
 | audio.js | sound effects + musicTick() which picks the music situation |
+| fun.js | walk-in rooms (past x=SW, walled off, camera kept inside), SECRETS (16), CAPSULES, prop interactions (funInfo/funAct), PA, wishes, laps, saved fun state in ST.fun via F() |
 | main.js | input (keyboard + touch), loop, start-up |
 Walk mode: R (touch: WALK/SKATE button) toggles `PL.walk`. Walking = WALK_SPEED 44 px/s, no glide, stops dead; sprite swaps skates for sneakers (poses walkL/walkR). Not saved; each load starts on skates.
-Debug hook: `window.__game` exposes state. Save key: `localStorage['jungle-store-save-v1']` (saves at end of each day).
+Debug hook: `window.__game` exposes state. Save key: `localStorage['jungle-store-save-v1']`. Saves at day end, plus mid-day (ST.mid: RT.day, quest progress, spills, position, room) every 15 s, on quit, pagehide and tab hidden; restoreMid() on Continue. Shoppers aren't saved.
+Map is MW=112 wide; the store + lot is SW=78. Rooms: throne (restroom, via porta-potties), cave (Big Cheese hollow knock or stall 3 + wrench), backstage (stage door in Candy after 3 player-made Elvis songs).
+Quick trips: lane 5 (`quick`), register at (65,19) by the Rhino door, 5 items or less, staffed by upgrade cashierQ (Earl).
 
 Rename the store: data.js -> CONFIG.storeName / ownerName, then rebuild.
 
@@ -104,6 +107,7 @@ Build output uses LF line endings, so a fresh build is byte-identical to jungle-
 - tests\quests.py: plays Gus's cheese job with keys (accept, crowd refills, 10 samples, arrow, turn in), kids-only/pour/stock rules, a full Mon-Fri week into week 2
 - tests\mzone.py: music key families on the real map + no flip-flop at department edges
 - tests\skate.py: skate physics numbers (accel, strides alternate L/R, coast, brake, carve, T-stop, fine tap)
+- testsun.py: rooms in/out, every secret path that needs keys (dryer, stall, hollow knock, stage door, honey, penguins, Todd, plunger), capsules, wishes, mid-day save/continue
 - tests\mtest.py (+ mtest.html): offline-renders every music situation; peak < -1 dBFS, <= 8 voices, notes per bar, situation switches on bar lines
 Mutation check (do it when you change a rule): break the rule on purpose, confirm the test goes red, put it back.
 Last known results: all green. Music peak about -14 dB, max 7 voices. Skate: 0.37 s to top speed, coast 2.5 tiles, brake 0.5 tile, T-stop 0.37 s.
@@ -127,6 +131,7 @@ Last known results: all green. Music peak about -14 dB, max 7 voices. Skate: 0.3
 - Product counts disagree across sources (180k / 200k+, 70+ / 75+ countries). In game only the numbers printed on their maps are used.
 
 ## 9. Backlog (ask Flah which first)
+Done 2026-11-18: mid-day save, quick trips register, art pass (registers, belts, cases, tasting bar, shopper extras + rare costumes), music port from GitHub Slimehedron (humanized drummer, FM bell/tine/harp, med + mercado songs, room songs), fun.js (rooms, secrets, props). Show Flah before/after art and get his ear on the music.
 1. Sound check with Flah, tune situations by ear (music.js SIT table).
 2. Skate feel tuning with Flah (game.js updatePlayer, SK constants).
 3. Art quality: customers, counter cases, tasting bar, registers. Same pixel style. Show Flah before/after.

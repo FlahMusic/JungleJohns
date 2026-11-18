@@ -17,7 +17,28 @@ const MUSIC = (() => {
     jazz: { y: rep([0, 4, 6, 8, 12, 14], 4), h: rep([4, 12], 4), K: bars([0], [], [0], [10]), s: bars([], [14], [6], [10, 14]) },
   };
   const KITVOICE = { chip: { lo: 'K', mid: 's', hi: 'h' }, bossa: { lo: 'K', mid: 'r', hi: 'h' }, pop: { lo: 'K', mid: 's', hi: 'h' }, march: { lo: 'K', mid: 's', hi: 'h' }, polka: { lo: 'K', mid: 's', hi: 'h' }, conga: { lo: 'K', mid: 'C', hi: 'h' }, samba: { lo: 'K', mid: 'r', hi: 'h' }, jazz: { lo: 'K', mid: 's', hi: 'y' } };
-  const FEEL = { pop: { dyn: .35, time: .25, sw16: 0 }, bossa: { dyn: .5, time: .45, sw16: .18 }, jazz: { dyn: .6, time: .5, sw16: 0 } };
+  // Slimehedron's KITFEEL (GitHub, 2026-11): how each style leans (acc), how loose it plays (dyn/time) and how often
+  // quiet ghost taps fill the gaps. Simple kits get few ghosts; the busy ones get more and a pickup into each phrase.
+  const FEEL = {
+    pop:   { dyn: .35, time: .25, ghost: .25, sw16: 0, acc: { K: 1.06, s: { 4: 1.16, 12: 1.16 } } },
+    bossa: { dyn: .5, time: .45, ghost: .15, sw16: .18, acc: { K: .82, h: .6, cl: 1.08 }, ghostHat: true },
+    jazz:  { dyn: .6, time: .5, ghost: .5, sw16: 0, acc: { K: .5, y: { 0: .7, 4: .84, 8: .7, 12: .84 }, s: .55 }, ghostAt: 'and', ghostHat: false },
+  };
+  const FEEL_DEFAULT = { dyn: .4, time: .3, ghost: .3, sw16: 0, acc: {} };
+  const SIMPLE = { pop: 1, bossa: 1, march: 1, chip: 1, jazz: 1 };
+  // the drummer's hands drift: each part of the kit wanders a little early or late for a while, then comes back.
+  // every beat stays locked to the grid, and nothing drifts more than a quarter of a 16th or 22 ms.
+  const drift = { K: 0, s: 0, h: 0, p: 0 }; let swell = 0;
+  const hGroup = v => v === 'K' ? 'K' : (v === 's' || v === 'r') ? 's' : (v === 'h' || v === 'y') ? 'h' : 'p';
+  function humanBeat(barStart) { for (const g in drift) drift[g] = Math.max(-0.009, Math.min(0.009, drift[g] * 0.6 + (Math.random() - 0.5) * 0.012)); if (barStart) swell = Math.max(-0.08, Math.min(0.08, swell * 0.5 + (Math.random() - 0.5) * 0.1)); }
+  function humanVoice(v, inBar, feel) {
+    const g = hGroup(v), velVar = g === 'h' ? 0.22 : g === 'K' ? 0.05 : g === 'p' ? 0.18 : 0.12, bias = g === 'K' ? 0.004 : g === 's' ? -0.003 : 0, wob = g === 'h' ? 0.005 : g === 'K' ? 0.0012 : g === 'p' ? 0.004 : 0.002;
+    const dk = feel.dyn / 0.4, tk = feel.time / 0.3, vel = 1 + Math.max(-0.45, Math.min(0.45, ((Math.random() * 2 - 1) * velVar + swell) * dk));
+    if (inBar % 4 === 0) return { v: vel, t: 0 };
+    const ts = Math.min(1.5, 100 / Math.max(60, M.bpm)), cap = Math.min(0.022, 0.25 * sd());
+    return { v: vel, t: Math.max(-cap, Math.min(cap, (bias + (Math.random() * 2 - 1) * wob + drift[g]) * tk * ts)) };
+  }
+  const accFor = (feel, v, inBar) => { const a = feel.acc[v]; return a == null ? 1 : typeof a === 'number' ? a : (a[inBar] || 1); };
   const CHORD_NEXT = { use: [1, 0.6, 0.3, 1, 1, 0.85, 0.6], next: { 1: { 4: 1.8 }, 2: { 3: 1.7, 5: 1.7 }, 3: { 0: 1.3, 4: 1.4 }, 4: { 0: 1.8, 5: 1.3 }, 5: { 3: 1.4, 1: 1.3 } } };
   const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], lydian: [0, 2, 4, 6, 7, 9, 11], mixolydian: [0, 2, 4, 5, 7, 9, 10], dorian: [0, 2, 3, 5, 7, 9, 10], minor: [0, 2, 3, 5, 7, 8, 10], phrygian: [0, 1, 3, 5, 7, 8, 10] };
   const DIM = { major: 6, lydian: 3, mixolydian: 2, dorian: 5, minor: 1, phrygian: 4 }; // the diminished chord in each mode: almost never used
@@ -37,12 +58,14 @@ const MUSIC = (() => {
     market:   S({ kit: 'pop', bpm: 116, key: 0, scale: 'major', lead: 'accordion' }),
     fresh:    S({ kit: 'bossa', bpm: 112, key: 5, scale: 'lydian', lead: 'flute', bassV: 'pluck', dens: 2.5, comp: 0, pad: 0.6, swing: 0.1 }),
     counter:  S({ kit: 'march', bpm: 120, key: 7, scale: 'mixolydian', lead: 'accordion', drums: 0.4, comp: 2 }),
-    frozen:   S({ kit: 'chip', bpm: 110, key: 2, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2.5, x: 0.25, drums: 0.38, comp: 0, pad: 0.8 }),
+    frozen:   S({ kit: 'chip', bpm: 110, key: 2, scale: 'dorian', lead: 'tine', bassV: 'pluck', dens: 2.5, x: 0.25, drums: 0.38, comp: 0, pad: 0.8 }),
     candy:    S({ kit: 'chip', bpm: 124, key: 0, scale: 'major', lead: 'square', dens: 4, x: 0.35, comp: 2, pad: 0.4 }),
     // international wing (west): G family
     europe:   S({ kit: 'march', bpm: 114, key: 7, scale: 'major', lead: 'accordion', drums: 0.35, comp: 2, swing: 0.2 }),
-    asia:     S({ kit: 'conga', bpm: 108, key: 7, scale: 'major', lead: 'pluck', bassV: 'pluck', dens: 3, x: 0.35, drums: 0.4, comp: 0, pad: 0.85, pent: true }),
+    asia:     S({ kit: 'conga', bpm: 108, key: 7, scale: 'major', lead: 'harp', bassV: 'pluck', dens: 3, x: 0.35, drums: 0.4, comp: 0, pad: 0.85, pent: true }),
     americas: S({ kit: 'conga', bpm: 120, key: 2, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.35, comp: 2 }),
+    mercado:  S({ kit: 'polka', bpm: 128, key: 2, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.38, drums: 0.5, comp: 2 }), // norteño-ish two-step
+    med:      S({ kit: 'bossa', bpm: 132, meter: 3, key: 4, scale: 'minor', lead: 'harp', bassV: 'pluck', dens: 2.5, x: 0.2, drums: 0.35, comp: 0, pad: 0.7 }), // a café waltz
     hot:      S({ kit: 'samba', bpm: 122, key: -1, scale: 'phrygian', lead: 'pluck', dens: 4, x: 0.4, drums: 0.55, comp: 2 }),
     souk:     S({ kit: 'conga', bpm: 112, key: -3, scale: 'dorian', lead: 'flute', bassV: 'pluck', comp: 0, pad: 0.6, swing: 0.25 }),
     harbor:   S({ kit: 'pop', bpm: 114, key: 4, scale: 'minor', lead: 'accordion', x: 0.2, drums: 0.4, comp: 2, swing: 0.6 }),
@@ -52,7 +75,11 @@ const MUSIC = (() => {
     lounge:   S({ kit: 'jazz', bpm: 100, key: 7, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2, x: 0.3, drums: 0.45, pad: 0.7, swing: 0.85 }),
     bistro:   S({ kit: 'bossa', bpm: 108, key: 5, scale: 'major', lead: 'accordion', dens: 2.5, pad: 0.6, swing: 0.15 }),
     beerhall: S({ kit: 'polka', bpm: 120, key: 0, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.3, comp: 2 }),
-    sushi:    S({ kit: 'conga', bpm: 106, key: 2, scale: 'minor', lead: 'pluck', bassV: 'pluck', dens: 3, x: 0.32, drums: 0.38, comp: 0, pad: 0.85, pent: true }),
+    sushi:    S({ kit: 'conga', bpm: 106, key: 2, scale: 'minor', lead: 'bell', bassV: 'pluck', dens: 3, x: 0.32, drums: 0.38, comp: 0, pad: 0.85, pent: true }),
+    // rooms you walk into (the restroom, the cheese cave, the lion's dressing room): their own place, so they cut in
+    spa:       S({ place: 'room', kit: 'bossa', bpm: 88, key: 5, scale: 'lydian', lead: 'tine', bassV: 'pluck', dens: 2, x: 0.2, drums: 0.3, comp: 0, pad: 0.9, swing: 0.1 }),
+    cave:      S({ place: 'room', kit: null, bpm: 96, meter: 3, key: -3, scale: 'dorian', lead: 'harp', bassV: 'pluck', dens: 2, x: 0, drums: 0, comp: 0, pad: 0.9 }),
+    backstage: S({ place: 'room', kit: 'jazz', bpm: 152, key: 0, scale: 'mixolydian', lead: 'square', bassV: 'pluck', dens: 3.5, x: 0.4, drums: 0.5, comp: 2, swing: 0.6 }),
     // other places
     title:    S({ place: 'title', kit: 'bossa', bpm: 120, key: 0, scale: 'major', lead: 'accordion', x: 0.25, comp: 0, pad: 0.6 }),
     outside:  S({ place: 'outside', kit: 'conga', bpm: 116, key: 5, scale: 'major', lead: 'flute', comp: 0, pad: 0.6, x: 0.3 }),
@@ -123,6 +150,7 @@ const MUSIC = (() => {
   function lead(kind, m, t, dur, vel) { // the palette measured in those MIDIs: accordion (GM 21), flute/piccolo (72), pizz pluck (45), plus chip square
     if (M.log && M.log.mel) M.log.mel.push({ step: M.step, m, song: M.turn || M.cur });
     if (kind === 'pluck') return pluck(m, t, vel);
+    if (FMV[kind]) return fm(kind, m, t, dur, vel);
     if (!grab(t, dur, 8)) return; const c = M.ctx, g = c.createGain(), lp = c.createBiquadFilter(), f0 = mtof(m); lp.type = 'lowpass';
     const oscs = []; const add = (type, det, lvl) => { const o = c.createOscillator(), og = c.createGain(); o.type = type; o.frequency.value = f0; o.detune.value = det; og.gain.value = lvl; o.connect(og); og.connect(lp); oscs.push(o); return o; };
     let att = 0.015, rel = dur;
@@ -134,6 +162,33 @@ const MUSIC = (() => {
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + att); g.gain.setValueAtTime(peak * 0.85, t + Math.max(att, rel - 0.06)); g.gain.exponentialRampToValueAtTime(0.0005, t + rel + 0.12);
     lp.connect(g); g.connect(M.bus); const ge = c.createGain(); ge.gain.value = 0.5; g.connect(ge); ge.connect(M.echo);
     oscs.forEach(o => { o.start(t); o.stop(t + rel + 0.15); }); lfo.start(t); lfo.stop(t + rel + 0.15);
+  }
+  // FM voices, after Slimehedron's fm1 sounds (GitHub, 2026-11), cut down to 2-operator pairs for the browser:
+  // bell = Chowning (JAES 1973): carrier:modulator 1:1.4, the modulation dying with the sound so it mellows, a short
+  //        ratio-3.5 strike for the glassy attack, a second pair detuned a little for shimmer. index kept low so the
+  //        carrier stays the loudest partial (stays in key).
+  // tine = Yamaha "FM 101, Part Five" E.PIANO: 1:1 pairs detuned +-7 cents (the beating) and a ratio-14 bite.
+  // harp = Yamaha "FM 101, Part Six" HARP 1: a ratio-2 attack stack over a soft 1:1 body.
+  // pairs: [modulator ratio, index, detune cents]; strike: [ratio, index, seconds]; ring: how long it sounds past the note
+  const FMV = {
+    bell: { pairs: [[1.4, 1.1, 0], [1.4, 0.8, 5]], strike: [3.5, 2.2, 0.05], fall: 1.4, ring: 1.3, peak: 0.055 },
+    tine: { pairs: [[1, 1.3, -7], [1, 0.9, 7]], strike: [14, 1.0, 0.04], fall: 0.9, ring: 0.7, peak: 0.06 },
+    harp: { pairs: [[1, 0.9, 0]], strike: [2, 2.4, 0.09], fall: 0.6, ring: 0.6, peak: 0.075 },
+  };
+  function fm(kind, m, t, dur, vel) {
+    const R = FMV[kind], len = Math.max(dur, R.ring); if (!grab(t, len, 8)) return;
+    const c = M.ctx, f0 = mtof(m), g = c.createGain(), peak = R.peak * vel / R.pairs.length * 1.4, oscs = [];
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0005, t + len);
+    R.pairs.forEach(([ratio, index, det], i) => {
+      const car = c.createOscillator(), mod = c.createOscillator(), mg = c.createGain(); car.type = mod.type = 'sine';
+      car.frequency.value = f0; car.detune.value = det; mod.frequency.value = f0 * ratio; mod.detune.value = det;
+      mg.gain.setValueAtTime(index * f0 * ratio, t); mg.gain.exponentialRampToValueAtTime(Math.max(1, index * f0 * ratio * 0.08), t + R.fall);
+      mod.connect(mg); mg.connect(car.frequency); car.connect(g); oscs.push(car, mod);
+      if (i === 0) { const st = c.createOscillator(), sg = c.createGain(); st.type = 'sine'; st.frequency.value = f0 * R.strike[0]; sg.gain.setValueAtTime(R.strike[1] * f0, t); sg.gain.exponentialRampToValueAtTime(1, t + R.strike[2]); st.connect(sg); sg.connect(car.frequency); oscs.push(st); }
+    });
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000; g.connect(lp); lp.connect(M.bus);
+    const ge = c.createGain(); ge.gain.value = 0.4; lp.connect(ge); ge.connect(M.echo);
+    oscs.forEach(o => { o.start(t); o.stop(t + len + 0.05); });
   }
   function tuba(m, t, dur, vel) { if (!grab(t, dur)) return; const c = M.ctx, o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.value = mtof(m); lp.type = 'lowpass'; lp.frequency.setValueAtTime(700, t); lp.frequency.exponentialRampToValueAtTime(320, t + dur); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.14 * vel, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0005, t + dur); o.connect(lp); lp.connect(g); g.connect(M.bus); o.start(t); o.stop(t + dur + 0.05); }
   function noiseHit(t, type, f, q, lvl, dur) { if (!grab(t, dur)) return; const c = M.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = M.noise; fl.type = type; fl.frequency.value = f; fl.Q.value = q; g.gain.setValueAtTime(lvl, t); g.gain.exponentialRampToValueAtTime(0.0005, t + dur); s.connect(fl); fl.connect(g); g.connect(M.bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02); }
@@ -199,7 +254,7 @@ const MUSIC = (() => {
     if (M.barLen === undefined || i >= M.barStart + M.barLen || i < M.barStart) barLine(i);
     const P = M.p, inBar = i - M.barStart, bar = M.bar, sixteenth = sd(), bl = M.barLen, beat = 4;
     const ch = M.chord2 !== null && inBar >= 8 ? M.chord2 : M.chord;
-    const feel = FEEL[P.kit] || FEEL.pop; let tt = t; if (M.sw && inBar % 4 === 2) tt += M.sw * 0.667 * sixteenth; if (feel.sw16 && inBar % 2 === 1) tt += feel.sw16 * 0.333 * sixteenth;
+    const feel = FEEL[P.kit] || FEEL_DEFAULT; let tt = t; if (M.sw && inBar % 4 === 2) tt += M.sw * 0.667 * sixteenth; if (feel.sw16 && inBar % 2 === 1) tt += feel.sw16 * 0.333 * sixteenth;
     const slow = P.bpm < 95 || P.meter === 3;
     // pad: held chord; in a turnaround it moves with each approach chord
     const padHit = M.turn ? (inBar === 0 || inBar === 8) : inBar === 0 && (bar % 2 === 0 || slow);
@@ -216,7 +271,16 @@ const MUSIC = (() => {
     if (inBar === 0 && M.crash) drum('X', tt, M.crash);
     if (filling) { const k = inBar - fillAt, lv = Math.max(P.drums, 0.3); drum('s', tt, 0.45 + k * 0.15, lv); if (k === 0) drum('K', tt, 0.8, lv); }
     else if (P.kit && P.drums > 0) {
-      if (P.meter === 4) { const kit = KITS[P.kit], pos = (bar % 4) * 16 + inBar; for (const v in kit) if (kit[v].includes(pos) && keeps(v, inBar)) { const hum = 1 + (Math.random() - 0.5) * (feel.dyn || 0.3) * 0.6; drum(v, tt + (Math.random() - 0.5) * (feel.time || 0.2) * 0.008, (inBar % 4 === 0 ? 1 : 0.75) * hum); } }
+      if (inBar % 4 === 0) humanBeat(inBar === 0);
+      if (P.meter === 4) {
+        const kit = KITS[P.kit], pos = (bar % 4) * 16 + inBar, vm = KITVOICE[P.kit] || {}, simple = SIMPLE[P.kit];
+        for (const v in kit) if (kit[v].includes(pos) && keeps(v, inBar)) { const h = humanVoice(v, inBar, feel); drum(v, tt + h.t, (inBar % 4 === 0 ? 1 : 0.75) * h.v * accFor(feel, v, inBar)); }
+        // ghost notes: quiet taps off the beat and off the backbeat, never two in a row (only once the song is past its skeleton)
+        const mid = vm.mid, where = feel.ghostAt === 'and' ? inBar % 4 === 2 : true;
+        if (mid && P.x >= 0.2 && inBar % 4 && inBar !== 4 && inBar !== 12 && where && !(kit[mid] || []).includes(pos) && M.lastGhost !== inBar - 1 && Math.random() < feel.ghost * (simple ? 0.28 : 0.55)) { drum(mid, tt + humanVoice(mid, inBar, feel).t, 0.14 + Math.random() * 0.14); M.lastGhost = inBar; }
+        if (vm.hi === 'h' && feel.ghostHat !== false && inBar % 2 === 1 && !(kit.h || []).includes(pos) && Math.random() < feel.ghost * (simple ? 0.4 : 0.63)) drum('h', tt, 0.11 + Math.random() * 0.09);
+        if (!simple && mid && bar % 4 === 3 && inBar >= 14) drum(mid, tt, 0.45 + (inBar - 14) * 0.18); // a 2-hit pickup into the next phrase
+      }
       else { if (inBar === 0) drum('K', tt, 0.8); else if (inBar % 4 === 0) drum('h', tt, 0.7); }
     }
     if (P.perc && P.meter === 4 && !filling) { const kit = KITS[P.perc], pos = (bar % 4) * 16 + inBar; for (const v of ['c', 'C', 'r']) if (kit[v] && kit[v].includes(pos)) drum(v, tt, 0.6, Math.max(P.drums, 0.35)); }

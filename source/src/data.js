@@ -6,7 +6,8 @@ const CONFIG = {
 };
 
 const T = 16;            // tile size in art pixels
-const MW = 78, MH = 66;  // map size in tiles
+const MW = 112, MH = 66; // map size in tiles (x >= SW: walk-in rooms, walled off; see fun.js)
+const SW = 78;           // the store + parking lot width
 const OPEN_MIN = 8 * 60, CLOSE_MIN = 22 * 60; // 8am - 10pm
 const DAY_START = 6 * 60;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -147,6 +148,7 @@ const UPGRADES = [
   { id: 'cashier1', cat: 'staff', name: 'Hire Cashier: Marcus', cost: 800, wage: 110, desc: 'Opens register 3.', stars: 1 },
   { id: 'cashier2', cat: 'staff', name: 'Hire Cashier: Bev', cost: 1200, wage: 110, desc: 'Opens register 4.', stars: 2, req: 'cashier1' },
   { id: 'cashier3', cat: 'staff', name: 'Hire Cashier: Tyler', cost: 1800, wage: 120, desc: 'Opens register 5.', stars: 3, req: 'cashier2' },
+  { id: 'cashierQ', cat: 'staff', name: 'Hire Cashier: Earl', cost: 900, wage: 100, desc: 'Opens the Quick Trips register by the Rhino door. 5 items or less, and he means it.', stars: 1 },
   { id: 'stocker', cat: 'staff', name: 'Hire Stocker: Ray', cost: 1500, wage: 150, desc: 'Restocks the emptiest aisle on his own. Pays wholesale.', stars: 1 },
   { id: 'stocker2', cat: 'staff', name: 'Hire Stocker: Nina', cost: 3000, wage: 160, desc: 'A second stocker.', stars: 3, req: 'stocker' },
   { id: 'janitor', cat: 'staff', name: 'Hire Janitor: Big Lou', cost: 1000, wage: 100, desc: 'Mops spills on his own.', stars: 1 },

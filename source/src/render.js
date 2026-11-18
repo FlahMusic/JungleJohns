@@ -75,7 +75,7 @@ function resize() {
   R.dpr = Math.min(2, window.devicePixelRatio || 1);
   R.cv.width = Math.floor(innerWidth * R.dpr); R.cv.height = Math.floor(innerHeight * R.dpr);
   R.SC = Math.max(2, Math.min(7, Math.floor(Math.min(R.cv.width / (16 * (R.cv.width < R.cv.height ? 12 : 24)), R.cv.height / (16 * 14)))));
-  R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC;
+  R.SCb = R.SC; R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC;
 }
 function buildNight() {
   const c = cv(MW * T, MH * T), g = c.getContext('2d'); g.fillStyle = '#0a1030';
@@ -103,7 +103,7 @@ function drawBoss() {
   else if (s > 6) { if (PL.braking) pose = 'brake'; else if (PL.input) { const ph = (PL.stride || 0) / (PL.period || 0.34); pose = ph < 0.45 ? (PL.side ? 'pushL' : 'pushR') : 'glide'; } else pose = 'glide'; }
   const dk = PL.dir === 'left' || PL.dir === 'right' ? 'side' : PL.dir; const wf = Math.floor(PL.anim / 3) % 2;
   shadow(PL.x, PL.y + 0.5, 6);
-  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
+  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk, PL.outfit), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
   PL.carry.forEach((k, i) => drawSpr(crateSprite(k), PL.x - 7, PL.y - 36 - i * 8));
   if (s > 55 && Math.random() < 0.35) RT.parts.push({ x: PL.x - PL.vx * 0.06 + (Math.random() - 0.5) * 6, y: PL.y - 1, vx: -PL.vx * 0.2, vy: -6, t: 0.35, c: '#ffffff', dust: true });
 }
@@ -121,13 +121,16 @@ function objDraw(o) {
     case 'pallet': return drawSpr(palletSprite(o.crate), x - 1, y - 8 - 1);
     case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob, dir: 'down', frame: 0 }, o.look); return; } // givers shift their weight now and then
     case 'bar': return bot(propSprite('bar', o.frame || 0));
+    case 'register': { const l = W.lanes[o.lane], on = !!l && laneOpen(l); return bot(registerSprite(o.lane, on, on && l.queue.length ? Math.floor(t * 4) % 2 : 0)); }
+    case 'belt': { const l = W.lanes[o.lane], busy = l && l.queue.length && laneOpen(l); return bot(beltSprite(o.lane, busy ? Math.floor(t * 6) % 3 : 0)); }
     case 'stool': return drawSpr(propSprite('stool', 0), x, y);
     case 'bigcheese': { bot(propSprite('bigcheese', 0)); const hot = Math.max(0, Math.min(1, (ST.cheeseTemp - 30) / 20)); const g = R.g; g.fillStyle = hot > 0.75 ? '#ff3a2a' : '#e23a2e'; const bh = 13 * hot; g.fillRect(sx(x + 29 + 1), sy(y + 32 - 10 - bh - 4), R.SC, bh * R.SC); if (ST.cheeseTemp > 45 && Math.floor(t * 4) % 2) { g.fillStyle = 'rgba(255,60,40,0.18)'; g.fillRect(sx(x), sy(y - 8), 32 * R.SC, 40 * R.SC); } return; }
     case 'anim': {
       const a = ST.anims[o.anim]; const broken = a && a.broken; let f = 0;
-      if (o.anim === 'elvis') f = RT.elvisT > 0 ? Math.floor(t * 6) % 2 : 0; else if (o.anim === 'swing') f = broken ? 0 : Math.floor(t * 1.5) % 2; else f = broken ? 0 : Math.floor(t * 2) % 2;
+      if (o.anim === 'elvis') f = RT.elvisT > 0 ? Math.floor(t * 6) % 2 : 0; else if (o.anim === 'swing') f = broken ? 0 : Math.floor(t * (RT.swingT > 0 ? 5 : 1.5)) % 2; else f = broken ? 0 : Math.floor(t * (o.anim === 'firetruck' && RT.sirenT > 0 ? 8 : 2)) % 2;
       const s = propSprite(o.name, f); const dy = o.anim === 'elvis' && RT.elvisT > 0 ? -Math.abs(Math.sin(t * 10)) * 1.5 : 0;
       drawSpr(s, x + (o.w * T - s.width) / 2, (o.y + o.h) * T - s.height + 1 + dy);
+      if (o.anim === 'minnow' && F().toddBoat) drawSpr(propSprite('todd', 0), x + 18, (o.y + o.h) * T - s.height + 10); // captain todd
       if (broken) { if (Math.random() < 0.15) RT.parts.push({ x: x + o.w * 8 + (Math.random() - 0.5) * 12, y: y - 4, vx: (Math.random() - 0.5) * 20, vy: -30, t: 0.5, c: Math.random() < 0.5 ? '#ffe14d' : '#8a8a8a', smoke: true }); }
       return;
     }
@@ -144,16 +147,18 @@ function objDraw(o) {
     case 'elephant': return drawSpr(propSprite('elephant', 0), x - 9, y - 10);
     case 'penguin': return drawSpr(propSprite('penguin', 0), x, y - 6);
     case 'hive': return drawSpr(propSprite('hive', Math.floor(R.t * 3) % 2), x, y - 8);
-    default: { const s = propSprite(o.type, o.type === 'ringlight' ? Math.floor(t * 3) % 2 : 0); if (s) bot(s); }
+    default: { const s = propSprite(o.type, o.type === 'ringlight' ? Math.floor(t * 3) % 2 : (o.frame || 0)); if (s) bot(s); }
   }
 }
 function objBase(o) { return (o.y + o.h) * T + (o.type === 'tree' || o.type === 'lamp' ? 0 : 0); }
 
 function render() {
+  const zw = RT.zoomT > 0 ? Math.max(1, Math.floor(R.SCb / 2)) : R.SCb; if (zw && R.SC !== zw) { R.SC = zw; R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC; } // the observation deck zooms out
   const g = R.g, SC = R.SC; R.t += 1 / 60;
   let cx = PL.x - R.vw / 2, cy = PL.y - 8 - R.vh / 2;
-  cx = Math.max(0, Math.min(MW * T - R.vw, cx)); cy = Math.max(0, Math.min(MH * T - R.vh, cy));
-  if (R.vw > MW * T) cx = (MW * T - R.vw) / 2; if (R.vh > MH * T) cy = (MH * T - R.vh) / 2;
+  const rm = RT.room && ROOMS[RT.room], X0 = rm ? (rm.x0 - 1) * T : 0, X1 = rm ? (rm.x1 + 2) * T : SW * T, Y0 = rm ? (rm.y0 - 2) * T : 0, Y1 = rm ? (rm.y1 + 2) * T : MH * T; // rooms keep the camera inside them
+  cx = Math.max(X0, Math.min(X1 - R.vw, cx)); cy = Math.max(Y0, Math.min(Y1 - R.vh, cy));
+  if (R.vw > X1 - X0) cx = (X0 + X1 - R.vw) / 2; if (R.vh > Y1 - Y0) cy = (Y0 + Y1 - R.vh) / 2;
   R.cx = Math.round(cx * SC) / SC; R.cy = Math.round(cy * SC) / SC;
   g.imageSmoothingEnabled = false; g.fillStyle = '#2a4a2a'; g.fillRect(0, 0, R.cv.width, R.cv.height);
   g.drawImage(W.groundCanvas, R.cx, R.cy, R.vw, R.vh, 0, 0, R.cv.width, R.cv.height);
@@ -191,6 +196,9 @@ function render() {
   if (ST.minute >= CLOSE_MIN || ST.minute < OPEN_MIN - 60) { g.fillStyle = 'rgba(10,16,48,0.22)'; g.fillRect(0, 0, R.cv.width, R.cv.height); }
   if (ST.weather === 'rain') drawRain();
   if (RT.sleeping) { g.fillStyle = 'rgba(5,8,25,0.55)'; g.fillRect(0, 0, R.cv.width, R.cv.height); g.fillStyle = '#fff'; g.font = `${SC * 10}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('z z z', R.cv.width / 2, R.cv.height / 2); g.font = `${SC * 7}px VT323, monospace`; g.fillText('the store runs without you till close', R.cv.width / 2, R.cv.height / 2 + SC * 14); g.textAlign = 'left'; }
+  if (rm) { const a = sx((rm.x0 - 1) * T), b = sx((rm.x1 + 2) * T), c = sy((rm.y0 - 1) * T - 8), d = sy((rm.y1 + 2) * T); g.fillStyle = '#07070c'; // only the room you're in
+    g.fillRect(0, 0, R.cv.width, c); g.fillRect(0, d, R.cv.width, R.cv.height - d); g.fillRect(0, c, a, d - c); g.fillRect(b, c, R.cv.width - b, d - c); }
+  if (RT.fadeT > 0) { g.fillStyle = `rgba(0,0,0,${Math.min(1, RT.fadeT / 0.4)})`; g.fillRect(0, 0, R.cv.width, R.cv.height); }
   drawOverlay();
 }
 function lampGlow(dark) {
@@ -224,14 +232,14 @@ function label(x, y, text, fg, bg, size, font) {
 function drawOverlay() {
   const g = R.g, SC = R.SC;
   // dept signs: pixel art, same grid as the world
-  for (const s of W.signs) {
+  if (!RT.room) for (const s of W.signs) {
     const d = DEPTS.find(d => d.name === s.text); const low = d && d.max && deptOpen(d) && fill(d.id) < 0.15;
     const sp = signSprite(typo(s.text).replace(/\u2019/g, "'"), s.locked ? 'locked' : low ? 'low' : s.dark ? 'dark' : 'open');
     const x = s.x * T - sp.width / 2, y = s.y * T - 9; if (sx(x) > R.cv.width || sx(x + sp.width) < 0 || sy(y) > R.cv.height || sy(y + 15) < 0) continue;
     drawSpr(sp, Math.round(x), Math.round(y));
   }
   // aisle labels (only when near)
-  for (const l of W.labels) { if (Math.abs(l.x * T - PL.x) > 14 * T || Math.abs(l.y * T - PL.y) > 9 * T) continue; const sp = tagSprite(l.text); drawSpr(sp, Math.round(l.x * T - sp.width / 2), Math.round(l.y * T - 4)); }
+  if (!RT.room) for (const l of W.labels) { if (Math.abs(l.x * T - PL.x) > 14 * T || Math.abs(l.y * T - PL.y) > 9 * T) continue; const sp = tagSprite(l.text); drawSpr(sp, Math.round(l.x * T - sp.width / 2), Math.round(l.y * T - 4)); }
   // target highlight
   if (!RT.dialog && !RT.menu && !RT.sleeping) {
     const t = targetInfo(); RT.target = t; const f = playerFacing();

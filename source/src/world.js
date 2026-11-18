@@ -26,7 +26,7 @@ function buildWorld(ups) {
   const rect = (x0, y0, x1, y1, k) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) G(x, y, k); };
   const wall = (x, y) => { if (!inb(x, y)) return; W.wall[idx(x, y)] = 1; W.solid[idx(x, y)] = 1; W.outdoor[idx(x, y)] = 0; G(x, y, 'wall'); };
   // outdoors
-  rect(0, 62, MW - 1, 64, 'road'); rect(0, 47, MW - 1, 48, 'sidewalk'); rect(2, 49, 75, 61, 'asphalt');
+  rect(0, 62, SW - 1, 64, 'road'); rect(0, 47, SW - 1, 48, 'sidewalk'); rect(2, 49, 75, 61, 'asphalt');
   rect(56, 2, 77, 10, 'asphalt'); rect(56, 11, 72, 11, 'sidewalk'); rect(72, 11, 73, 46, 'sidewalk');
   // building: interior = union of FOOT, walls = the ring around it
   const inside = new Uint8Array(MW * MH); FOOT.forEach(([a, b, c, d]) => { for (let y = b; y <= d; y++) for (let x = a; x <= c; x++) inside[idx(x, y)] = 1; });
@@ -45,6 +45,10 @@ function buildWorld(ups) {
     if (d.id !== 'registers' && d.id !== 'custserv') W.signs.push({ text: d.sign || d.name, x: d.x + d.w / 2, y: d.y + (d.signY || 0.2) });
   });
   W.signs.push({ text: 'Registers', x: 37.5, y: 36.1 }); W.signs.push({ text: 'Customer Service', x: 36.5, y: 44.6, small: true });
+  // quick trips: one express register just inside the Rhino (side) door. 5 items or less, out the side door after.
+  { const ry = 19, rx = 65; addObj({ type: 'register', x: rx, y: ry, lane: 5 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: 5 });
+    W.lanes.push({ i: 5, quick: true, cash: [rx - 1, ry], reg: [rx, ry], pay: [rx + 1, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [rx + 1, ry - k]), staff: null, progress: 0 });
+    W.signs.push({ text: 'Quick Trips', x: rx + 0.5, y: 13.6 }); W.labels.push({ text: '5 items or less', x: rx + 0.5, y: ry + 2.1 }); }
   // stock room
   rect(26, 13, 41, 19, 'concrete');
   const crateOrder = Object.keys(CRATES).filter(k => !CRATES[k].lock || ups[CRATES[k].lock]);
@@ -76,7 +80,7 @@ function buildWorld(ups) {
   addObj({ type: 'corral', x: 40, y: 52 }); addObj({ type: 'corral', x: 50, y: 56 });
   W.lanes.forEach(l => { W.cost[idx(l.cash[0], l.cash[1])] = 30; });
   W.stools.forEach(s => { W.cost[idx(s.x, s.y)] = 12; });
-  placeGivers();
+  buildFun(); placeGivers();
   computeFronts(); renderGround();
 }
 
@@ -116,7 +120,7 @@ function layoutDept(d, i) {
       break;
     }
     case 'bar': {
-      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: x % 3 === 0 ? 1 : 0 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
+      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: x % 3 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
       break;
     }
     case 'cheese': {
@@ -167,7 +171,7 @@ function layoutDept(d, i) {
       const ry = d.y + 4;
       for (let i2 = 0; i2 < 5; i2++) {
         const cx = d.x + i2 * 3, rx = cx + 1, qx = cx + 2;
-        addObj({ type: 'register', x: rx, y: ry, lane: i2 }); addObj({ type: 'counter', x: rx, y: ry + 1 });
+        addObj({ type: 'register', x: rx, y: ry, lane: i2 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: i2 });
         W.lanes.push({ i: i2, cash: [cx, ry], reg: [rx, ry], pay: [qx, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [qx, ry - k]), staff: null, progress: 0 });
       }
       break;
@@ -256,11 +260,12 @@ function renderGround() {
   // parking lines
   W.parking.forEach(p => { const px = p.x * T, py = p.y * T; if (p.side) { P(g, px, py - 1, 16, 1, '#ece8dc'); } else { P(g, px, py, 1, 26, '#ece8dc'); P(g, px + 15, py, 1, 26, '#ece8dc'); } });
   // road dashes + curb
-  for (let x = 0; x < MW * T; x += 24) P(g, x, 63 * T + 7, 12, 2, '#f2c81c');
-  P(g, 0, 62 * T, MW * T, 2, '#9a978d');
+  for (let x = 0; x < SW * T; x += 24) P(g, x, 63 * T + 7, 12, 2, '#f2c81c');
+  P(g, 0, 62 * T, SW * T, 2, '#9a978d');
   // walls
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     if (!W.wall[idx(x, y)]) continue; const px = x * T, py = y * T; const below = inb(x, y + 1) && !W.wall[idx(x, y + 1)];
+    if (x >= SW) { const st = ROOMWALL[W.wallStyle && W.wallStyle.get(idx(x, y))]; if (!st) P(g, px, py, 16, 16, '#07070c'); else if (below) st.face(g, px, py, x, y); else P(g, px, py, 16, 16, st.top); continue; } // walk-in rooms
     const stock = (x >= 25 && x <= 42 && y <= 20 && y >= 12) && !(inb(x, y + 1) && W.outdoor[idx(x, y + 1)]);
     if (below) {
       if (W.outdoor[idx(x, y + 1)]) { // storefront

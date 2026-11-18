@@ -154,6 +154,6 @@ function questLogHTML() {
   <h3>Today's goal · ${weekday()}, week ${weekNo()}</h3><div>Make ${fmtMoney(goal)} today. <b class="money">${fmtMoney(e)}</b> so far.</div><div class="qbar"><i style="width:${pct}%"></i></div>
   ${RT.goalHit ? '<p>Goal made. Close up any time with the button by the clock.</p>' : '<p class="dim">Everything you earn counts: sales, tips, tastings and job rewards.</p>'}
   ${group('Ready to turn in', 'ready', 'ready')}${group('In progress', 'active', 'grey')}${group('Jobs on offer', 'offer', 'offer')}${group('Done today', 'done', 'done')}
-  <h3>Jungle goals</h3><div class="tasks">${GOALS.map(g => `<div class="${ST.goals[g.id] ? 'ok' : ''}">${ST.goals[g.id] ? '✔' : '•'} ${typo(g.text)} <span class="dim">${fmtMoney(g.reward)}</span></div>`).join('')}</div>
+  ${secretsHTML()}<h3>Jungle goals</h3><div class="tasks">${GOALS.map(g => `<div class="${ST.goals[g.id] ? 'ok' : ''}">${ST.goals[g.id] ? '✔' : '•'} ${typo(g.text)} <span class="dim">${fmtMoney(g.reward)}</span></div>`).join('')}</div>
   <div class="row"><button id="m-close">Close</button></div>`;
 }

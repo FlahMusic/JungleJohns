@@ -139,7 +139,8 @@ const CONFIG = {
 };
 
 const T = 16;            // tile size in art pixels
-const MW = 78, MH = 66;  // map size in tiles
+const MW = 112, MH = 66; // map size in tiles (x >= SW: walk-in rooms, walled off; see fun.js)
+const SW = 78;           // the store + parking lot width
 const OPEN_MIN = 8 * 60, CLOSE_MIN = 22 * 60; // 8am - 10pm
 const DAY_START = 6 * 60;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -280,6 +281,7 @@ const UPGRADES = [
   { id: 'cashier1', cat: 'staff', name: 'Hire Cashier: Marcus', cost: 800, wage: 110, desc: 'Opens register 3.', stars: 1 },
   { id: 'cashier2', cat: 'staff', name: 'Hire Cashier: Bev', cost: 1200, wage: 110, desc: 'Opens register 4.', stars: 2, req: 'cashier1' },
   { id: 'cashier3', cat: 'staff', name: 'Hire Cashier: Tyler', cost: 1800, wage: 120, desc: 'Opens register 5.', stars: 3, req: 'cashier2' },
+  { id: 'cashierQ', cat: 'staff', name: 'Hire Cashier: Earl', cost: 900, wage: 100, desc: 'Opens the Quick Trips register by the Rhino door. 5 items or less, and he means it.', stars: 1 },
   { id: 'stocker', cat: 'staff', name: 'Hire Stocker: Ray', cost: 1500, wage: 150, desc: 'Restocks the emptiest aisle on his own. Pays wholesale.', stars: 1 },
   { id: 'stocker2', cat: 'staff', name: 'Hire Stocker: Nina', cost: 3000, wage: 160, desc: 'A second stocker.', stars: 3, req: 'stocker' },
   { id: 'janitor', cat: 'staff', name: 'Hire Janitor: Big Lou', cost: 1000, wage: 100, desc: 'Mops spills on his own.', stars: 1 },
@@ -842,11 +844,13 @@ function caseSprite(art, seed, fill) {
   return spr(`case_${art}_${sv}_${lv}`, 16, 24, g => {
     const r = mkRng(sv * 53 + art.length);
     const base = CASE_STYLE[art] || '#888';
-    P(g, 0, 2, 16, 13, '#dff2f6'); P(g, 1, 5, 14, 9, art === 'fish' ? '#eef6fa' : '#f6f2ea');
-    if (art === 'fish') for (let i = 0; i < 14; i += 2) P(g, 1 + i, 12, 1, 1, '#c8e0ea');
-    const slots = [[1, 6], [5, 6], [9, 6], [12, 6], [3, 9], [8, 9], [11, 9]].slice(0, 7);
+    // inside the glass: a back wall in shadow under the steel top, a glass shelf, an ice bed for fish
+    P(g, 0, 2, 16, 13, '#dff2f6'); P(g, 1, 3, 14, 11, art === 'fish' ? '#eef6fa' : '#f6f2ea'); P(g, 1, 3, 14, 1, '#c9d6dc');
+    P(g, 1, 9, 14, 1, '#c6d2d8'); P(g, 1, 10, 14, 1, '#ffffff');
+    if (art === 'fish') { P(g, 1, 12, 14, 2, '#e4f2f8'); for (let i = 0; i < 14; i += 2) P(g, 1 + i, 12 + (i % 4 ? 1 : 0), 1, 1, '#c8e0ea'); }
+    const slots = [[1, 5], [5, 5], [9, 5], [12, 5], [3, 10], [8, 10], [11, 10]].slice(0, 7);
     const show = Math.round(slots.length * lv / 4);
-    slots.forEach((s, i) => { if (i >= show) return; const [x, y] = s;
+    slots.forEach((s, i) => { if (i >= show) return; const [x, y] = s; P(g, x + 1, y < 9 ? 8 : 13, 2, 1, '#ffffff'); P(g, x + 1, y < 9 ? 8 : 13, 1, 1, '#e23a2e'); // price tag
       switch (art) {
         case 'deli': if (r() < 0.5) { disc(g, x + 1.5, y + 1.5, 1.8, '#b03040'); P(g, x + 1, y + 1, 1, 1, '#f0b0b8'); } else { P(g, x, y, 4, 3, '#f0a0a8'); P(g, x, y, 4, 1, '#f8d0d4'); } break;
         case 'bakery': if (r() < 0.5) { oval(g, x + 1.5, y + 1.5, 2, 1.4, '#b87a3a'); P(g, x + 1, y + 1, 2, 1, '#e8b070'); } else { P(g, x, y, 3, 3, '#f8b8d0'); P(g, x, y, 3, 1, '#fff'); P(g, x + 1, y - 1, 1, 1, '#e23a2e'); } break;
@@ -855,9 +859,14 @@ function caseSprite(art, seed, fill) {
         case 'cheesecase': if (r() < 0.5) { P(g, x, y + 1, 4, 2, '#f6d040'); P(g, x + 1, y, 3, 1, '#f6d040'); P(g, x + 2, y + 1, 1, 1, '#d8a820'); } else { oval(g, x + 1.5, y + 1.5, 2, 1.5, '#e8a030'); P(g, x, y + 1, 4, 1, '#f6d070'); } break;
         case 'sushi': disc(g, x + 1.5, y + 1.5, 1.6, '#1a1a1a'); P(g, x + 1, y + 1, 1, 1, '#ffffff'); P(g, x + 2, y + 1, 1, 1, '#f06a5a'); break;
       } });
-    g.globalAlpha = 0.12; P(g, 0, 2, 16, 13, '#bfe8ff'); g.globalAlpha = 0.9; P(g, 2, 3, 6, 1, '#ffffff'); P(g, 1, 4, 1, 2, '#ffffff'); g.globalAlpha = 1;
+    // curved front glass: a tint, a bright curve along the top, two glare streaks, a mullion between panes
+    g.globalAlpha = 0.12; P(g, 0, 2, 16, 13, '#bfe8ff'); g.globalAlpha = 0.5; P(g, 0, 2, 16, 1, '#ffffff'); g.globalAlpha = 0.9; P(g, 2, 3, 6, 1, '#ffffff'); P(g, 1, 4, 1, 2, '#ffffff');
+    g.globalAlpha = 0.45; P(g, 11, 4, 1, 4, '#ffffff'); P(g, 12, 3, 1, 2, '#ffffff'); g.globalAlpha = 1; P(g, 15, 2, 1, 13, '#b8c0ca');
     P(g, 0, 0, 16, 2, '#c6ccd4'); P(g, 0, 0, 16, 1, '#e6ebf0');
-    P(g, 0, 15, 16, 9, base); P(g, 0, 15, 16, 1, shade(base, 0.3)); P(g, 0, 18, 16, 1, '#f4f0e0'); P(g, 0, 22, 16, 2, shade(base, -0.4));
+    // the cabinet: lit lip, cream trim, a recessed panel, a steel kick plate
+    P(g, 0, 15, 16, 9, base); P(g, 0, 15, 16, 1, shade(base, 0.3)); P(g, 0, 18, 16, 1, '#f4f0e0');
+    P(g, 2, 19, 12, 2, shade(base, -0.14)); P(g, 2, 19, 12, 1, shade(base, -0.28)); P(g, 15, 15, 1, 6, shade(base, -0.2));
+    P(g, 0, 21, 16, 1, '#b8c0ca'); P(g, 0, 22, 16, 2, '#4a4f58');
   });
 }
 // candy bulk bin
@@ -949,13 +958,21 @@ function personSprite(o, dir, frame, carry) {
     }
     // torso
     const sc = o.shirt;
+    const pat = (x0, w) => { // shirt patterns, drawn over the base colour before the arms
+      if (o.pattern === 'stripe') for (let y = torsoY + 2; y < torsoY + tH - 1; y += 2) P(g, x0, y, w, 1, o.pc);
+      if (o.pattern === 'logo' && dir === 'down') { P(g, 6, torsoY + 2, 2, 2, o.pc); P(g, 6, torsoY + 2, 1, 1, shade(o.pc, 0.3)); }
+      if (o.pattern === 'flowers') for (const [x, y] of [[x0 + 1, torsoY + 1], [x0 + w - 3, torsoY + 3], [x0 + 2, torsoY + 4]]) { P(g, x, y, 1, 1, '#ff8fc0'); P(g, x + 1, y, 1, 1, '#fff6a0'); }
+      if (o.pattern === 'track') { P(g, x0, torsoY + 1, 1, tH - 1, '#ffffff'); P(g, x0 + w - 1, torsoY + 1, 1, tH - 1, '#ffffff'); }
+    };
     if (dir === 'side') {
-      P(g, 5, torsoY, 6, tH, sc); P(g, 5, torsoY, 6, 1, shade(sc, 0.25)); P(g, 5, torsoY + tH - 1, 6, 1, shade(sc, -0.25));
+      P(g, 5, torsoY, 6, tH, sc); P(g, 5, torsoY, 6, 1, shade(sc, 0.25)); P(g, 5, torsoY + tH - 1, 6, 1, shade(sc, -0.25)); pat(5, 6);
       if (o.jim) { P(g, 8, torsoY + 2, 2, 2, shade(sc, -0.2)); P(g, 5, torsoY, 6, 1, '#d8342a'); }
       if (carry) { P(g, 8, torsoY - 4, 2, 5, sc); P(g, 8, torsoY - 5, 2, 1, skin); }
       else { const f = frame === 1 ? 1 : frame === 2 ? -1 : 0; P(g, 7 + f, torsoY + 1, 2, tH - 2, shade(sc, -0.12)); P(g, 7 + f, torsoY + tH - 1, 2, 2, skin); }
     } else {
-      P(g, 4, torsoY, 8, tH, sc); P(g, 4, torsoY, 8, 1, shade(sc, 0.25)); P(g, 4, torsoY + tH - 1, 8, 1, shade(sc, -0.25));
+      P(g, 4, torsoY, 8, tH, sc); P(g, 4, torsoY, 8, 1, shade(sc, 0.25)); P(g, 4, torsoY + tH - 1, 8, 1, shade(sc, -0.25)); pat(4, 8);
+      if (o.pattern === 'track') { P(g, 4, legY, 1, lH, '#ffffff'); P(g, 11, legY, 1, lH, '#ffffff'); }
+      if (o.costume === 'tourist' && dir === 'down') { P(g, 5, torsoY, 1, 2, '#2a2a2a'); P(g, 10, torsoY, 1, 2, '#2a2a2a'); P(g, 6, torsoY + 2, 4, 3, '#2a2a2a'); P(g, 7, torsoY + 3, 2, 1, '#8ab4d0'); P(g, 9, torsoY + 2, 1, 1, '#e8e8f0'); }
       if (dir === 'down') { P(g, 7, torsoY, 2, 1, skin); if (o.jim) { P(g, 6, torsoY, 4, 1, '#d8342a'); P(g, 7, torsoY + 1, 2, 1, '#d8342a'); P(g, 5, torsoY + 2, 2, 2, shade(sc, -0.2)); P(g, 9, torsoY + 2, 2, 2, shade(sc, -0.2)); P(g, 8, torsoY + 1, 1, tH - 2, shade(sc, -0.3)); } }
       if (o.apron) { P(g, 5, torsoY + 1, 6, tH, o.apron); }
       P(g, 11, torsoY + 1, 1, tH - 1, shade(sc, -0.28)); P(g, 4, torsoY + 1, 1, tH - 2, shade(sc, 0.12)); if (!o.jim) { P(g, 6, legY, 1, lH - 1, shade(legCol, -0.25)); P(g, 11, legY, 1, lH - 1, shade(legCol, -0.25)); }
@@ -963,6 +980,7 @@ function personSprite(o, dir, frame, carry) {
       else { const a = frame === 1 ? 1 : 0, b = frame === 2 ? 1 : 0; P(g, 3, torsoY + 1 + a, 1, tH - 2, shade(sc, -0.12)); P(g, 12, torsoY + 1 + b, 1, tH - 2, shade(sc, -0.12)); P(g, 3, torsoY + tH - 1 + a, 1, 2, skin); P(g, 12, torsoY + tH - 1 + b, 1, 2, skin); }
       if (o.basket && dir === 'down' && !carry) { P(g, 12, torsoY + tH, 3, 3, '#d8342a'); P(g, 12, torsoY + tH - 1, 1, 1, '#d8342a'); P(g, 14, torsoY + tH - 1, 1, 1, '#d8342a'); P(g, 13, torsoY + tH, 1, 1, '#f2c230'); }
     }
+    if (o.tote && !carry) { const bc = o.tote, bx = dir === 'side' ? 4 : 1; P(g, bx, torsoY + 3, 3, 4, bc); P(g, bx, torsoY + 3, 3, 1, shade(bc, 0.25)); P(g, bx + 2, torsoY + 4, 1, 3, shade(bc, -0.2)); if (dir !== 'side') P(g, 3, torsoY, 1, 3, shade(bc, -0.35)); }
     // head
     const hy = headY;
     const rows = [[2, 6], [1, 8], [0, 10], [0, 10], [0, 10], [0, 10], [0, 10], [0, 10], [1, 8], [2, 6]];
@@ -983,6 +1001,11 @@ function personSprite(o, dir, frame, carry) {
       if (dir === 'down') { P(g, 5, hy + 8, 6, 1, '#6a3a1a'); P(g, 4, hy + 9, 2, 1, '#6a3a1a'); P(g, 10, hy + 9, 2, 1, '#6a3a1a'); }
       if (dir === 'up') { P(g, 3, hy + 5, 10, 3, '#5a3a22'); }
       if (dir === 'side') { P(g, 3, hy + 5, 4, 3, '#5a3a22'); P(g, 9, hy + 8, 4, 1, '#6a3a1a'); }
+    } else if (st === 'beanie' || st === 'propeller' || st === 'sunhat') { // a bit of hair at the sides, then the hat
+      if (dir === 'down') { P(g, 3, hy + 3, 2, 3, hair); P(g, 11, hy + 3, 2, 3, hair); } if (dir === 'side') P(g, 3, hy + 3, 4, 4, hair); if (dir === 'up') P(g, 3, hy + 3, 10, 5, hair);
+      if (st === 'beanie') { const c = o.hat; P(g, 3, hy - 1, 10, 4, c); P(g, 4, hy - 2, 8, 1, c); P(g, 3, hy + 2, 10, 1, shade(c, -0.3)); for (let x = 4; x < 12; x += 2) P(g, x, hy, 1, 2, shade(c, -0.15)); P(g, 5, hy - 2, 3, 1, shade(c, 0.3)); disc(g, 8, hy - 3, 1.4, '#f4f4f0'); }
+      if (st === 'propeller') { P(g, 3, hy - 1, 5, 4, '#e23a2e'); P(g, 8, hy - 1, 5, 4, '#2e7de2'); P(g, 4, hy - 2, 4, 1, '#f2c230'); P(g, 8, hy - 2, 4, 1, '#2fa84f'); P(g, 7, hy - 4, 2, 2, '#6a6f78'); if (frame % 2) P(g, 3, hy - 5, 10, 1, '#f2c230'); else P(g, 6, hy - 5, 4, 1, '#f2c230'); }
+      if (st === 'sunhat') { P(g, 4, hy - 3, 8, 3, '#f0e2b0'); P(g, 4, hy - 1, 8, 1, '#d8342a'); P(g, 1, hy, 14, 2, '#e8d8a0'); P(g, 1, hy, 14, 1, '#f8ecc0'); P(g, 5, hy - 3, 3, 1, '#fff6d8'); }
     } else if (st === 'cap') {
       const c = o.hat; P(g, 3, hy, 10, 3, c); P(g, 4, hy - 1, 8, 1, c); P(g, 5, hy - 1, 3, 1, shade(c, 0.35));
       if (dir === 'down') P(g, 3, hy + 3, 10, 1, shade(c, -0.3)); else if (dir === 'side') P(g, 10, hy + 3, 5, 1, shade(c, -0.3)); else P(g, 3, hy + 3, 10, 3, hair);
@@ -998,6 +1021,18 @@ function personSprite(o, dir, frame, carry) {
       if (st === 'pony') { if (dir === 'side') { P(g, 1, hy + 3, 2, 6, hair); } if (dir === 'up') P(g, 7, hy + 9, 2, 4, hair); }
       if (st === 'curly') { [3, 6, 9, 12].forEach(x => P(g, x - 1, hy - 2, 2, 1, hair)); P(g, 2, hy + 1, 1, 4, hair); P(g, 13, hy + 1, 1, 4, hair); }
     } else { if (dir !== 'side') { P(g, 3, hy + 3, 1, 3, hair); P(g, 12, hy + 3, 1, 3, hair); } else P(g, 3, hy + 3, 3, 3, hair); if (dir === 'up') P(g, 3, hy + 4, 10, 3, hair); }
+    // face extras: beard, glasses, a jogger's sweatband
+    if (o.beard) { const bc = shade(hair, -0.05); if (dir === 'down') { P(g, 3, hy + 6, 1, 2, bc); P(g, 12, hy + 6, 1, 2, bc); P(g, 4, hy + 7, 1, 1, bc); P(g, 11, hy + 7, 1, 1, bc); P(g, 4, hy + 8, 8, 1, bc); P(g, 5, hy + 9, 6, 1, bc); P(g, 7, hy + 8, 2, 1, '#6a3a3a'); } else if (dir === 'side') { P(g, 7, hy + 7, 6, 2, bc); P(g, 8, hy + 9, 4, 1, bc); P(g, 11, hy + 7, 2, 1, '#6a3a3a'); } }
+    if (o.glasses) { const fc = o.glasses; if (dir === 'down') { P(g, 4, hy + 4, 3, 1, fc); P(g, 9, hy + 4, 3, 1, fc); P(g, 7, hy + 5, 2, 1, fc); P(g, 4, hy + 5, 1, 1, fc); P(g, 11, hy + 5, 1, 1, fc); if (fc === '#1a1a24') { P(g, 5, hy + 5, 2, 1, fc); P(g, 9, hy + 5, 2, 1, fc); } } else if (dir === 'side') { P(g, 9, hy + 4, 3, 1, fc); P(g, 11, hy + 5, 1, 1, fc); P(g, 5, hy + 5, 4, 1, fc); } }
+    if (o.costume === 'jogger') P(g, 3, hy + 2, 10, 1, '#e23a2e');
+    if (o.costume === 'banana') { // a full banana suit with a hole for the face
+      const top = hy - 6, bot = legY + 1, H = bot - top;
+      for (let y = top; y <= bot; y++) { const k = (y - top) / H, half = Math.max(1.5, Math.min(5.5, k * 16, (1 - k) * 26)), off = dir === 'side' ? Math.round((k - 0.5) * (k - 0.5) * 10) : 0, x0 = Math.round(8 + off - half), w = Math.round(half * 2);
+        P(g, x0, y, w, 1, '#f6d83a'); P(g, x0 + w - 2, y, 2, 1, '#dcae1c'); P(g, x0, y, 1, 1, '#fff08a'); }
+      P(g, 7, top - 3, 2, 4, '#6a4a1a'); P(g, 7, top - 3, 1, 1, '#8a6a3a'); P(g, 6, bot - 1, 1, 1, '#6a4a1a');
+      if (dir === 'down') { P(g, 5, hy + 3, 6, 6, skin); P(g, 5, hy + 3, 6, 1, sd); P(g, 6, hy + 5, 1, 2, '#2a1b1b'); P(g, 9, hy + 5, 1, 2, '#2a1b1b'); P(g, 7, hy + 7, 2, 1, sd); }
+      if (dir === 'side') { P(g, 9, hy + 3, 4, 6, skin); P(g, 11, hy + 5, 1, 2, '#2a1b1b'); }
+    }
   }, true);
 }
 const SKINS = ['#f6d3b3', '#e9b48a', '#d09a6c', '#a86f45', '#7a4a2a', '#5a3620', '#f2c9a0'];
@@ -1005,13 +1040,23 @@ const HAIRS = ['#2a1a12', '#5a3418', '#8a5a2a', '#d8b050', '#1a1a1a', '#b04020',
 const SHIRTS = ['#d8342a', '#2e7de2', '#2fa84f', '#f2b51c', '#8a52d8', '#e8549a', '#1fb8b8', '#f4f4f4', '#3a3a48', '#f07a22', '#6a8a3a', '#9a2a5a'];
 const PANTS = ['#2a3a6a', '#3a3a42', '#6a5a4a', '#2a2a2a', '#4a6a8a', '#7a3a3a', '#c8b890'];
 let personKey = 0;
-function randomLook(r, type) {
+function randomLook(r, type, cust) {
   const o = { skin: pick(r, SKINS), hair: pick(r, HAIRS), shirt: pick(r, SHIRTS), pants: pick(r, PANTS), shoes: pick(r, ['#2a2a2a', '#f4f4f4', '#7a4a22', '#c0392b', '#2e7de2']) };
   o.style = pick(r, ['short', 'short', 'long', 'cap', 'pony', 'curly', 'bun', 'bald']);
   if (o.style === 'cap') o.hat = pick(r, ['#c0392b', '#2e7de2', '#2a2a2a', '#2fa84f', '#f2b51c']);
   if (type === 'kid') { o.kid = true; if (o.style === 'bald') o.style = 'short'; }
   if (type === 'old') { o.old = true; o.hair = pick(r, ['#d8d8d8', '#b8b8b8', '#f0f0f0']); if (o.style === 'cap' || o.style === 'pony') o.style = 'short'; }
-  o.key = (personKey++) % 400; return o;
+  // extras (drawn after the picks above, so everyone who already had a look keeps it)
+  if (r() < (type === 'old' ? 0.5 : 0.16)) o.glasses = pick(r, ['#2a2a2a', '#8a5a2a', '#9aa3ad', '#c0392b']);
+  if (type === 'adult' && r() < 0.16 && ['short', 'bald', 'cap', 'curly'].includes(o.style)) o.beard = true;
+  const pr = r(); if (pr < 0.2) o.pattern = 'stripe'; else if (pr < 0.36) o.pattern = 'logo'; o.pc = pick(r, ['#ffffff', '#2a2a2a', '#f2c230', '#e23a2e', '#2e7de2'].filter(c => c !== o.shirt));
+  if (type !== 'kid' && r() < 0.13) o.tote = pick(r, ['#c8a060', '#2e7d3b', '#e8549a', '#f4f4f0', '#3a3a48']);
+  if (type !== 'old' && o.style === 'short' && r() < 0.12) { o.style = 'beanie'; o.hat = pick(r, ['#c0392b', '#2e7de2', '#f2b51c', '#2fa84f', '#8a52d8']); }
+  if (type === 'kid' && r() < 0.08) o.style = 'propeller';
+  if (cust && type === 'adult' && r() < 0.03) o.costume = pick(r, ['banana', 'tourist', 'jogger']);
+  if (o.costume === 'tourist') { o.shirt = '#1fb8b8'; o.pattern = 'flowers'; o.style = 'sunhat'; o.glasses = '#1a1a24'; }
+  if (o.costume === 'jogger') { o.shirt = '#2e5fd8'; o.pants = '#2e5fd8'; o.pattern = 'track'; o.shoes = '#f4f4f4'; }
+  o.key = (personKey++) % 400 + (o.costume ? '_' + o.costume : ''); return o;
 }
 const JIM_LOOK = { key: 'jim', jim: true, skin: '#f0c49a', hair: '#5a3a22', shirt: '#9aa35a', pants: '#a8875a', shoes: '#fff' };
 
@@ -1121,11 +1166,18 @@ const PROPS = {
     P(g, 0, 22, 16, 2, '#6a737e');
   }, true],
   counter: [16, 24, (g) => { P(g, 0, 10, 16, 14, '#b88a55'); P(g, 0, 10, 16, 2, '#d8aa75'); P(g, 0, 14, 16, 1, '#8a5a30'); P(g, 0, 22, 16, 2, '#6a4422'); }, true],
-  bar: [16, 24, (g, f) => {
-    P(g, 0, 8, 16, 16, '#7a4a28'); P(g, 0, 8, 16, 3, '#a8703a'); P(g, 0, 8, 16, 1, '#c8904a'); for (let i = 1; i < 16; i += 5) P(g, i, 13, 3, 9, '#6a3e20');
-    P(g, 0, 22, 16, 2, '#4a2a14');
-    if (f === 1) { P(g, 3, 2, 1, 6, '#c8c8d0'); P(g, 8, 2, 1, 6, '#c8c8d0'); P(g, 12, 2, 1, 6, '#c8c8d0'); P(g, 2, 1, 3, 2, '#f2c230'); P(g, 7, 1, 3, 2, '#e23a2e'); P(g, 11, 1, 3, 2, '#2e7de2'); }
-    else { P(g, 4, 4, 3, 2, '#f4f4f4'); P(g, 5, 6, 1, 2, '#e8e8e8'); P(g, 4, 4, 3, 1, '#7a1a30'); P(g, 10, 3, 2, 5, '#2c4a28'); P(g, 10, 2, 2, 1, '#8a1a2a'); }
+  bar: [16, 24, (g, f) => { // tasting bar: glossy top, raised wood panels, a brass foot rail. f: 0 wine, 1 beer taps, 2 cheese board
+    P(g, 0, 8, 16, 4, '#a8703a'); P(g, 0, 8, 16, 1, '#e0a868'); P(g, 0, 9, 16, 1, '#c8904a'); P(g, 0, 11, 16, 1, '#5a3418');
+    P(g, 0, 12, 16, 10, '#7a4a28');
+    for (const i of [1, 9]) { P(g, i, 13, 6, 6, '#8a5530'); P(g, i, 13, 6, 1, '#a8703a'); P(g, i, 13, 1, 6, '#a06a3a'); P(g, i, 18, 6, 1, '#5a3418'); P(g, i + 5, 13, 1, 6, '#5a3418'); }
+    P(g, 0, 19, 16, 1, '#ffe48a'); P(g, 0, 20, 16, 1, '#e0b030'); P(g, 0, 21, 16, 1, '#9a7410'); P(g, 3, 21, 1, 1, '#5a4410'); P(g, 12, 21, 1, 1, '#5a4410');
+    P(g, 0, 22, 16, 2, '#3a2414');
+    if (f === 1) { P(g, 2, 3, 12, 2, '#c8c8d0'); P(g, 2, 3, 12, 1, '#eef0f4'); for (const [x, c] of [[3, '#f2c230'], [7, '#e23a2e'], [11, '#2e7de2']]) { P(g, x, 0, 2, 3, c); P(g, x, 0, 1, 1, shade(c, 0.4)); P(g, x, 5, 1, 2, '#8a929e'); }
+      P(g, 2, 7, 12, 1, '#4a4f58'); P(g, 13, 4, 2, 3, '#f8d860'); P(g, 13, 4, 2, 1, '#ffffff'); }
+    else if (f === 2) { P(g, 2, 5, 12, 3, '#c8904a'); P(g, 2, 5, 12, 1, '#e0b070'); P(g, 2, 7, 12, 1, '#8a5a30'); P(g, 3, 3, 4, 2, '#f6d040'); P(g, 4, 2, 3, 1, '#f6d040'); P(g, 5, 3, 1, 1, '#d8a828');
+      disc(g, 11, 4, 1.2, '#7a2a8a'); disc(g, 12.5, 3.5, 1.1, '#8a3a9a'); P(g, 11, 3, 1, 1, '#c8a0d8'); P(g, 8, 4, 2, 1, '#e8c890'); P(g, 8, 3, 2, 1, '#f0d8a8'); }
+    else { g.globalAlpha = 0.7; P(g, 3, 2, 4, 3, '#f4f8fc'); g.globalAlpha = 1; P(g, 3, 4, 4, 1, '#8a1a30'); P(g, 3, 2, 1, 1, '#ffffff'); P(g, 4, 5, 2, 2, '#d8d8e0'); P(g, 3, 7, 4, 1, '#d8d8e0');
+      P(g, 10, 2, 2, 2, '#2c4a28'); P(g, 9, 4, 4, 4, '#2c4a28'); P(g, 9, 5, 4, 2, '#f0e0c0'); P(g, 10, 5, 2, 1, '#8a1a2a'); P(g, 10, 1, 2, 1, '#8a1a2a'); P(g, 9, 4, 1, 3, '#4a6a44'); }
   }, true],
   stool: [16, 16, (g) => { P(g, 7, 7, 2, 8, '#b8c0ca'); P(g, 4, 14, 8, 1, '#b8c0ca'); oval(g, 8, 6, 5, 3, '#c8282a'); oval(g, 8, 5, 4, 2, '#e84a4a'); }, true],
   infodesk: [16, 24, (g) => { P(g, 0, 10, 16, 14, '#2e7d3b'); P(g, 0, 10, 16, 2, '#4aa858'); P(g, 0, 22, 16, 2, '#1e4a26'); disc(g, 8, 17, 4, '#f2c230'); P(g, 7, 14, 2, 1, '#2e7d3b'); P(g, 7, 16, 2, 4, '#2e7d3b'); P(g, 6, 16, 1, 1, '#2e7d3b'); P(g, 6, 19, 4, 1, '#2e7d3b'); }, true],
@@ -1152,6 +1204,42 @@ const PROPS = {
   }, true],
   dock: [16, 24, (g) => { P(g, 0, 0, 16, 24, '#6a6f78'); P(g, 1, 1, 14, 22, '#8a909a'); for (let i = 3; i < 23; i += 3) P(g, 1, i, 14, 1, '#7a808a'); P(g, 6, 18, 4, 2, '#f2c230'); }, true],
 };
+// register (16x34): numbered lane light on a pole (lit when the lane is open), monitor, scanner with a red laser, impulse rack
+function registerSprite(lane, open, f) {
+  return spr(`reg_${lane}_${open ? 1 : 0}_${f}`, 16, 34, g => {
+    const n = lane === 5 ? 'Q' : String(lane + 1);
+    P(g, 3, 8, 1, 13, '#6a6f78'); P(g, 4, 8, 1, 13, '#4a4f58');
+    P(g, 0, 0, 9, 8, '#2a2a32'); P(g, 1, 1, 7, 6, open ? (f ? '#fff6a0' : '#ffe14d') : '#5a5a62'); P(g, 1, 1, 7, 1, open ? '#fffbe0' : '#6a6a72');
+    pxText(g, n, 1 + Math.floor((7 - glyphW(n)) / 2), 2, open ? '#2a1d22' : '#33333b');
+    // monitor on its stand, a receipt curling out of the printer
+    P(g, 6, 11, 9, 7, '#d8d0b8'); P(g, 6, 11, 9, 1, '#f0ead8'); P(g, 14, 11, 1, 7, '#a8a090'); P(g, 7, 12, 7, 4, open ? '#1e3a2a' : '#2a2a30');
+    if (open) { P(g, 8, 13, 4, 1, '#7aff9a'); P(g, 8, 14, 2, 1, '#7aff9a'); P(g, 11, 14, 2, 1, '#ffe14d'); }
+    P(g, 10, 18, 2, 2, '#6a6f78'); P(g, 1, 17, 3, 3, '#f4f4f0'); P(g, 1, 16, 3, 1, '#ffffff'); P(g, 1, 19, 3, 1, '#c8c8c4');
+    // cabinet top: scanner glass with the laser, keypad
+    P(g, 0, 20, 16, 4, '#c9d0d8'); P(g, 0, 20, 16, 1, '#eef2f6'); P(g, 1, 21, 8, 2, '#1e1e24'); if (open) P(g, 2, 22, 6, 1, f ? '#ff3a3a' : '#c82020');
+    P(g, 10, 21, 5, 2, '#4a4a54'); for (let i = 0; i < 4; i++) P(g, 10 + i + (i > 1 ? 1 : 0), 21 + (i % 2), 1, 1, '#c8c8d0');
+    // body + gum and candy rack
+    P(g, 0, 24, 16, 10, '#9aa3ad'); P(g, 0, 24, 16, 1, '#c9d0d8'); P(g, 15, 24, 1, 10, '#7a828e');
+    P(g, 1, 25, 14, 6, '#e23a2e'); P(g, 1, 25, 14, 1, '#ff6a5a'); const r = mkRng(lane * 7 + 3);
+    for (let i = 2; i < 14; i += 3) { P(g, i, 26, 2, 2, pick(r, ['#ffd23f', '#3ac0ff', '#5ee07a', '#ff8fc0'])); P(g, i, 29, 2, 1, pick(r, ['#ffffff', '#f2c230', '#2e7de2'])); }
+    P(g, 0, 32, 16, 2, '#6a737e');
+  }, true);
+}
+// conveyor counter in front of a register (16x24): black belt with ridges, a few groceries, a divider bar
+function beltSprite(lane, f) {
+  return spr(`belt_${lane}_${f}`, 16, 24, g => {
+    P(g, 0, 8, 16, 16, '#8a929e'); P(g, 0, 8, 16, 6, '#c9d0d8'); P(g, 0, 8, 16, 1, '#eef2f6');
+    P(g, 1, 9, 14, 4, '#26262c'); for (let x = (f % 3); x < 14; x += 3) P(g, 1 + x, 9, 1, 4, '#34343c');
+    const r = mkRng(lane * 31 + 5);
+    if (r() < 0.8) { const c = pick(r, ['#e23a2e', '#2e7de2', '#f2c230', '#2fa84f']); P(g, 3, 6, 3, 5, c); P(g, 3, 6, 3, 1, shade(c, 0.4)); P(g, 3, 8, 3, 1, '#ffffff'); }
+    if (r() < 0.7) { P(g, 8, 8, 2, 3, '#c8ccd2'); P(g, 8, 8, 2, 1, '#eef2f6'); P(g, 8, 9, 2, 1, pick(r, ['#e23a2e', '#2fa84f'])); }
+    if (r() < 0.5) { P(g, 11, 9, 3, 1, '#f2d23a'); P(g, 12, 8, 2, 1, '#f2d23a'); P(g, 11, 9, 1, 1, '#6a4a1a'); }
+    P(g, 6, 12, 5, 1, '#e8e0c8');
+    // the counter under the belt keeps the old warm wood
+    P(g, 0, 14, 16, 10, '#b88a55'); P(g, 0, 14, 16, 1, '#d8aa75'); P(g, 0, 17, 16, 1, '#8a5a30'); for (const x of [2, 9]) { P(g, x, 18, 5, 3, '#a87a48'); P(g, x, 18, 5, 1, '#8a5a30'); }
+    P(g, 0, 22, 16, 2, '#6a4422');
+  }, true);
+}
 // car top-down 16x24
 function carSprite(col) {
   return spr('car_' + col, 16, 26, g => {
@@ -1248,9 +1336,10 @@ function floatSprite(text, col) { return spr('fl_' + col + text, pxTextW(text) +
 // ===== the boss: original design, built for skating =====
 // pose: idle | glide | pushL | pushR | brake | walkL | walkR. dir: down | up | side. shoes: skates off
 const BOSS = { skin: '#f2c49a', hair: '#3a2414', shirt: '#2e9a4a', leaf: '#f2d23a', shorts: '#2a4a8a', boot: '#f6f6f2', stripe: '#e2342a', wheel: '#ffb21c', pad: '#e2342a', sole: '#3a3a40' };
-function bossSprite(dir, pose, carry, wheelF, shoes) {
-  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}_${shoes ? 1 : 0}`, 20, 31, g => {
-    g.translate(2, 4); const B = BOSS, sk = B.skin, sd = shade(sk, -0.18);
+const OUTFITS = { jumpsuit: { shirt: '#f6f6f2', leaf: '#e8c040', shorts: '#f6f6f2' } }; // from the rack in Elvis's dressing room
+function bossSprite(dir, pose, carry, wheelF, shoes, outfit) {
+  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}_${shoes ? 1 : 0}_${outfit || ''}`, 20, 31, g => {
+    g.translate(2, 4); const B = outfit ? { ...BOSS, ...OUTFITS[outfit] } : BOSS, sk = B.skin, sd = shade(sk, -0.18);
     const crouch = pose === 'glide' || pose === 'brake' ? 1 : 0; const lean = dir === 'side' && pose !== 'idle' && !shoes ? 1 : 0;
     const wcol = wheelF ? B.wheel : shade(B.wheel, -0.25);
     const skate = shoes ? (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, w, 1, B.sole); }
@@ -1323,7 +1412,7 @@ function buildWorld(ups) {
   const rect = (x0, y0, x1, y1, k) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) G(x, y, k); };
   const wall = (x, y) => { if (!inb(x, y)) return; W.wall[idx(x, y)] = 1; W.solid[idx(x, y)] = 1; W.outdoor[idx(x, y)] = 0; G(x, y, 'wall'); };
   // outdoors
-  rect(0, 62, MW - 1, 64, 'road'); rect(0, 47, MW - 1, 48, 'sidewalk'); rect(2, 49, 75, 61, 'asphalt');
+  rect(0, 62, SW - 1, 64, 'road'); rect(0, 47, SW - 1, 48, 'sidewalk'); rect(2, 49, 75, 61, 'asphalt');
   rect(56, 2, 77, 10, 'asphalt'); rect(56, 11, 72, 11, 'sidewalk'); rect(72, 11, 73, 46, 'sidewalk');
   // building: interior = union of FOOT, walls = the ring around it
   const inside = new Uint8Array(MW * MH); FOOT.forEach(([a, b, c, d]) => { for (let y = b; y <= d; y++) for (let x = a; x <= c; x++) inside[idx(x, y)] = 1; });
@@ -1342,6 +1431,10 @@ function buildWorld(ups) {
     if (d.id !== 'registers' && d.id !== 'custserv') W.signs.push({ text: d.sign || d.name, x: d.x + d.w / 2, y: d.y + (d.signY || 0.2) });
   });
   W.signs.push({ text: 'Registers', x: 37.5, y: 36.1 }); W.signs.push({ text: 'Customer Service', x: 36.5, y: 44.6, small: true });
+  // quick trips: one express register just inside the Rhino (side) door. 5 items or less, out the side door after.
+  { const ry = 19, rx = 65; addObj({ type: 'register', x: rx, y: ry, lane: 5 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: 5 });
+    W.lanes.push({ i: 5, quick: true, cash: [rx - 1, ry], reg: [rx, ry], pay: [rx + 1, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [rx + 1, ry - k]), staff: null, progress: 0 });
+    W.signs.push({ text: 'Quick Trips', x: rx + 0.5, y: 13.6 }); W.labels.push({ text: '5 items or less', x: rx + 0.5, y: ry + 2.1 }); }
   // stock room
   rect(26, 13, 41, 19, 'concrete');
   const crateOrder = Object.keys(CRATES).filter(k => !CRATES[k].lock || ups[CRATES[k].lock]);
@@ -1373,7 +1466,7 @@ function buildWorld(ups) {
   addObj({ type: 'corral', x: 40, y: 52 }); addObj({ type: 'corral', x: 50, y: 56 });
   W.lanes.forEach(l => { W.cost[idx(l.cash[0], l.cash[1])] = 30; });
   W.stools.forEach(s => { W.cost[idx(s.x, s.y)] = 12; });
-  placeGivers();
+  buildFun(); placeGivers();
   computeFronts(); renderGround();
 }
 
@@ -1413,7 +1506,7 @@ function layoutDept(d, i) {
       break;
     }
     case 'bar': {
-      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: x % 3 === 0 ? 1 : 0 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
+      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: x % 3 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
       break;
     }
     case 'cheese': {
@@ -1464,7 +1557,7 @@ function layoutDept(d, i) {
       const ry = d.y + 4;
       for (let i2 = 0; i2 < 5; i2++) {
         const cx = d.x + i2 * 3, rx = cx + 1, qx = cx + 2;
-        addObj({ type: 'register', x: rx, y: ry, lane: i2 }); addObj({ type: 'counter', x: rx, y: ry + 1 });
+        addObj({ type: 'register', x: rx, y: ry, lane: i2 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: i2 });
         W.lanes.push({ i: i2, cash: [cx, ry], reg: [rx, ry], pay: [qx, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [qx, ry - k]), staff: null, progress: 0 });
       }
       break;
@@ -1553,11 +1646,12 @@ function renderGround() {
   // parking lines
   W.parking.forEach(p => { const px = p.x * T, py = p.y * T; if (p.side) { P(g, px, py - 1, 16, 1, '#ece8dc'); } else { P(g, px, py, 1, 26, '#ece8dc'); P(g, px + 15, py, 1, 26, '#ece8dc'); } });
   // road dashes + curb
-  for (let x = 0; x < MW * T; x += 24) P(g, x, 63 * T + 7, 12, 2, '#f2c81c');
-  P(g, 0, 62 * T, MW * T, 2, '#9a978d');
+  for (let x = 0; x < SW * T; x += 24) P(g, x, 63 * T + 7, 12, 2, '#f2c81c');
+  P(g, 0, 62 * T, SW * T, 2, '#9a978d');
   // walls
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     if (!W.wall[idx(x, y)]) continue; const px = x * T, py = y * T; const below = inb(x, y + 1) && !W.wall[idx(x, y + 1)];
+    if (x >= SW) { const st = ROOMWALL[W.wallStyle && W.wallStyle.get(idx(x, y))]; if (!st) P(g, px, py, 16, 16, '#07070c'); else if (below) st.face(g, px, py, x, y); else P(g, px, py, 16, 16, st.top); continue; } // walk-in rooms
     const stock = (x >= 25 && x <= 42 && y <= 20 && y >= 12) && !(inb(x, y + 1) && W.outdoor[idx(x, y + 1)]);
     if (below) {
       if (W.outdoor[idx(x, y + 1)]) { // storefront
@@ -1595,7 +1689,28 @@ const MUSIC = (() => {
     jazz: { y: rep([0, 4, 6, 8, 12, 14], 4), h: rep([4, 12], 4), K: bars([0], [], [0], [10]), s: bars([], [14], [6], [10, 14]) },
   };
   const KITVOICE = { chip: { lo: 'K', mid: 's', hi: 'h' }, bossa: { lo: 'K', mid: 'r', hi: 'h' }, pop: { lo: 'K', mid: 's', hi: 'h' }, march: { lo: 'K', mid: 's', hi: 'h' }, polka: { lo: 'K', mid: 's', hi: 'h' }, conga: { lo: 'K', mid: 'C', hi: 'h' }, samba: { lo: 'K', mid: 'r', hi: 'h' }, jazz: { lo: 'K', mid: 's', hi: 'y' } };
-  const FEEL = { pop: { dyn: .35, time: .25, sw16: 0 }, bossa: { dyn: .5, time: .45, sw16: .18 }, jazz: { dyn: .6, time: .5, sw16: 0 } };
+  // Slimehedron's KITFEEL (GitHub, 2026-11): how each style leans (acc), how loose it plays (dyn/time) and how often
+  // quiet ghost taps fill the gaps. Simple kits get few ghosts; the busy ones get more and a pickup into each phrase.
+  const FEEL = {
+    pop:   { dyn: .35, time: .25, ghost: .25, sw16: 0, acc: { K: 1.06, s: { 4: 1.16, 12: 1.16 } } },
+    bossa: { dyn: .5, time: .45, ghost: .15, sw16: .18, acc: { K: .82, h: .6, cl: 1.08 }, ghostHat: true },
+    jazz:  { dyn: .6, time: .5, ghost: .5, sw16: 0, acc: { K: .5, y: { 0: .7, 4: .84, 8: .7, 12: .84 }, s: .55 }, ghostAt: 'and', ghostHat: false },
+  };
+  const FEEL_DEFAULT = { dyn: .4, time: .3, ghost: .3, sw16: 0, acc: {} };
+  const SIMPLE = { pop: 1, bossa: 1, march: 1, chip: 1, jazz: 1 };
+  // the drummer's hands drift: each part of the kit wanders a little early or late for a while, then comes back.
+  // every beat stays locked to the grid, and nothing drifts more than a quarter of a 16th or 22 ms.
+  const drift = { K: 0, s: 0, h: 0, p: 0 }; let swell = 0;
+  const hGroup = v => v === 'K' ? 'K' : (v === 's' || v === 'r') ? 's' : (v === 'h' || v === 'y') ? 'h' : 'p';
+  function humanBeat(barStart) { for (const g in drift) drift[g] = Math.max(-0.009, Math.min(0.009, drift[g] * 0.6 + (Math.random() - 0.5) * 0.012)); if (barStart) swell = Math.max(-0.08, Math.min(0.08, swell * 0.5 + (Math.random() - 0.5) * 0.1)); }
+  function humanVoice(v, inBar, feel) {
+    const g = hGroup(v), velVar = g === 'h' ? 0.22 : g === 'K' ? 0.05 : g === 'p' ? 0.18 : 0.12, bias = g === 'K' ? 0.004 : g === 's' ? -0.003 : 0, wob = g === 'h' ? 0.005 : g === 'K' ? 0.0012 : g === 'p' ? 0.004 : 0.002;
+    const dk = feel.dyn / 0.4, tk = feel.time / 0.3, vel = 1 + Math.max(-0.45, Math.min(0.45, ((Math.random() * 2 - 1) * velVar + swell) * dk));
+    if (inBar % 4 === 0) return { v: vel, t: 0 };
+    const ts = Math.min(1.5, 100 / Math.max(60, M.bpm)), cap = Math.min(0.022, 0.25 * sd());
+    return { v: vel, t: Math.max(-cap, Math.min(cap, (bias + (Math.random() * 2 - 1) * wob + drift[g]) * tk * ts)) };
+  }
+  const accFor = (feel, v, inBar) => { const a = feel.acc[v]; return a == null ? 1 : typeof a === 'number' ? a : (a[inBar] || 1); };
   const CHORD_NEXT = { use: [1, 0.6, 0.3, 1, 1, 0.85, 0.6], next: { 1: { 4: 1.8 }, 2: { 3: 1.7, 5: 1.7 }, 3: { 0: 1.3, 4: 1.4 }, 4: { 0: 1.8, 5: 1.3 }, 5: { 3: 1.4, 1: 1.3 } } };
   const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], lydian: [0, 2, 4, 6, 7, 9, 11], mixolydian: [0, 2, 4, 5, 7, 9, 10], dorian: [0, 2, 3, 5, 7, 9, 10], minor: [0, 2, 3, 5, 7, 8, 10], phrygian: [0, 1, 3, 5, 7, 8, 10] };
   const DIM = { major: 6, lydian: 3, mixolydian: 2, dorian: 5, minor: 1, phrygian: 4 }; // the diminished chord in each mode: almost never used
@@ -1615,12 +1730,14 @@ const MUSIC = (() => {
     market:   S({ kit: 'pop', bpm: 116, key: 0, scale: 'major', lead: 'accordion' }),
     fresh:    S({ kit: 'bossa', bpm: 112, key: 5, scale: 'lydian', lead: 'flute', bassV: 'pluck', dens: 2.5, comp: 0, pad: 0.6, swing: 0.1 }),
     counter:  S({ kit: 'march', bpm: 120, key: 7, scale: 'mixolydian', lead: 'accordion', drums: 0.4, comp: 2 }),
-    frozen:   S({ kit: 'chip', bpm: 110, key: 2, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2.5, x: 0.25, drums: 0.38, comp: 0, pad: 0.8 }),
+    frozen:   S({ kit: 'chip', bpm: 110, key: 2, scale: 'dorian', lead: 'tine', bassV: 'pluck', dens: 2.5, x: 0.25, drums: 0.38, comp: 0, pad: 0.8 }),
     candy:    S({ kit: 'chip', bpm: 124, key: 0, scale: 'major', lead: 'square', dens: 4, x: 0.35, comp: 2, pad: 0.4 }),
     // international wing (west): G family
     europe:   S({ kit: 'march', bpm: 114, key: 7, scale: 'major', lead: 'accordion', drums: 0.35, comp: 2, swing: 0.2 }),
-    asia:     S({ kit: 'conga', bpm: 108, key: 7, scale: 'major', lead: 'pluck', bassV: 'pluck', dens: 3, x: 0.35, drums: 0.4, comp: 0, pad: 0.85, pent: true }),
+    asia:     S({ kit: 'conga', bpm: 108, key: 7, scale: 'major', lead: 'harp', bassV: 'pluck', dens: 3, x: 0.35, drums: 0.4, comp: 0, pad: 0.85, pent: true }),
     americas: S({ kit: 'conga', bpm: 120, key: 2, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.35, comp: 2 }),
+    mercado:  S({ kit: 'polka', bpm: 128, key: 2, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.38, drums: 0.5, comp: 2 }), // norteño-ish two-step
+    med:      S({ kit: 'bossa', bpm: 132, meter: 3, key: 4, scale: 'minor', lead: 'harp', bassV: 'pluck', dens: 2.5, x: 0.2, drums: 0.35, comp: 0, pad: 0.7 }), // a café waltz
     hot:      S({ kit: 'samba', bpm: 122, key: -1, scale: 'phrygian', lead: 'pluck', dens: 4, x: 0.4, drums: 0.55, comp: 2 }),
     souk:     S({ kit: 'conga', bpm: 112, key: -3, scale: 'dorian', lead: 'flute', bassV: 'pluck', comp: 0, pad: 0.6, swing: 0.25 }),
     harbor:   S({ kit: 'pop', bpm: 114, key: 4, scale: 'minor', lead: 'accordion', x: 0.2, drums: 0.4, comp: 2, swing: 0.6 }),
@@ -1630,7 +1747,11 @@ const MUSIC = (() => {
     lounge:   S({ kit: 'jazz', bpm: 100, key: 7, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2, x: 0.3, drums: 0.45, pad: 0.7, swing: 0.85 }),
     bistro:   S({ kit: 'bossa', bpm: 108, key: 5, scale: 'major', lead: 'accordion', dens: 2.5, pad: 0.6, swing: 0.15 }),
     beerhall: S({ kit: 'polka', bpm: 120, key: 0, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.3, comp: 2 }),
-    sushi:    S({ kit: 'conga', bpm: 106, key: 2, scale: 'minor', lead: 'pluck', bassV: 'pluck', dens: 3, x: 0.32, drums: 0.38, comp: 0, pad: 0.85, pent: true }),
+    sushi:    S({ kit: 'conga', bpm: 106, key: 2, scale: 'minor', lead: 'bell', bassV: 'pluck', dens: 3, x: 0.32, drums: 0.38, comp: 0, pad: 0.85, pent: true }),
+    // rooms you walk into (the restroom, the cheese cave, the lion's dressing room): their own place, so they cut in
+    spa:       S({ place: 'room', kit: 'bossa', bpm: 88, key: 5, scale: 'lydian', lead: 'tine', bassV: 'pluck', dens: 2, x: 0.2, drums: 0.3, comp: 0, pad: 0.9, swing: 0.1 }),
+    cave:      S({ place: 'room', kit: null, bpm: 96, meter: 3, key: -3, scale: 'dorian', lead: 'harp', bassV: 'pluck', dens: 2, x: 0, drums: 0, comp: 0, pad: 0.9 }),
+    backstage: S({ place: 'room', kit: 'jazz', bpm: 152, key: 0, scale: 'mixolydian', lead: 'square', bassV: 'pluck', dens: 3.5, x: 0.4, drums: 0.5, comp: 2, swing: 0.6 }),
     // other places
     title:    S({ place: 'title', kit: 'bossa', bpm: 120, key: 0, scale: 'major', lead: 'accordion', x: 0.25, comp: 0, pad: 0.6 }),
     outside:  S({ place: 'outside', kit: 'conga', bpm: 116, key: 5, scale: 'major', lead: 'flute', comp: 0, pad: 0.6, x: 0.3 }),
@@ -1701,6 +1822,7 @@ const MUSIC = (() => {
   function lead(kind, m, t, dur, vel) { // the palette measured in those MIDIs: accordion (GM 21), flute/piccolo (72), pizz pluck (45), plus chip square
     if (M.log && M.log.mel) M.log.mel.push({ step: M.step, m, song: M.turn || M.cur });
     if (kind === 'pluck') return pluck(m, t, vel);
+    if (FMV[kind]) return fm(kind, m, t, dur, vel);
     if (!grab(t, dur, 8)) return; const c = M.ctx, g = c.createGain(), lp = c.createBiquadFilter(), f0 = mtof(m); lp.type = 'lowpass';
     const oscs = []; const add = (type, det, lvl) => { const o = c.createOscillator(), og = c.createGain(); o.type = type; o.frequency.value = f0; o.detune.value = det; og.gain.value = lvl; o.connect(og); og.connect(lp); oscs.push(o); return o; };
     let att = 0.015, rel = dur;
@@ -1712,6 +1834,33 @@ const MUSIC = (() => {
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + att); g.gain.setValueAtTime(peak * 0.85, t + Math.max(att, rel - 0.06)); g.gain.exponentialRampToValueAtTime(0.0005, t + rel + 0.12);
     lp.connect(g); g.connect(M.bus); const ge = c.createGain(); ge.gain.value = 0.5; g.connect(ge); ge.connect(M.echo);
     oscs.forEach(o => { o.start(t); o.stop(t + rel + 0.15); }); lfo.start(t); lfo.stop(t + rel + 0.15);
+  }
+  // FM voices, after Slimehedron's fm1 sounds (GitHub, 2026-11), cut down to 2-operator pairs for the browser:
+  // bell = Chowning (JAES 1973): carrier:modulator 1:1.4, the modulation dying with the sound so it mellows, a short
+  //        ratio-3.5 strike for the glassy attack, a second pair detuned a little for shimmer. index kept low so the
+  //        carrier stays the loudest partial (stays in key).
+  // tine = Yamaha "FM 101, Part Five" E.PIANO: 1:1 pairs detuned +-7 cents (the beating) and a ratio-14 bite.
+  // harp = Yamaha "FM 101, Part Six" HARP 1: a ratio-2 attack stack over a soft 1:1 body.
+  // pairs: [modulator ratio, index, detune cents]; strike: [ratio, index, seconds]; ring: how long it sounds past the note
+  const FMV = {
+    bell: { pairs: [[1.4, 1.1, 0], [1.4, 0.8, 5]], strike: [3.5, 2.2, 0.05], fall: 1.4, ring: 1.3, peak: 0.055 },
+    tine: { pairs: [[1, 1.3, -7], [1, 0.9, 7]], strike: [14, 1.0, 0.04], fall: 0.9, ring: 0.7, peak: 0.06 },
+    harp: { pairs: [[1, 0.9, 0]], strike: [2, 2.4, 0.09], fall: 0.6, ring: 0.6, peak: 0.075 },
+  };
+  function fm(kind, m, t, dur, vel) {
+    const R = FMV[kind], len = Math.max(dur, R.ring); if (!grab(t, len, 8)) return;
+    const c = M.ctx, f0 = mtof(m), g = c.createGain(), peak = R.peak * vel / R.pairs.length * 1.4, oscs = [];
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0005, t + len);
+    R.pairs.forEach(([ratio, index, det], i) => {
+      const car = c.createOscillator(), mod = c.createOscillator(), mg = c.createGain(); car.type = mod.type = 'sine';
+      car.frequency.value = f0; car.detune.value = det; mod.frequency.value = f0 * ratio; mod.detune.value = det;
+      mg.gain.setValueAtTime(index * f0 * ratio, t); mg.gain.exponentialRampToValueAtTime(Math.max(1, index * f0 * ratio * 0.08), t + R.fall);
+      mod.connect(mg); mg.connect(car.frequency); car.connect(g); oscs.push(car, mod);
+      if (i === 0) { const st = c.createOscillator(), sg = c.createGain(); st.type = 'sine'; st.frequency.value = f0 * R.strike[0]; sg.gain.setValueAtTime(R.strike[1] * f0, t); sg.gain.exponentialRampToValueAtTime(1, t + R.strike[2]); st.connect(sg); sg.connect(car.frequency); oscs.push(st); }
+    });
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000; g.connect(lp); lp.connect(M.bus);
+    const ge = c.createGain(); ge.gain.value = 0.4; lp.connect(ge); ge.connect(M.echo);
+    oscs.forEach(o => { o.start(t); o.stop(t + len + 0.05); });
   }
   function tuba(m, t, dur, vel) { if (!grab(t, dur)) return; const c = M.ctx, o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.value = mtof(m); lp.type = 'lowpass'; lp.frequency.setValueAtTime(700, t); lp.frequency.exponentialRampToValueAtTime(320, t + dur); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.14 * vel, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0005, t + dur); o.connect(lp); lp.connect(g); g.connect(M.bus); o.start(t); o.stop(t + dur + 0.05); }
   function noiseHit(t, type, f, q, lvl, dur) { if (!grab(t, dur)) return; const c = M.ctx, s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = M.noise; fl.type = type; fl.frequency.value = f; fl.Q.value = q; g.gain.setValueAtTime(lvl, t); g.gain.exponentialRampToValueAtTime(0.0005, t + dur); s.connect(fl); fl.connect(g); g.connect(M.bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02); }
@@ -1777,7 +1926,7 @@ const MUSIC = (() => {
     if (M.barLen === undefined || i >= M.barStart + M.barLen || i < M.barStart) barLine(i);
     const P = M.p, inBar = i - M.barStart, bar = M.bar, sixteenth = sd(), bl = M.barLen, beat = 4;
     const ch = M.chord2 !== null && inBar >= 8 ? M.chord2 : M.chord;
-    const feel = FEEL[P.kit] || FEEL.pop; let tt = t; if (M.sw && inBar % 4 === 2) tt += M.sw * 0.667 * sixteenth; if (feel.sw16 && inBar % 2 === 1) tt += feel.sw16 * 0.333 * sixteenth;
+    const feel = FEEL[P.kit] || FEEL_DEFAULT; let tt = t; if (M.sw && inBar % 4 === 2) tt += M.sw * 0.667 * sixteenth; if (feel.sw16 && inBar % 2 === 1) tt += feel.sw16 * 0.333 * sixteenth;
     const slow = P.bpm < 95 || P.meter === 3;
     // pad: held chord; in a turnaround it moves with each approach chord
     const padHit = M.turn ? (inBar === 0 || inBar === 8) : inBar === 0 && (bar % 2 === 0 || slow);
@@ -1794,7 +1943,16 @@ const MUSIC = (() => {
     if (inBar === 0 && M.crash) drum('X', tt, M.crash);
     if (filling) { const k = inBar - fillAt, lv = Math.max(P.drums, 0.3); drum('s', tt, 0.45 + k * 0.15, lv); if (k === 0) drum('K', tt, 0.8, lv); }
     else if (P.kit && P.drums > 0) {
-      if (P.meter === 4) { const kit = KITS[P.kit], pos = (bar % 4) * 16 + inBar; for (const v in kit) if (kit[v].includes(pos) && keeps(v, inBar)) { const hum = 1 + (Math.random() - 0.5) * (feel.dyn || 0.3) * 0.6; drum(v, tt + (Math.random() - 0.5) * (feel.time || 0.2) * 0.008, (inBar % 4 === 0 ? 1 : 0.75) * hum); } }
+      if (inBar % 4 === 0) humanBeat(inBar === 0);
+      if (P.meter === 4) {
+        const kit = KITS[P.kit], pos = (bar % 4) * 16 + inBar, vm = KITVOICE[P.kit] || {}, simple = SIMPLE[P.kit];
+        for (const v in kit) if (kit[v].includes(pos) && keeps(v, inBar)) { const h = humanVoice(v, inBar, feel); drum(v, tt + h.t, (inBar % 4 === 0 ? 1 : 0.75) * h.v * accFor(feel, v, inBar)); }
+        // ghost notes: quiet taps off the beat and off the backbeat, never two in a row (only once the song is past its skeleton)
+        const mid = vm.mid, where = feel.ghostAt === 'and' ? inBar % 4 === 2 : true;
+        if (mid && P.x >= 0.2 && inBar % 4 && inBar !== 4 && inBar !== 12 && where && !(kit[mid] || []).includes(pos) && M.lastGhost !== inBar - 1 && Math.random() < feel.ghost * (simple ? 0.28 : 0.55)) { drum(mid, tt + humanVoice(mid, inBar, feel).t, 0.14 + Math.random() * 0.14); M.lastGhost = inBar; }
+        if (vm.hi === 'h' && feel.ghostHat !== false && inBar % 2 === 1 && !(kit.h || []).includes(pos) && Math.random() < feel.ghost * (simple ? 0.4 : 0.63)) drum('h', tt, 0.11 + Math.random() * 0.09);
+        if (!simple && mid && bar % 4 === 3 && inBar >= 14) drum(mid, tt, 0.45 + (inBar - 14) * 0.18); // a 2-hit pickup into the next phrase
+      }
       else { if (inBar === 0) drum('K', tt, 0.8); else if (inBar % 4 === 0) drum('h', tt, 0.7); }
     }
     if (P.perc && P.meter === 4 && !filling) { const kit = KITS[P.perc], pos = (bar % 4) * 16 + inBar; for (const v of ['c', 'C', 'r']) if (kit[v] && kit[v].includes(pos)) drum(v, tt, 0.6, Math.max(P.drums, 0.35)); }
@@ -1889,7 +2047,7 @@ function musicStart() {
 // tests/mzone.py checks every pair of departments you can walk between is at most one note apart.
 const ZONE_SONG = {
   produce: 'fresh', natural: 'fresh', bakery: 'counter', meat: 'counter', frozen: 'frozen', candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy',
-  europe: 'europe', eurosouth: 'europe', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'americas',
+  europe: 'europe', eurosouth: 'med', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'mercado',
   hotsauce: 'hot', intl: 'souk', seafood: 'harbor', honey: 'herb', herb: 'herb', tiktok: 'viral',
   wine: 'lounge', liquor: 'lounge', cigars: 'lounge', tasting: 'lounge', cheese: 'bistro', tenants: 'bistro', deli: 'bistro', beer: 'beerhall', sushi: 'sushi',
 };
@@ -1912,6 +2070,7 @@ function musicTick() { // pick the song from where you are; music.js gets there 
     else if (stock) s = 'stock';
     else if (outdoor) s = ST.weather === 'rain' ? 'rain' : 'outside';
     else s = AU.zone || 'market';
+    if (RT.room && ROOMS[RT.room]) s = ROOMS[RT.room].song;
     if (RT.dayT < 40) moods.push('morning'); // the store just opened
     if (ST.weather === 'rain') moods.push('rain');
     if (eventToday()) moods.push('fest');
@@ -1955,7 +2114,7 @@ function addMoney(n, x, y) { ST.money += n; if (x !== undefined && n !== 0) floa
 function addRep(n) { ST.rep = Math.max(0, Math.min(100, ST.rep + n)); RT.day.repDelta += n; }
 function crateCost(type) { const ds = DEPTS.filter(d => d.crate === type); const p = ds.reduce((a, d) => a + d.price, 0) / Math.max(1, ds.length); return Math.round(CRATES[type].units * p * 0.5); }
 function carryCap() { return ST.ups.pallet ? 3 : ST.ups.dolly ? 2 : 1; }
-function maxSpeed() { return 72 * (ST.ups.skates3 ? 1.6 : ST.ups.skates2 ? 1.3 : 1); }
+function maxSpeed() { return 72 * (ST.ups.skates3 ? 1.6 : ST.ups.skates2 ? 1.3 : 1) * (RT.beesT > 0 ? 1.35 : 1); }
 const WALK_SPEED = 44; // skates off (R)
 function toggleSkates() { PL.walk = !PL.walk; PL.vx = PL.vy = 0; }
 function deptOpen(d) { return d && (!d.lock || ST.ups[d.lock]); }
@@ -1973,15 +2132,15 @@ function startDay() {
   PL.x = W.spots.start[0] * T; PL.y = W.spots.start[1] * T; PL.vx = PL.vy = 0; PL.dir = 'down';
   Object.keys(ANIMS).forEach(k => { ST.anims[k] = ST.anims[k] || { broken: false, fix: 0 }; ST.anims[k].fix = 0; });
   ST.monorailBroken = false;
-  setupStaff(); buildQuests();
+  setupStaff(); buildQuests(); resetFunDay();
   // the store opens with people already shopping, somewhere different every day
   for (let i = 0; i < 14; i++) spawnInside();
 }
 function setupStaff() {
   RT.staff = [];
-  const names = [CONFIG.cashierName, 'Gary', 'Marcus', 'Bev', 'Tyler'], ups = ['', '', 'cashier1', 'cashier2', 'cashier3'];
+  const names = [CONFIG.cashierName, 'Gary', 'Marcus', 'Bev', 'Tyler', 'Earl'], ups = ['', '', 'cashier1', 'cashier2', 'cashier3', 'cashierQ'];
   W.lanes.forEach(l => l.staff = null);
-  ups.forEach((u, i) => { if (!u || ST.ups[u]) { const l = W.lanes[i]; const look = randomLook(mkRng(i * 911 + 7), i === 0 ? 'old' : 'adult'); look.shirt = '#2e7d3b'; look.key = 'cashier' + i; const s = { kind: 'cashier', name: names[i], look, x: (l.cash[0] + 0.5) * T, y: (l.cash[1] + 0.7) * T, dir: 'side', flip: false, lane: l }; l.staff = s; RT.staff.push(s); } });
+  ups.forEach((u, i) => { if (!u || ST.ups[u]) { const l = W.lanes[i]; if (!l) return; const look = randomLook(mkRng(i * 911 + 7), i === 0 ? 'old' : 'adult'); look.shirt = '#2e7d3b'; look.key = 'cashier' + i; const s = { kind: 'cashier', name: names[i], look, x: (l.cash[0] + 0.5) * T, y: (l.cash[1] + 0.7) * T, dir: 'side', flip: false, lane: l }; l.staff = s; RT.staff.push(s); } });
   const walker = (kind, name, shirt, i) => { const look = randomLook(mkRng(kind.length * 33 + i), 'adult'); look.shirt = shirt; look.key = 'st_' + kind + i; RT.staff.push({ kind, name, look, x: (W.spots.stockDoor[0] + i) * T, y: W.spots.stockDoor[1] * T, dir: 'down', state: 'idle', timer: 3 + i * 20, carry: null, path: null }); };
   if (ST.ups.stocker) walker('stocker', 'Ray', '#3d6fd1', 0);
   if (ST.ups.stocker2) walker('stocker', 'Nina', '#3d6fd1', 1);
@@ -2011,7 +2170,7 @@ function spawnInside() { // a shopper already in the store: parked car outside, 
   c.x = (t[0] + 0.5) * T; c.y = (t[1] + 0.7) * T; c.path = null; if (c.kid) { c.kid.x = c.x - 6; c.kid.y = c.y; } nextTask(c);
 }
 function mkCust(type, car, door) {
-  const look = randomLook(Math.random, type); const c = { id: RT.nextId++, type, look, x: car.x, y: car.y + 10, dir: 'down', frame: 0, anim: 0, state: 'toStore', path: null, pi: 0, mood: 62 + Math.random() * 10, items: 0, spend: 0, list: [], car, door, bubble: null, lostDone: false, wait: 0, timer: 0, speed: type === 'old' ? 36 : type === 'kid' ? 56 : 46 + Math.random() * 10, seen: {}, hist: [] };
+  const look = randomLook(Math.random, type, true); const c = { id: RT.nextId++, type, look, x: car.x, y: car.y + 10, dir: 'down', frame: 0, anim: 0, state: 'toStore', path: null, pi: 0, mood: 62 + Math.random() * 10, items: 0, spend: 0, list: [], car, door, bubble: null, lostDone: false, wait: 0, timer: 0, speed: type === 'old' ? 36 : type === 'kid' ? 56 : 46 + Math.random() * 10, seen: {}, hist: [] };
   RT.custs.push(c); const tgt = door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; goTo(c, tgt[0], tgt[1]); return c;
 }
 function goTo(e, tx, ty) { const p = findPath(e.x / T, e.y / T - 0.2, tx, ty); e.path = p; e.pi = 1; e.goal = [tx, ty]; if (!p) { e.path = [[Math.floor(tx), Math.floor(ty)]]; e.pi = 0; } return !!p; }
@@ -2047,13 +2206,16 @@ function makeLost(c, id) {
   c.lostItem = pick(Math.random, DEPT[id].items || [DEPT[id].name]); bubble(c, '?', 999, 'q');
 }
 function laneOpen(l) { return !!l.staff || (PL.onCash === l); }
+const QUICK_MAX = 5; // quick trips lane: 5 items or less
 function joinLane(c) {
-  const open = W.lanes.filter(l => laneOpen(l) && l.queue.length < l.q.length + 2); if (!open.length) { c.state = 'waitLane'; c.timer = 2; return; }
-  open.sort((a, b) => a.queue.length - b.queue.length); const l = open[0]; l.queue.push(c); c.lane = l; c.state = 'queue'; c.wait = 0; c.scanned = 0; queueMove(l);
+  const open = W.lanes.filter(l => laneOpen(l) && l.queue.length < l.q.length + 2 && (!l.quick || c.items <= QUICK_MAX)); if (!open.length) { c.state = 'waitLane'; c.timer = 2; return; }
+  // shortest line wins, a long walk counts against it, and people who came in the side door like the quick lane by it
+  const cost = l => l.queue.length + Math.hypot(l.pay[0] - c.x / T, l.pay[1] - c.y / T) / 12 - (l.quick && c.door === 'side' ? 1.5 : 0);
+  open.sort((a, b) => cost(a) - cost(b)); const l = open[0]; l.queue.push(c); c.lane = l; c.state = 'queue'; c.wait = 0; c.scanned = 0; queueMove(l);
 }
 function queueMove(l) { l.queue.forEach((c, i) => { const q = l.q[Math.min(i, l.q.length - 1)]; c.qi = i; if (!c.qgoal || c.qgoal[0] !== q[0] || c.qgoal[1] !== q[1]) { c.qgoal = q; goTo(c, q[0] + 0.5, q[1] + 0.7 - (i >= l.q.length ? 0.35 : 0)); } }); }
 function leaveStore(c) {
-  c.state = 'leaving'; const out = c.items > 0 ? W.spots.exitIn : c.door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; c.state = 'walk'; c.then = 'exit'; goTo(c, out[0], out[1]);
+  c.state = 'leaving'; const out = c.paidQuick || (c.items <= 0 && c.door === 'side') ? W.spots.sideDoorIn : c.items > 0 ? W.spots.exitIn : W.spots.mainDoorIn; c.state = 'walk'; c.then = 'exit'; goTo(c, out[0], out[1]);
   if (c.stool) { c.stool.cust = null; c.stool = null; }
 }
 function finishCust(c) {
@@ -2147,7 +2309,7 @@ function updateLanes(dt) {
 }
 function pay(c, l) {
   const amt = Math.round(c.spend * 100) / 100; ST.money += amt; RT.day.sales += amt; ST.totals.sales += amt; RT.day.served++; ST.totals.served++; floatText(c.x, c.y - 28, '+' + fmtMoney(amt), '#7dff7a'); if (onScreen(c.x, c.y)) sfx('cash');
-  l.queue.shift(); l.progress = 0; queueMove(l); c.lane = null; leaveStore(c);
+  l.queue.shift(); l.progress = 0; queueMove(l); c.lane = null; c.paidQuick = !!l.quick; leaveStore(c);
 }
 function playerScan() {
   const l = PL.onCash; if (!l) return false; const c = l.queue[0];
@@ -2170,6 +2332,7 @@ function updateDay(dt) {
   ST.cheeseTemp += dt * 0.06; if (ST.cheeseTemp > 45) { if (!RT.cheeseAlarm) { RT.cheeseAlarm = true; toast('The Big Cheese cooler is too warm. Go check it.', 'warn'); sfx('alarm'); } addRep(-dt * 0.02); } else RT.cheeseAlarm = false;
   if (eventToday()) { const empty = DEPTS.some(d => d.max && deptOpen(d) && ST.stock[d.id] <= 0); if (empty) RT.day.emptyDuringFest = true; }
   RT.evT += dt; if (RT.evT >= 40) { RT.evT = 0; storeTick(); }
+  RT.midT = (RT.midT || 0) + dt; if (RT.midT >= 15) { RT.midT = 0; saveMid(); }
   questCrowd(dt); questTrouble(dt); checkDayGoal();
   // somebody on screen says something now and then
   if ((RT.chatT -= dt) <= 0) { RT.chatT = 5 + Math.random() * 6; const cs = RT.custs.filter(c => !c.bubble && c.state !== 'lost' && onScreen(c.x, c.y)); if (cs.length) { const c = pick(Math.random, cs); bubble(c, c.type === 'kid' ? line('kid') : Math.random() < 0.5 ? pick(Math.random, CHATTER) : line(c.type === 'old' ? 'old' : 'adult'), 4); } }
@@ -2181,9 +2344,9 @@ function storeTick() { // every 40 s: things break, rain drips in, Elvis sings, 
   if (ST.ups.monorail && !ST.monorailBroken && (weekday() === 'Fri' || eventToday())) { const riders = 8 + Math.floor(Math.random() * 10); RT.day.extra += riders * 3; ST.money += riders * 3; addRep(0.4); }
 }
 function startElvis(byPlayer) {
-  if (RT.elvisT > 0) return false; RT.elvisT = 9; if (onScreen(W.spots.elvis[0] * T, W.spots.elvis[1] * T) || byPlayer) sfx('elvis');
+  if (RT.elvisT > 0) return false; RT.elvisT = F().found.honey ? 14 : 9; if (onScreen(W.spots.elvis[0] * T, W.spots.elvis[1] * T) || byPlayer) sfx('elvis');
   RT.custs.forEach(c => { const d = Math.hypot(c.x / T - W.spots.elvis[0], c.y / T - W.spots.elvis[1]); if (d < 7) { moodHit(c, c.type === 'kid' ? 10 : 5); } });
-  if (byPlayer) questEvent('elvis'); return true;
+  if (byPlayer) { questEvent('elvis'); if (RT.fun) RT.fun.elvisSang++; } return true;
 }
 // ---------- staff AI ----------
 function updateStaff(dt) {
@@ -2284,18 +2447,19 @@ function targetInfo() {
   }
   if (best && best.kind) return { act: 'talkStaff', s: best, label: `Space: talk to ${best.name}` };
   if (!o) return spill && tool !== 'mop' ? { label: 'Spill here. Switch to the mop (2).' } : null;
+  const fi = RT.fun && funInfo(o, tool); if (fi) return fi;
   const dept = o.dept ? DEPT[o.dept] : null;
   if (o.type === 'pallet') { const cost = crateCost(o.crate); if (tool !== 'hands') return { label: 'Switch to hands (1) to grab crates' }; if (PL.carry.length && PL.carry[PL.carry.length - 1] === o.crate) return { act: 'return', o, label: `Space: put back ${CRATES[o.crate].name} crate (refund)` }; if (PL.carry.length >= carryCap()) return { label: `Hands full (${carryCap()} max)` }; return { act: 'grab', o, label: `Space: grab ${CRATES[o.crate].name} crate (${fmtMoney(cost)})` }; }
   if (dept && dept.max) {
     const lbl = `${dept.name}: ${ST.stock[dept.id]}/${dept.max}`;
     if (PL.carry.length) { const i = PL.carry.indexOf(dept.crate); if (i >= 0) return { act: 'stock', o, dept, i, label: `Space: restock ${dept.name} (${ST.stock[dept.id]}/${dept.max})` }; return { label: `${lbl}. Needs a ${CRATES[dept.crate].name} crate.` }; }
     if (o.type === 'tank') { if (tool === 'food') return { act: 'feed', o, label: ST.fedToday ? 'Fish are full' : 'Space: feed the tanks' }; return { label: ST.fedToday ? 'Live tanks (fed)' : 'Live tanks are hungry. Fish food is tool 4.' }; }
-    if (o.type === 'bigcheese') return cheeseInfo(tool);
+    if (o.type === 'bigcheese') return cheeseInfo(tool, o);
     if (o.anim && ST.anims[o.anim] && ST.anims[o.anim].broken) return animInfo(o, tool);
     return { label: lbl + (ST.stock[dept.id] < dept.max * 0.3 ? ` - low! grab a ${CRATES[dept.crate].name} crate` : '') };
   }
   if (o.type === 'tank') { if (tool === 'food') return { act: 'feed', o, label: ST.fedToday ? 'Fish are full' : 'Space: feed the tanks' }; return { label: ST.fedToday ? 'Live tanks (fed)' : 'Live tanks are hungry. Fish food is tool 4.' }; }
-  if (o.type === 'bigcheese') return cheeseInfo(tool);
+  if (o.type === 'bigcheese') return cheeseInfo(tool, o);
   if (o.anim) return animInfo(o, tool);
   if (o.type === 'desk') return { act: 'computer', label: 'Space: use the computer (catalog)' };
   if (o.type === 'couch') return { act: 'sleep', label: RT.goalHit ? 'Space: close up for the night' : `Couch. Make ${fmtMoney(goalLeft())} more before closing up` };
@@ -2305,7 +2469,7 @@ function targetInfo() {
   if (o.type === 'register') return { label: 'Stand on the left side of a register to work it' };
   return null;
 }
-function cheeseInfo(tool) { return { act: 'cheese', label: `Big Cheese cooler: ${Math.round(ST.cheeseTemp)}°F. Space: crank the cold` + (ST.cheeseTemp > 45 ? ' NOW' : '') }; }
+function cheeseInfo(tool, o) { return { act: 'cheese', o, label: `Big Cheese cooler: ${Math.round(ST.cheeseTemp)}°F. Space: crank the cold` + (ST.cheeseTemp > 45 ? ' NOW' : '') }; }
 function animInfo(o, tool) { const a = ST.anims[o.anim]; const nm = ANIMS[o.anim].name; if (!a.broken) { if (o.anim === 'elvis') return { act: 'elvis', label: 'Space: make Elvis sing' }; return { label: nm[0].toUpperCase() + nm.slice(1) }; } if (tool !== 'wrench') return { label: `${nm} is broken. Wrench is tool 3.` }; return { act: 'fix', o, label: `Space: fix ${nm} (${a.fix}/4)` }; }
 
 function doAction() {
@@ -2318,16 +2482,21 @@ function doAction() {
     case 'grab': { const c = crateCost(t.o.crate); if (ST.money < c) { sfx('err'); flash('Not enough money for that crate'); return; } ST.money -= c; RT.day.wholesale += c; PL.carry.push(t.o.crate); sfx('pick'); cost(1.5); floatText(PL.x, PL.y - 30, '-' + fmtMoney(c), '#ff8a7a'); hint('grabbed'); break; }
     case 'return': { const c = crateCost(t.o.crate); PL.carry.pop(); ST.money += c; RT.day.wholesale -= c; sfx('pick'); break; }
     case 'stock': { const d = t.dept; PL.carry.splice(t.i, 1); ST.stock[d.id] = Math.min(d.max, ST.stock[d.id] + CRATES[d.crate].units); sfx('stock'); cost(1.5); questEvent('stock', d.id); sparkle(t.o.x * T + 8, t.o.y * T); floatText(PL.x, PL.y - 30, d.name + ' restocked', '#9fe8ff'); hint('stocked'); break; }
-    case 'mop': { t.spill.hp -= ST.ups.mop2 ? 3 : 1; sfx('mop'); cost(1); if (t.spill.hp <= 0) { RT.spills.splice(RT.spills.indexOf(t.spill), 1); sparkle(t.spill.x * T + 8, t.spill.y * T + 8); questEvent('mop'); } break; }
+    case 'mop': { t.spill.hp -= (ST.ups.mop2 || F().found.plunger) ? 3 : 1; sfx('mop'); cost(1); if (t.spill.hp <= 0) { RT.spills.splice(RT.spills.indexOf(t.spill), 1); sparkle(t.spill.x * T + 8, t.spill.y * T + 8); questEvent('mop'); } break; }
     case 'fix': { const a = ST.anims[t.o.anim]; a.fix++; sfx('clank'); cost(2); RT.parts.push({ x: t.o.x * T + 10, y: t.o.y * T, vx: (Math.random() - 0.5) * 40, vy: -40, t: 0.4, c: '#ffe14d' }); if (a.fix >= 4) { a.broken = false; a.fix = 0; sfx('good'); toast(`Fixed ${ANIMS[t.o.anim].name}.`); addRep(0.5); questEvent('fix'); } break; }
     case 'feed': { if (ST.fedToday) return; ST.fedToday = true; sfx('feed'); cost(1); questEvent('feed'); W.tanks.forEach(o => sparkle(o.x * T + 8, o.y * T + 4)); toast('Tanks fed. Happy fish.'); break; }
-    case 'cheese': { const warm = ST.cheeseTemp > 37; ST.cheeseTemp = 34; sfx('good'); cost(1); toast('Big Cheese cooler back to 34°F.'); if (warm) questEvent('cool'); else flash('Already cold. Give it a minute to warm up.'); break; }
+    case 'cheese': { const warm = ST.cheeseTemp > 37;
+      if (!warm) { // already cold: the case sounds hollow. crank it again quick and a panel opens onto the cheese cave
+        if (RT.fun && RT.dayT - RT.fun.hollowT < 4) { RT.fun.hollowT = -99; sfx('clank'); showDialog('The Big Cheese', 'you crank it again. something clunks. a panel under the case swings open. stone stairs go down. it smells like a cheese that went to college.', () => enterRoom('cave')); break; }
+        if (RT.fun) RT.fun.hollowT = RT.dayT; sfx('clank'); flash('Already cold. ...it sounds hollow in there.'); break; }
+      ST.cheeseTemp = 34; sfx('good'); cost(1); toast('Big Cheese cooler back to 34°F.'); questEvent('cool'); break; }
     case 'elvis': { if (!startElvis(true)) flash('He\'s catching his breath'); break; }
     case 'help': { const c = t.c; c.state = 'follow'; c.timer = 60; c.path = null; c.repath = 0; c.bubble = null; PL.escort = c; sfx('talk'); showDialog('Customer', line('lost').replace('{item}', c.lostItem), null, `They want ${c.lostItem}. Lead them to ${DEPT[c.cur].name}.`); break; }
     case 'pour': { const c = t.c; c.poured = true; c.timer = 5; c.bubble = null; moodHit(c, 12); addMoney(5, c.x, c.y - 28); RT.day.extra += 5; sfx('pour'); cost(0.5); bubble(c, line('poured'), 3); questEvent('pour'); if (Math.random() < 0.6) c.list.unshift(Math.random() < 0.6 ? 'wine' : 'beer'); break; }
-    case 'talk': { const c = t.c; sfx('talk'); const cat = c.type === 'kid' ? 'kid' : c.type === 'old' ? 'old' : 'adult'; bubble(c, line(cat), 4); if (!c.talked) { c.talked = true; moodHit(c, 3); } break; }
+    case 'talk': { const c = t.c; sfx('talk'); const cos = c.look && c.look.costume; if (cos) { bubble(c, funPick(COSTUME_LINES[cos]), 4); if (cos === 'banana') foundSecret('banana'); break; } const cat = c.type === 'kid' ? 'kid' : c.type === 'old' ? 'old' : 'adult'; bubble(c, line(cat), 4); if (!c.talked) { c.talked = true; moodHit(c, 3); } break; }
     case 'talkStaff': { sfx('talk'); showDialog(t.s.name, staffLine(t.s)); break; }
     case 'giver': talkGiver(t.g); break;
+    case 'fun': funAct(t); break;
     case 'sample': giveSample(t.c, t.q); cost(0.5); break;
     case 'computer': openMenu('catalog'); break;
     case 'sleep': trySleep(); break;
@@ -2356,7 +2525,7 @@ function endDay() {
   checkGoals();
   ST.weekEarned = (weekday() === 'Mon' ? 0 : ST.weekEarned || 0) + earnedToday();
   RT.report = { ...d, day: ST.day, wd: weekday(), week: weekNo(), goal: dayGoal(), earned: earnedToday(), weekEarned: ST.weekEarned, weekDone: weekday() === 'Fri', stars: stars(), quests: (RT.quests || []).map(q => ({ who: q.g.gv.name, text: questGoalText(q), done: q.state === 'done', reward: q.reward })) };
-  ST.day++; save(); openMenu('report');
+  ST.day++; ST.mid = null; save(); openMenu('report');
 }
 function checkGoals() {
   const done = (id, cond) => { if (!ST.goals[id] && cond) { ST.goals[id] = true; const g = GOALS.find(g => g.id === id); ST.money += g.reward; toast(`Goal done: ${g.text}. +${fmtMoney(g.reward)}`, 'good'); sfx('good'); if (id === 'stars5') RT.legend = true; } };
@@ -2406,7 +2575,7 @@ function update(dt) {
   if (RT.dialog || (RT.menu && RT.menu !== 'map')) { updateUI(dt); return; }
   const sub = 1;
   for (let i = 0; i < sub; i++) {
-    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt);
+    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt); updateFun(dt);
     for (let k = RT.custs.length - 1; k >= 0; k--) { const c = RT.custs[k]; if (c) updateCust(c, dt); }
     updateLanes(dt); updateStaff(dt); updateCars(dt);
     if (RT.elvisT > 0) { RT.elvisT -= dt; if (Math.random() < dt * 4) RT.parts.push({ x: W.spots.elvis[0] * T + (Math.random() - 0.5) * 20, y: (W.spots.elvis[1] - 3) * T, vx: (Math.random() - 0.5) * 20, vy: -25, t: 1.4, note: true, c: pick(Math.random, ['#ffe14d', '#ff8fc0', '#9ff0ff']) }); }
@@ -2423,6 +2592,25 @@ function update(dt) {
 // ---------- save / load ----------
 const SAVE_KEY = 'jungle-store-save-v1';
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(ST)); } catch (e) { } }
+// mid-day save: the day so far (money in, jobs and their progress, spills, where you stand). shoppers aren't saved;
+// a fresh crowd walks in when you continue. saved every 15 s, on quit, and when the tab is hidden or closed.
+const MID_KEEP = ['weather', 'fedToday', 'snacks', 'hype', 'filmed', 'tourney', 'cheeseTemp', 'energy', 'pa'];
+function saveMid() {
+  if (!RT.day || ST.phase !== 'day' || RT.menu === 'title' || RT.menu === 'report') return;
+  const keep = {}; MID_KEEP.forEach(k => keep[k] = ST[k]);
+  ST.mid = { day: ST.day, d: RT.day, q: (RT.quests || []).map(q => ({ id: q.g.gv.id, got: q.got, state: q.state })), goalHit: RT.goalHit, dayT: RT.dayT, keep,
+    pl: [PL.x, PL.y, PL.dir], spills: RT.spills.map(s => ({ x: s.x, y: s.y, kind: s.kind, hp: s.hp })), room: RT.room || null };
+  save();
+}
+function restoreMid() { // after startDay() on Continue: put the saved day back on top of the fresh one
+  const m = ST.mid; if (!m || m.day !== ST.day) { ST.mid = null; return false; }
+  Object.assign(RT.day, m.d); Object.assign(ST, m.keep); RT.dayT = m.dayT || 0; RT.goalHit = !!m.goalHit;
+  for (const s of m.q || []) { const q = (RT.quests || []).find(q => q.g.gv.id === s.id); if (q) { q.got = s.got; q.state = s.state; } }
+  RT.spills = (m.spills || []).map(s => ({ ...s, id: RT.nextId++ }));
+  if (m.pl && !isSolid(Math.floor(m.pl[0] / T), Math.floor((m.pl[1] - 3) / T))) { PL.x = m.pl[0]; PL.y = m.pl[1]; PL.dir = m.pl[2] || 'down'; }
+  if (m.room && typeof enterRoomAt === 'function') enterRoomAt(m.room, PL.x, PL.y);
+  return true;
+}
 function load() { try { const s = localStorage.getItem(SAVE_KEY); if (!s) return false; const o = JSON.parse(s); if (!o || o.v !== 1) return false; newState(); Object.assign(ST, o); return true; } catch (e) { return false; } }
 function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
 
@@ -2582,9 +2770,372 @@ function questLogHTML() {
   <h3>Today's goal · ${weekday()}, week ${weekNo()}</h3><div>Make ${fmtMoney(goal)} today. <b class="money">${fmtMoney(e)}</b> so far.</div><div class="qbar"><i style="width:${pct}%"></i></div>
   ${RT.goalHit ? '<p>Goal made. Close up any time with the button by the clock.</p>' : '<p class="dim">Everything you earn counts: sales, tips, tastings and job rewards.</p>'}
   ${group('Ready to turn in', 'ready', 'ready')}${group('In progress', 'active', 'grey')}${group('Jobs on offer', 'offer', 'offer')}${group('Done today', 'done', 'done')}
-  <h3>Jungle goals</h3><div class="tasks">${GOALS.map(g => `<div class="${ST.goals[g.id] ? 'ok' : ''}">${ST.goals[g.id] ? '✔' : '•'} ${typo(g.text)} <span class="dim">${fmtMoney(g.reward)}</span></div>`).join('')}</div>
+  ${secretsHTML()}<h3>Jungle goals</h3><div class="tasks">${GOALS.map(g => `<div class="${ST.goals[g.id] ? 'ok' : ''}">${ST.goals[g.id] ? '✔' : '•'} ${typo(g.text)} <span class="dim">${fmtMoney(g.reward)}</span></div>`).join('')}</div>
   <div class="row"><button id="m-close">Close</button></div>`;
 }
+
+// ===== fun: things to poke, secrets to find, rooms you can walk into =====
+// rooms live past the store's east edge (x >= SW), walled off from it. you get in through doors (Space), the camera
+// stays inside the room, the store keeps running while you're in there.
+const ROOMS = {
+  throne:    { name: 'The Throne Room', x0: 81, y0: 3, x1: 92, y1: 10, floor: 'marble', wall: 'marble', song: 'spa' },
+  cave:      { name: 'The Cheese Cave', x0: 96, y0: 3, x1: 108, y1: 11, floor: 'stone', wall: 'cave', song: 'cave', exitTo: 'bigcheese' },
+  backstage: { name: 'Elvis\'s Dressing Room', x0: 81, y0: 15, x1: 92, y1: 22, floor: 'redcarpet', wall: 'backstage', song: 'backstage', exitTo: 'stagedoor' },
+};
+const roomDoorX = r => Math.floor((r.x0 + r.x1) / 2);
+
+// secrets: the quest log lists them, found or not (unfound ones show their hint)
+const SECRETS = [
+  { id: 'throne', name: 'The Throne Room', hint: 'The restrooms here won an award. Go see why.', reward: 100 },
+  { id: 'dryer', name: 'Blown Away', hint: 'The hand dryer in the restroom is strong. Try it.', reward: 100 },
+  { id: 'stall', name: 'Out of Order', hint: 'Reginald says the third stall has been broken since 1998. Bring a wrench.', reward: 200 },
+  { id: 'cave', name: 'The Cheese Cave', hint: 'Crank the Big Cheese when it\'s already cold. Listen.', reward: 300 },
+  { id: 'plunger', name: 'The Golden Plunger', hint: 'Ask the restroom attendant what went missing.', reward: 500 },
+  { id: 'penguins', name: 'Penguin Census', hint: 'There are more penguins than the two by Frozen. Pat all 7.', reward: 500 },
+  { id: 'gerald', name: 'Gerald', hint: 'Something lives in the trash cans. Say hi three times.', reward: 250 },
+  { id: 'todd', name: 'Captain Todd', hint: 'One lobster in the live tanks has a name and a dream.', reward: 400 },
+  { id: 'backstage', name: 'Backstage Pass', hint: 'Make Elvis sing a few times, then try the stage door in Candy.', reward: 300 },
+  { id: 'honey', name: 'Honey for the King', hint: 'Elvis\'s voice is shot. Read his rider.', reward: 400 },
+  { id: 'orbit', name: 'Victory Laps', hint: 'Skate five laps around the jungle scene without stopping.', reward: 300 },
+  { id: 'bees', name: 'Poked the Hive', hint: 'Don\'t poke the hive in Honey & Maple Syrup.', reward: 50 },
+  { id: 'bloom', name: 'Green Thumb', hint: 'The plants are plastic. Water one anyway. A lot.', reward: 200 },
+  { id: 'hippo', name: 'The Hippo Speaks', hint: 'Toss coins in the jungle scene pond.', reward: 300 },
+  { id: 'banana', name: 'Banana Guy', hint: 'Talk to the person in the banana suit.', reward: 150 },
+  { id: 'capsules', name: 'Capsule Collector', hint: 'Collect all 12 capsule toys from the machine by the entrance.', reward: 1000 },
+];
+const CAPSULES = ['tiny Big Cheese', 'Elvis keychain', 'rubber durian', 'pocket penguin', 'glow-in-the-dark lobster', 'mini soup can on a swing', 'a single sock', 'monorail ticket stub', 'teeny hot sauce', 'Gerald figure', 'a capsule with a smaller capsule inside', 'golden skate'];
+const PENGUINS = ['frozen1', 'frozen2', 'deck', 'beer', 'throne', 'cave', 'backstage'];
+
+// saved fun state (lazy, so old saves load) + per-day state
+function F() { if (!ST.fun) ST.fun = {}; const f = ST.fun; for (const k of ['found', 'peng', 'caps', 'items', 'plants', 'bloom']) f[k] = f[k] || {}; return f; }
+function resetFunDay() { RT.fun = { trash: {}, wishes: 0, tree: {}, couch: false, sofa: false, gouda: false, elvisSang: 0, sinkT: 0, paT: -99, coupon: false, orbit: 0, orbitA: null, knock: {}, hollowT: -99 }; RT.room = null; RT.roomFrom = null; RT.beesT = 0; RT.zoomT = 0; }
+function foundSecret(id) {
+  const f = F(); if (f.found[id]) return false; const s = SECRETS.find(s => s.id === id); if (!s) return false; f.found[id] = true;
+  if (RT.day) { ST.money += s.reward; RT.day.extra += s.reward; } floatText(PL.x, PL.y - 34, '+' + fmtMoney(s.reward), '#7dff7a');
+  toast(`Secret found: ${s.name}! +${fmtMoney(s.reward)} (${Object.keys(f.found).length}/${SECRETS.length})`, 'good'); MUSIC.sting('good') || sfx('good'); sparkle(PL.x, PL.y - 20); return true;
+}
+const funPick = a => a[Math.floor(Math.random() * a.length)];
+function cycleLine(key, arr) { const f = F(); f.cyc = f.cyc || {}; const i = f.cyc[key] = ((f.cyc[key] ?? -1) + 1) % arr.length; return arr[i]; }
+
+// ---------- building: rooms + the extra things in the store ----------
+function buildFun() {
+  // the void past the store, then each room carved out of it
+  W.wallStyle = new Map();
+  for (let y = 0; y < MH; y++) for (let x = SW; x < MW; x++) { const k = idx(x, y); W.ground[k] = 'void'; W.solid[k] = 1; W.wall[k] = 1; W.outdoor[k] = 0; W.zone[k] = -1; }
+  for (const id in ROOMS) { const r = ROOMS[id];
+    for (let y = r.y0 - 1; y <= r.y1 + 1; y++) for (let x = r.x0 - 1; x <= r.x1 + 1; x++) { const k = idx(x, y), inside = x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+      if (inside) { W.ground[k] = r.floor; W.solid[k] = 0; W.wall[k] = 0; } else W.wallStyle.set(k, r.wall); }
+    addObj({ type: 'roomdoor', room: id, x: roomDoorX(r), y: r.y1 + 1, frame: id === 'cave' ? 1 : 0 });
+  }
+  const free = (x, y) => inb(x, y) && !W.solid[idx(x, y)] && !W.objAt.get(idx(x, y));
+  const put = (o) => free(o.x, o.y) ? addObj(o) : null;
+  // the throne room: the award-winning restroom behind the porta-potty doors
+  for (const x of [82, 84]) { addObj({ type: 'mirror', x, y: 2 }); addObj({ type: 'sink', x, y: 3 }); }
+  addObj({ type: 'dryer', x: 86, y: 2 }); addObj({ type: 'plaque', x: 88, y: 2 });
+  [90, 91, 92].forEach((x, n) => addObj({ type: 'stall', x, y: 3, n, frame: n === 2 ? (F().found.stall ? 3 : 2) : 0 }));
+  addObj({ type: 'staff', npc: 'reginald', x: 88, y: 6, solid: true, look: npcLook('reginald') });
+  addObj({ type: 'plungercase', x: 81, y: 9, frame: F().found.plunger ? 1 : 0 }); addObj({ type: 'plant', x: 81, y: 10 }); addObj({ type: 'plant', x: 81, y: 3 });
+  addObj({ type: 'penguin', pid: 'throne', x: 92, y: 10 });
+  // the cheese cave
+  for (let x = 96; x <= 108; x++) if (x !== 102) addObj({ type: 'cheeserack', x, y: 3, seed: x });
+  for (const x of [98, 99, 100, 104, 105, 106]) addObj({ type: 'cheeserack', x, y: 6, seed: x * 3 });
+  addObj({ type: 'bigwheel', x: 97, y: 9, w: 2, h: 2 }); addObj({ type: 'candle', x: 96, y: 11 }); addObj({ type: 'candle', x: 108, y: 11 }); addObj({ type: 'candle', x: 101, y: 9 }); addObj({ type: 'candle', x: 103, y: 9 });
+  addObj({ type: 'staff', npc: 'gouda', x: 102, y: 8, solid: true, look: npcLook('gouda') });
+  addObj({ type: 'penguin', pid: 'cave', x: 107, y: 10 });
+  // elvis's dressing room
+  addObj({ type: 'vanity', x: 82, y: 15, w: 2 }); addObj({ type: 'jumprack', x: 86, y: 15, w: 2, frame: PL.outfit ? 1 : 0 });
+  for (const x of [89, 90, 91]) addObj({ type: 'goldrec', x, y: 14, seed: x });
+  addObj({ type: 'sofa', x: 90, y: 21, w: 2 }); addObj({ type: 'rider', x: 83, y: 20 }); addObj({ type: 'cutout', x: 92, y: 17 });
+  addObj({ type: 'penguin', pid: 'backstage', x: 81, y: 22 }); addObj({ type: 'plant', x: 81, y: 15 });
+  // in the store: name the penguins, two more of them hiding, a capsule machine, a PA mic, the stage door
+  W.objs.filter(o => o.type === 'penguin' && !o.pid).forEach((o, i) => o.pid = 'frozen' + (i + 1));
+  put({ type: 'penguin', pid: 'deck', x: 22, y: 14 }); put({ type: 'penguin', pid: 'beer', x: 43, y: 15 });
+  put({ type: 'capsule', x: 55, y: 45 }); put({ type: 'pa', x: 38, y: 43 });
+  const candy = DEPT.candy; if (candy) { const sx = candy.x + 1, sy = candy.y + 1; removeAt(sx, sy); addObj({ type: 'stagedoor', x: sx, y: sy }); W.spots.stagedoor = [sx + 0.5, sy + 1.75]; }
+  if (W.spots.bigcheese) W.spots.cheeseFront = [W.spots.bigcheese[0], W.spots.bigcheese[1] - 0.1];
+  W.objs.forEach(o => { if (o.type === 'trash' || o.type === 'plant') o.key = o.type + o.x + '_' + o.y; if (o.type === 'plant' && F().bloom[o.key]) o.frame = 1; });
+}
+function npcLook(id) {
+  const o = randomLook(mkRng(id.length * 131 + id.charCodeAt(1)), id === 'gouda' ? 'old' : 'adult'); o.key = 'npc_' + id; o.pattern = null; o.tote = null; o.beard = false;
+  if (id === 'reginald') { o.shirt = '#1e1e24'; o.pants = '#1e1e24'; o.pattern = 'logo'; o.pc = '#f2c230'; o.style = 'short'; o.hair = '#2a1a12'; o.glasses = null; }
+  if (id === 'gouda') { o.shirt = '#6a4a2a'; o.pants = '#5a3a1a'; o.apron = '#4a3018'; o.style = 'bald'; o.beard = true; o.hair = '#e8e8e8'; o.glasses = null; }
+  return o;
+}
+
+// ---------- rooms: in and out ----------
+function enterRoom(id, from) {
+  const r = ROOMS[id]; if (!r) return;
+  if (PL.escort) { const c = PL.escort; PL.escort = null; bubble(c, 'i\'m not following you in THERE.', 3, 'mad'); c.state = 'walk'; c.then = 'browse'; const f = pick(Math.random, W.fronts[c.cur] || [[Math.floor(c.x / T), Math.floor(c.y / T)]]); c.front = f; goTo(c, f[0] + 0.5, f[1] + 0.75); }
+  RT.roomFrom = from === undefined ? { x: PL.x, y: PL.y } : from; RT.room = id; RT.fadeT = 0.4;
+  PL.x = (roomDoorX(r) + 0.5) * T; PL.y = (r.y1 + 0.7) * T; PL.vx = PL.vy = 0; PL.dir = 'up'; sfx('pick');
+  toast(r.name, ''); if (id === 'throne') foundSecret('throne'); if (id === 'cave') foundSecret('cave'); if (id === 'backstage') foundSecret('backstage');
+}
+function enterRoomAt(id, x, y) { RT.room = id; RT.roomFrom = null; PL.x = x; PL.y = y; }
+function leaveRoom() {
+  const r = ROOMS[RT.room]; let p = RT.roomFrom;
+  if (!p) { const s = r && r.exitTo === 'bigcheese' ? W.spots.cheeseFront : r && r.exitTo === 'stagedoor' ? W.spots.stagedoor : W.spots.mainDoorIn; p = { x: s[0] * T, y: s[1] * T }; }
+  RT.room = null; RT.roomFrom = null; RT.fadeT = 0.4; PL.x = p.x; PL.y = p.y; PL.vx = PL.vy = 0; PL.dir = 'down'; sfx('pick');
+}
+
+// ---------- what Space does on each fun thing ----------
+const CORN_JOKES = [
+  ['corn', 'why did the corn get promoted? it was outstanding in its field.'], ['butter', 'i\'d tell you a joke about me, but i\'d just spread it around.'],
+  ['corn', 'i\'m all ears. literally. it\'s a medical thing.'], ['butter', 'we\'ve been doing this since 1974. it\'s been a-maize-ing. he makes me say that.'],
+  ['corn', 'what do you call a sad ear of corn? a little husky.'], ['butter', 'i\'m on a roll. well, a cob. close enough.'],
+  ['corn', 'don\'t get me started on popcorn. that guy just pops off.'], ['butter', 'i spread myself too thin. story of my life.'],
+];
+const PENGUIN_LINES = ['it\'s a fake penguin. it\'s cold anyway.', 'the penguin stares into the middle distance.', 'you pat the penguin. it does not pat you back.', 'the penguin has seen things in this freezer aisle.', 'a penguin. in ohio. nobody asks questions.'];
+const TRASH_JUNK = ['half a sandwich. no.', 'a receipt for 40 pounds of shrimp. respect.', 'a shopping list: "eggs, milk, the big cheese (??)"', 'somebody\'s crossword. 7 down is "gouda".', 'a single skate wheel. not yours. probably.', 'a coupon for 10 cents off sardines. expired in 1996.'];
+const GERALD = ['a raccoon pops out, looks you dead in the eye, and leaves. his little name tag says GERALD.', 'gerald again. he\'s eating a donut. he does not share.', 'gerald nods at you. you\'re friends now. he leaves you a coupon on his way out.'];
+const MIRROR = ['looking good, boss.', 'you look like someone who knows where the tahini is.', 'is that a gray hair? no. it\'s parmesan.', 'there\'s a sticker on the mirror. it says "you\'re doing great."', 'you fix your sweatband. perfect.'];
+const STALL = [['occupied.', 'STILL occupied.', 'sir, this is a restroom.', '...is that the boss? hi boss. still occupied.'], ['*rustle* ...occupied.', 'go away, i\'m reading the sale flyer.', 'is it true the big cheese has a basement? asking for me.']];
+const REGINALD_IDLE = ['mint, sir?', 'do enjoy the dryer. carefully.', 'the third stall has been out of order since 1998. nobody knows why. a wrench might.', 'towel, sir? it\'s warm. i keep it in my jacket.'];
+const GOUDA_LINES = ['every wheel down here is older than your skates.', 'patience. cheese is patience you can eat.', 'the mother wheel has been aging since 1971. like the store.', 'you smell like the frozen aisle. it\'s fine. it\'s fine.'];
+const RACK_LINES = ['wheel #4471. aged 11 years. do not lick.', 'a wheel labeled DO NOT TURN. you turn it a little.', 'this one is humming. cheese should not hum.', 'a tag: "property of the big cheese. hands off."'];
+const RECORDS = ['gold record: "love me tender(loin)". meat dept hits, vol. 1.', 'gold record: "blue suede skates". you feel seen.', 'gold record: "aisle be seeing you". 1977.'];
+const SOUP = ['wheeeee!', 'higher! HIGHER!', 'i\'m a soup can on a swing. this is the dream.', 'don\'t tell the chicken noodle i\'m having fun.'];
+const ROBIN = ['robin hood waves back. he\'s been waving since the \'80s.', 'robin hood fires an arrow. it\'s a suction cup. it sticks to the cereal.', 'robin hood: "steal from the rich, give to the... hey, these are just prices."'];
+const COSTUME_LINES = {
+  banana: ['i\'m not in a costume. this is just how i look.', 'please don\'t peel me. it\'s been a long day.', 'is there a potassium aisle? asking for me.', 'it\'s for a bet. i lost.'],
+  tourist: ['is this the famous grocery store? *click*', 'i flew in for the big cheese. worth it.', 'where\'s the gift shop? oh. it\'s all the gift shop.'],
+  jogger: ['just doing laps. the store\'s bigger than the track.', 'mile three. hot sauce aisle. feeling good.', 'don\'t mind me. new personal record.'],
+};
+const JUMPSUIT_LINES = ['is that... the king?', 'nice jumpsuit, boss.', 'thank you. thank you very much. -me, to you', 'the lion has competition.'];
+
+function funInfo(o, tool) { // label + act for anything fun in front of you, or null to let the normal rules handle it
+  const f = F(), A = (label, kind) => ({ act: 'fun', o, kind: kind || o.type, label });
+  if (PL.carry.length && o.dept && DEPT[o.dept] && DEPT[o.dept].max) return null; // carrying a crate to a shelf: restock first
+  if (o.npc) return A(`Space: talk to ${o.npc === 'gouda' ? 'Brother Gouda' : 'Reginald'}`, 'npc');
+  switch (o.type) {
+    case 'penguin': return A('Space: pat the penguin');
+    case 'restroom': return A('Space: go in (restroom)');
+    case 'hive': return A('Space: poke the hive');
+    case 'trash': return A(RT.fun.trash[o.key] ? 'Already went through this one today' : 'Space: dig through the trash');
+    case 'plant': return A(o.frame ? 'It bloomed. It\'s plastic. It bloomed anyway.' : 'Space: water the plant');
+    case 'racecar': return A('A real race car, hung from the ceiling. Space: reach for it');
+    case 'corral': return A('Space: push a cart');
+    case 'giraffe': case 'elephant': case 'rhino': return A(`Space: pat the ${o.type}`);
+    case 'tree': return A('Space: shake the tree');
+    case 'deck': return A('Space: climb up and look around');
+    case 'capsule': return A(`Space: capsule machine ($1) · ${Object.keys(f.caps).length}/${CAPSULES.length} collected`);
+    case 'gacha': return PL.carry.length ? null : A(`Space: try a capsule ($1) · ${Object.keys(f.caps).length}/${CAPSULES.length} collected`, 'capsule');
+    case 'pa': return A(RT.dayT - RT.fun.paT < 45 ? 'The PA mic needs a minute' : 'Space: make an announcement');
+    case 'stagedoor': return A(stageOpen() ? 'Space: stage door (go in)' : 'Stage door. Space: knock');
+    case 'roomdoor': return A(o.room === 'cave' ? 'Space: climb the stairs back up' : 'Space: go back to the store');
+    case 'mirror': return A('Space: look in the mirror');
+    case 'sink': return A('Space: wash your hands');
+    case 'dryer': return A('Space: use the hand dryer');
+    case 'plaque': return A('Space: read the plaque');
+    case 'stall': if (o.n === 2) { if (o.frame === 3) return A('Space: take the stairs down', 'stall'); return tool === 'wrench' ? A(`Space: fix the stall door (${RT.fun.knock.fix || 0}/3)`) : A('Out of order. Space: knock'); } return A('Space: knock');
+    case 'plungercase': return A('Space: look at the case');
+    case 'cheeserack': return A('Space: look at the wheels');
+    case 'bigwheel': return A('Space: touch the Mother Wheel');
+    case 'candle': return { label: 'A candle. It smells like cheddar.' };
+    case 'vanity': return A(PL.carry.includes('natural') && !f.found.honey ? 'Space: leave the honey for Elvis' : 'Space: sit at the vanity');
+    case 'jumprack': return A(PL.outfit ? 'Space: hang the jumpsuit back up' : 'Space: try on a jumpsuit');
+    case 'goldrec': return A('Space: read the gold record');
+    case 'sofa': return A('Space: sit on the couch');
+    case 'rider': return A('Space: read the note on the table');
+    case 'cutout': return A('Space: talk to the cardboard Elvis');
+    case 'cardtable': return weekday() === 'Fri' ? null : A('Space: play solitaire');
+    case 'tank': if (tool !== 'hands' || o.kind !== 'lobster') return null; return A(f.toddBoat ? 'Todd\'s tank is empty. He\'s on the boat now.' : f.items.todd ? 'Todd is with you' : (f.todd || 0) >= 2 ? 'Space: pick up Todd' : 'Space: look at the lobster with the name tag', 'todd');
+    case 'couch': return RT.goalHit || RT.fun.couch ? null : A('Space: search the couch cushions');
+    case 'anim': case 'pond': {
+      const a = ST.anims[o.anim]; if (!a || a.broken || o.anim === 'elvis') return null;
+      if (o.anim === 'minnow' && f.items.todd) return A('Space: put Todd on the boat', 'boat');
+      return A({ corn: 'Space: ask Corn & Butter for a joke', robin: 'Space: wave at Robin Hood', swing: 'Space: push the soup can', firetruck: 'Space: hit the siren', minnow: 'Space: ring the ship\'s bell', jungle: RT.fun.wishes >= 5 ? 'The hippo has heard enough wishes today' : 'Space: toss a coin in the pond ($1)' }[o.anim], 'anim_' + o.anim);
+    }
+  }
+  return null;
+}
+function stageOpen() { return RT.fun.elvisSang >= 3 || F().found.backstage; }
+function funAct(t) {
+  const o = t.o, f = F(), say1 = s => flash(s);
+  switch (t.kind) {
+    case 'penguin': { sfx('talk'); const n0 = Object.keys(f.peng).length; f.peng[o.pid] = true; const n = Object.keys(f.peng).length;
+      if (n > n0) { floatText(PL.x, PL.y - 34, `penguin ${n}/${PENGUINS.length}`, '#9ff0ff'); say1(funPick(PENGUIN_LINES) + ` (${n} of ${PENGUINS.length} counted)`); if (n >= PENGUINS.length) foundSecret('penguins'); } else say1(funPick(PENGUIN_LINES)); break; }
+    case 'restroom': enterRoom('throne'); break;
+    case 'roomdoor': leaveRoom(); break;
+    case 'hive': { RT.beesT = 6; sfx('alarm'); toast('BEES. Skate!', 'warn'); floatText(PL.x, PL.y - 34, 'BZZZ', '#ffe14d'); RT.custs.forEach(c => { if (Math.hypot(c.x - PL.x, c.y - PL.y) < 4 * T) { moodHit(c, -2); bubble(c, 'BEES?!', 2, 'mad'); } }); break; }
+    case 'trash': rummage(o); break;
+    case 'plant': { if (o.frame) return; f.plants[o.key] = (f.plants[o.key] || 0) + 1; const n = f.plants[o.key]; sfx('pour'); for (let i = 0; i < 6; i++) RT.parts.push({ x: o.x * T + 4 + Math.random() * 8, y: o.y * T - 6, vx: (Math.random() - 0.5) * 10, vy: 20, t: 0.4, c: '#7fd4ff' });
+      if (n >= 7) { o.frame = 1; f.bloom[o.key] = true; say1('...it bloomed. it\'s plastic. it BLOOMED.'); sparkle(o.x * T + 8, o.y * T); foundSecret('bloom'); }
+      else say1(['it\'s plastic. you water it anyway.', 'still plastic.', 'you whisper encouragement to the plastic plant.', 'is it... greener? no.', 'the soil is just foam. you keep going.', 'something is happening. maybe.'][n - 1]); break; }
+    case 'racecar': say1(ST.ups.skates3 ? 'you and the race car share a look. speed recognizes speed.' : cycleLine('car', ['the keys are in it. you can\'t reach. it\'s for the best.', 'you jump. you are not tall enough. nobody is.', 'somebody hung a race car from the ceiling and just left it.'])); break;
+    case 'corral': say1(cycleLine('cart', ['you push a cart. it has one bad wheel. they all have one bad wheel.', 'the carts live here. like little metal horses.', 'one cart has a receipt from 2011 in it. a long journey.'])); break;
+    case 'giraffe': say1('you pat the giraffe\'s leg. that\'s as high as you go.'); break;
+    case 'elephant': SFX.elvis && tone(98, 0.5, 'sawtooth', 0.08, 0, null, 160); say1('the elephant has no comment.'); break;
+    case 'rhino': say1('the rhino has seen ten thousand shoppers. it has opinions about all of them.'); break;
+    case 'tree': { const k = o.x + '_' + o.y; if (RT.fun.tree[k]) { say1('you shake it again. nothing. the tree is done with you.'); break; } RT.fun.tree[k] = 1; const r = Math.random();
+      if (r < 0.3) { addMoney(1, PL.x, PL.y - 30); RT.day.extra += 1; say1('a dollar falls out of the tree. that\'s how money works now.'); } else say1(funPick(['a frisbee from 2004 falls out.', 'a very surprised squirrel.', 'one leaf. the leaf is judging you.', 'a kite. no string. no explanation.'])); break; }
+    case 'deck': RT.zoomT = 6; say1('you climb the deck. you can see the whole store from up here.'); sfx('pick'); break;
+    case 'capsule': pullCapsule(); break;
+    case 'pa': paAnnounce(); break;
+    case 'stagedoor': if (stageOpen()) enterRoom('backstage'); else { sfx('clank'); say1('stage door. AUTHORIZED LIONS ONLY. (sounds like he\'s warming up. maybe after a few songs.)'); } break;
+    case 'mirror': say1(funPick(MIRROR)); break;
+    case 'sink': { if (RT.dayT - RT.fun.sinkT < 20) { say1('your hands are very clean already.'); break; } RT.fun.sinkT = RT.dayT; ST.energy = Math.min(100, ST.energy + 5); sfx('pour'); say1('you wash your hands for 20 seconds and hum the whole time. +5 energy.'); break; }
+    case 'dryer': { PL.vy = 300; PL.vx = (Math.random() - 0.5) * 80; PL.walk = false; noise(0.9, 0.08); for (let i = 0; i < 16; i++) RT.parts.push({ x: PL.x + (Math.random() - 0.5) * 10, y: PL.y - 14, vx: (Math.random() - 0.5) * 30, vy: 80 + Math.random() * 60, t: 0.5, c: '#ffffff', dust: true }); floatText(PL.x, PL.y - 34, 'WHOOOOSH', '#ffffff'); say1('the XTREME 9000 hand dryer. your hands are dry. so is your soul.'); foundSecret('dryer'); break; }
+    case 'plaque': showDialog('Plaque', 'BEST RESTROOM IN AMERICA, 2007. underneath, in pen: "nicer than my house." - a customer'); break;
+    case 'stall': {
+      if (o.n === 2) {
+        if (o.frame === 3) { enterRoom('cave', null); break; }
+        if (TOOLS[PL.tool].id === 'wrench') { RT.fun.knock.fix = (RT.fun.knock.fix || 0) + 1; sfx('clank'); if (RT.fun.knock.fix >= 3) { o.frame = 3; foundSecret('stall'); showDialog('Stall 3', 'the door swings open. there\'s no toilet. there\'s a stone staircase going down. it smells like cheddar.', () => enterRoom('cave', null)); } break; }
+        sfx('clank'); say1('nobody answers. the door is stuck. looks like a job for a wrench.'); break;
+      }
+      sfx('clank'); RT.fun.knock[o.n] = (RT.fun.knock[o.n] || 0); const arr = STALL[o.n]; flash('"' + arr[Math.min(arr.length - 1, RT.fun.knock[o.n]++)] + '"'); break;
+    }
+    case 'plungercase': say1(f.found.plunger ? 'the golden plunger, back where it belongs. it gleams.' : 'an empty display case. the little card says: THE GOLDEN PLUNGER.'); break;
+    case 'npc': talkNpc(o); break;
+    case 'cheeserack': say1(funPick(RACK_LINES)); break;
+    case 'bigwheel': say1('the mother wheel. aged since 1971. it\'s warm. is it breathing? no. you\'re tired.'); break;
+    case 'vanity': {
+      if (PL.carry.includes('natural') && !f.found.honey) { PL.carry.splice(PL.carry.indexOf('natural'), 1); sfx('stock'); foundSecret('honey'); showDialog('Elvis (from somewhere)', 'mmm. local honey. thank you. thank you very much. the voice is back, boss. i\'ll sing longer for the kids now.'); break; }
+      say1('you sit at the vanity. the bulbs make you look like a star. a sweaty star.'); break;
+    }
+    case 'jumprack': { PL.outfit = PL.outfit ? null : 'jumpsuit'; o.frame = PL.outfit ? 1 : 0; sfx('pick'); say1(PL.outfit ? 'you try on a white jumpsuit. it fits. too well.' : 'you hang the jumpsuit back up. you miss it already.'); break; }
+    case 'goldrec': say1(RECORDS[o.seed % RECORDS.length]); break;
+    case 'sofa': { if (!RT.fun.sofa) { RT.fun.sofa = true; ST.energy = Math.min(100, ST.energy + 15); say1('you sit on elvis\'s couch. it\'s warm. weird. +15 energy.'); } else say1('the couch is still warm. still weird.'); break; }
+    case 'rider': { f.riderRead = true; showDialog('Elvis\'s rider', 'BACKSTAGE NEEDS: 1. honey. LOCAL. the voice needs it. 2. no brown gummy bears. 3. room temperature water. 4. a mirror that says nice things.', null, f.found.honey ? 'Done. He has his honey.' : 'Honey comes in Natural crates (stock room). Leave one at the vanity.'); break; }
+    case 'cutout': say1(cycleLine('cutout', ['the cardboard elvis says nothing. it\'s cardboard.', 'you ask the cutout for advice. you feel like it said "thank you very much".', 'somebody drew a mustache on the cutout. it works, honestly.'])); break;
+    case 'cardtable': say1(cycleLine('sol', ['you play solitaire. you lose. to yourself.', 'you play solitaire. you win. nobody saw. it doesn\'t count.', 'you build a little card house. a kid knocks it over. fair.'])); break;
+    case 'todd': {
+      if (f.toddBoat || f.items.todd) break; f.todd = (f.todd || 0) + 1;
+      if (f.todd === 1) showDialog('Todd', 'this lobster has a tiny name tag: TODD. he\'s been here since 2009. he\'s not for sale. he\'s management.');
+      else if (f.todd === 2) showDialog('Todd', 'todd is staring across the store at the s.s. minnow. longingly. todd wants to see the boat.', null, 'Space again to carry him there.');
+      else { f.items.todd = true; sfx('pick'); toast('You\'re carrying Todd. Take him to the S.S. Minnow in Seafood.', 'good'); }
+      break;
+    }
+    case 'boat': { f.items.todd = false; f.toddBoat = true; sfx('good'); foundSecret('todd'); showDialog('Captain Todd', 'todd climbs aboard the s.s. minnow. he has never looked happier. he is captain todd now. he will not be taking questions.'); break; }
+    case 'couch': { RT.fun.couch = true; addMoney(3.75, PL.x, PL.y - 30); RT.day.extra += 3.75; say1('$3.75, a tv remote and a single grape. you keep the money.'); break; }
+    case 'anim_corn': { const [who, j] = CORN_JOKES[(f.corn = ((f.corn || 0) + 1)) % CORN_JOKES.length]; showDialog(who === 'corn' ? 'Corn' : 'Butter', j); break; }
+    case 'anim_robin': { RT.parts.push({ x: o.x * T + 30, y: o.y * T - 8, vx: 160, vy: 0, t: 0.9, c: '#e8e8e0', arrow: true }); sfx('pick'); say1(funPick(ROBIN)); break; }
+    case 'anim_swing': { RT.swingT = 4; floatText(o.x * T + 8, o.y * T - 24, funPick(SOUP), '#ffffff'); sfx('talk'); break; }
+    case 'anim_firetruck': { RT.sirenT = 3; SFX.alarm(); for (let i = 0; i < 20; i++) RT.parts.push({ x: o.x * T + 30, y: o.y * T - 4, vx: 40 + Math.random() * 60, vy: -40 - Math.random() * 30, t: 0.8, c: '#7fd4ff' }); floatText(o.x * T + 16, o.y * T - 20, 'WEE-OO', '#ff6a5a'); RT.custs.forEach(c => { if (c.kid && Math.hypot(c.x - PL.x, c.y - PL.y) < 6 * T) moodHit(c, 4); }); break; }
+    case 'anim_minnow': { tone(880, 0.6, 'triangle', 0.1); tone(880, 0.6, 'triangle', 0.08, 0.7); say1('DING DING. the s.s. minnow isn\'t seaworthy. it is, however, store-worthy.'); break; }
+    case 'anim_jungle': wish(); break;
+  }
+}
+function talkNpc(o) {
+  const f = F(); sfx('talk');
+  if (o.npc === 'reginald') {
+    if (f.items.plunger) { f.items.plunger = false; foundSecret('plunger'); const c = W.objs.find(o => o.type === 'plungercase'); if (c) c.frame = 1; return showDialog('Reginald', 'the golden plunger! sir, i could weep. i AM weeping. please, take this: from now on your mop works like a dream. one swipe.', null, 'Golden mop: every spill comes up in one swipe.'); }
+    if (!f.found.plunger && !f.plungerQ) { f.plungerQ = true; hidePlunger(); return showDialog('Reginald', 'welcome to the throne room, sir. mint? towel? ...i must confess, sir. there has been a theft. the golden plunger. our award. gone. if you see it... it\'ll be somewhere a plunger has no business being.', null, 'Check the trash cans around the store.'); }
+    return showDialog('Reginald', funPick(REGINALD_IDLE));
+  }
+  if (o.npc === 'gouda') {
+    if (!f.metGouda) { f.metGouda = true; return showDialog('Brother Gouda', 'ah. a visitor. few find the cave. fewer find it twice. i am brother gouda. i turn the wheels. the wheels turn me.'); }
+    if (!RT.fun.gouda) { RT.fun.gouda = true; ST.energy = 100; return showDialog('Brother Gouda', 'eat this. it is eleven years old. it will change you.', null, 'Energy full.'); }
+    return showDialog('Brother Gouda', funPick(GOUDA_LINES));
+  }
+}
+function hidePlunger() { const cans = W.objs.filter(o => o.type === 'trash'); const c = pick(Math.random, cans); F().plungerCan = c ? c.key : null; }
+function rummage(o) {
+  const f = F(); if (RT.fun.trash[o.key]) { flash('already went through this one today.'); return; } RT.fun.trash[o.key] = 1; sfx('mop');
+  if (f.plungerQ && !f.found.plunger && !f.items.plunger && (f.plungerCan === o.key || !f.plungerCan)) { f.items.plunger = true; sparkle(PL.x, PL.y - 20); showDialog('Trash can', 'under a pile of napkins: a gleaming GOLDEN PLUNGER. somebody threw away an award.', null, 'Take it back to Reginald in the restroom.'); return; }
+  if (f.found.gerald && !RT.fun.coupon) { RT.fun.coupon = true; addMoney(20, PL.x, PL.y - 30); RT.day.extra += 20; flash('gerald left you a coupon. $20 off. he\'s a good friend.'); return; }
+  const r = Math.random();
+  if (r < 0.25 && !f.found.gerald) { f.gerald = (f.gerald || 0) + 1; RT.parts.push({ x: o.x * T + 8, y: o.y * T, vx: 70, vy: -10, t: 1, c: '#6a6f78', dust: true }); floatText(o.x * T + 8, o.y * T - 16, 'GERALD', '#c8ccd2'); showDialog('Trash can', GERALD[Math.min(2, f.gerald - 1)]); if (f.gerald >= 3) foundSecret('gerald'); return; }
+  if (r < 0.5) { addMoney(5, PL.x, PL.y - 30); RT.day.extra += 5; flash('a $5 coupon. somebody\'s loss.'); return; }
+  if (r < 0.62) { PL.spinT = 0.9; PL.vx += (Math.random() - 0.5) * 160; PL.vy += 60; floatText(PL.x, PL.y - 34, 'WHOA', '#ffe14d'); flash('a banana peel. you slip. you spin. you stick the landing.'); return; }
+  flash(funPick(TRASH_JUNK));
+}
+function pullCapsule() {
+  const f = F(); if (ST.money < 1) { sfx('err'); flash('you need a dollar.'); return; }
+  ST.money -= 1; RT.day.wholesale = RT.day.wholesale; const gold = Math.random() < 0.05, name = gold ? CAPSULES[CAPSULES.length - 1] : CAPSULES[Math.floor(Math.random() * (CAPSULES.length - 1))];
+  const isNew = !f.caps[name]; f.caps[name] = (f.caps[name] || 0) + 1; sfx(isNew ? 'good' : 'pick');
+  for (let i = 0; i < 6; i++) RT.parts.push({ x: PL.x, y: PL.y - 20, vx: (Math.random() - 0.5) * 50, vy: -40 - Math.random() * 20, t: 0.6, c: pick(Math.random, ['#ff6fb0', '#ffd23f', '#5ee07a', '#3ac0ff']) });
+  const n = Object.keys(f.caps).length;
+  if (isNew) { toast(`New capsule: ${name}! (${n}/${CAPSULES.length})`, 'good'); if (n >= CAPSULES.length) foundSecret('capsules'); }
+  else flash(`another ${name}. you have ${f.caps[name]}.`);
+}
+function wish() {
+  if (RT.fun.wishes >= 5) { flash('the hippo has heard enough wishes for today.'); return; } if (ST.money < 1) { flash('you need a dollar.'); return; }
+  ST.money -= 1; RT.fun.wishes++; const f = F(); f.wishes = (f.wishes || 0) + 1; sfx('pick');
+  RT.parts.push({ x: PL.x, y: PL.y - 16, vx: 0, vy: -60, t: 0.5, c: '#ffd23f' }); sparkle(51.5 * T, 39 * T);
+  if (f.wishes >= 10 && !f.found.hippo) { foundSecret('hippo'); showDialog('The Hippo', '...ten coins. you are persistent. i have been in this pond since the store opened. i am saving up for a bigger pond. thank you.'); return; }
+  const r = Math.random();
+  if (r < 0.3) flash('the hippo blinks. that\'s probably good.');
+  else if (r < 0.5) { addRep(1); flash('somebody saw you make a wish and thought it was sweet. +rep'); }
+  else if (r < 0.65) { if (ST.weather === 'rain') { ST.weather = 'cloudy'; flash('the rain stops. coincidence? yes.'); } else flash('a little breeze. nice.'); }
+  else if (r < 0.85) { for (let i = 0; i < 4; i++) spawnCustomer(); flash('four shoppers wander in, drawn by the sound of a coin.'); }
+  else { addMoney(5, PL.x, PL.y - 30); RT.day.extra += 5; flash('$5 floats back up. the hippo doesn\'t want your money. today.'); }
+}
+function paAnnounce() {
+  if (RT.dayT - RT.fun.paT < 45) { flash('the mic is still squealing. give it a minute.'); return; }
+  const go = (fn) => () => { RT.fun.paT = RT.dayT; sfx('alarm'); fn(); };
+  const free = () => RT.custs.filter(c => isFree(c));
+  showDialog('PA system', 'you pick up the mic. it squeals. everyone looks up.', null, null, [
+    ['Free cheese samples!', go(() => { free().slice(0, 6).forEach(c => { goLoiter(c, ['cheese']); moodHit(c, 3); }); toast('"Free samples in the Cheese Shop!" People head that way.'); })],
+    ['Elvis is on!', go(() => { RT.custs.filter(c => c.kid).forEach(k => { const p = k.parent; if (p && isFree(p)) goLoiter(p, ['candy']); }); startElvis(false); toast('"Elvis is about to perform!" Families run to Candy.'); })],
+    ['You look nice today', go(() => { RT.custs.forEach(c => moodHit(c, 4)); addRep(0.5); toast('"Attention shoppers: you look nice today." Everyone smiles.'); })],
+    ['Never mind', () => { }],
+  ]);
+}
+// ---------- every frame: bees, spins, laps, room fades, chatter about your outfit ----------
+function updateFun(dt) {
+  if (!RT.fun) return;
+  if (RT.fadeT > 0) RT.fadeT -= dt; if (RT.zoomT > 0) RT.zoomT -= dt; if (RT.swingT > 0) RT.swingT -= dt; if (RT.sirenT > 0) RT.sirenT -= dt;
+  if (RT.beesT > 0) { RT.beesT -= dt; for (let i = 0; i < 2; i++) { const a = Math.random() * 6.283, r = 10 + Math.random() * 10; RT.parts.push({ x: PL.x + Math.cos(a) * r, y: PL.y - 12 + Math.sin(a) * r * 0.6, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 40, t: 0.25, c: Math.random() < 0.5 ? '#ffd23f' : '#2a2a2a' }); }
+    if (RT.beesT <= 0) { flash('the bees lost interest. you survived.'); foundSecret('bees'); } }
+  if (PL.spinT > 0) { PL.spinT -= dt; PL.dir = ['down', 'left', 'up', 'right'][Math.floor(PL.spinT * 12) % 4]; }
+  // laps around the jungle scene: the angle around the pond adds up while you stay near it and keep moving
+  const pond = W.objs.find(o => o.type === 'pond');
+  if (pond && !RT.room && !PL.walk) { const cx = (pond.x + pond.w / 2) * T, cy = (pond.y + pond.h / 2) * T, d = Math.hypot(PL.x - cx, PL.y - cy), a = Math.atan2(PL.y - cy, PL.x - cx);
+    if (d < 5.5 * T && Math.hypot(PL.vx, PL.vy) > 20) { if (RT.fun.orbitA !== null) { let da = a - RT.fun.orbitA; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI; RT.fun.orbit += da;
+        const laps = Math.floor(Math.abs(RT.fun.orbit) / (2 * Math.PI)); if (laps > (RT.fun.lapShown || 0)) { RT.fun.lapShown = laps; floatText(PL.x, PL.y - 34, `lap ${laps}`, '#ffe14d'); if (laps >= 5) foundSecret('orbit'); } }
+      RT.fun.orbitA = a; } else { RT.fun.orbitA = null; RT.fun.orbit = 0; RT.fun.lapShown = 0; } }
+  if (PL.outfit && ST.phase === 'day' && (RT.fun.suitT = (RT.fun.suitT || 0) - dt) <= 0) { RT.fun.suitT = 6; const c = RT.custs.find(c => !c.bubble && Math.hypot(c.x - PL.x, c.y - PL.y) < 4 * T); if (c) bubble(c, funPick(JUMPSUIT_LINES), 3); }
+}
+function maxSpeedFun() { return (RT.beesT > 0 ? 1.35 : 1); }
+
+// ---------- quest log: secrets + collection ----------
+function secretsHTML() {
+  const f = F(), n = Object.keys(f.found).length, caps = Object.keys(f.caps).length, peng = Object.keys(f.peng).length;
+  const pockets = [f.items.todd ? 'Todd (a lobster)' : '', f.items.plunger ? 'the Golden Plunger' : ''].filter(Boolean);
+  return `<h3>Secrets · ${n}/${SECRETS.length} found</h3><div class="tasks">${SECRETS.map(s => f.found[s.id] ? `<div class="ok">✔ ${typo(s.name)} <span class="dim">${fmtMoney(s.reward)}</span></div>` : `<div>? <span class="dim">${typo(s.hint)}</span></div>`).join('')}</div>
+  <p class="dim">Penguins counted: ${peng}/${PENGUINS.length} · Capsules: ${caps}/${CAPSULES.length}${caps ? ` (${Object.keys(f.caps).map(typo).join(', ')})` : ''}${pockets.length ? ` · Carrying: ${pockets.join(', ')}` : ''}</p>`;
+}
+
+// ---------- art: room floors, walls, and props ----------
+Object.assign(FLOOR, {
+  marble(g, x, y, r, tx, ty) { bevel(g, x, y, 16, 16, (tx + ty) % 2 ? '#ece8e0' : '#f6f2ea', 0.3, -0.08); const v = Math.floor(r() * 4); P(g, x + 2 + v, y + 3, 1, 4, '#d8d2c6'); P(g, x + 3 + v, y + 7, 1, 3, '#d8d2c6'); P(g, x + 9, y + 10 - v, 4, 1, '#ddd6ca'); if ((tx + ty) % 2 === 0) { P(g, x, y, 2, 2, '#e8c040'); } },
+  stone(g, x, y, r) { tiles(g, x, y, '#7a7064', '#6e655a', '#4a4238', 8, r); if (r() < 0.2) P(g, x + 4 + Math.floor(r() * 6), y + 5, 2, 1, '#8a8072'); },
+  redcarpet(g, x, y, r) { carpet(g, x, y, '#a8202e', '#9a1c2a', '#c8384a'); if (r() < 0.12) { P(g, x + 7, y + 6, 1, 3, '#f2c230'); P(g, x + 6, y + 7, 3, 1, '#f2c230'); } },
+  void(g, x, y) { P(g, x, y, 16, 16, '#07070c'); },
+});
+const ROOMWALL = { // face (the wall you see above the floor) and top colours per room
+  marble: { top: '#cfc6b4', face(g, x, y, tx) { P(g, x, y, 16, 16, '#efe6d2'); P(g, x, y, 16, 2, '#c8a030'); P(g, x, y + 2, 16, 1, '#f8e8a0'); P(g, x, y + 13, 16, 3, '#d8cdb6'); P(g, x, y + 13, 16, 1, '#c8a030'); if (tx % 2) P(g, x + 7, y + 4, 2, 8, '#e4dac4'); } },
+  cave: { top: '#3a332c', face(g, x, y, tx, ty) { P(g, x, y, 16, 16, '#5a5046'); const r = mkRng(tx * 17 + ty); for (let i = 0; i < 4; i++) oval(g, x + 2 + r() * 12, y + 3 + r() * 9, 2.5, 1.6, pick(r, ['#6a6054', '#4a4238', '#665c50'])); P(g, x, y + 14, 16, 2, '#3a332c'); } },
+  backstage: { top: '#2a1a2a', face(g, x, y, tx) { P(g, x, y, 16, 16, '#3a2440'); P(g, x, y, 16, 2, '#1e1222'); P(g, x, y + 13, 16, 3, '#2a1a2a'); if (tx % 3 === 0) { P(g, x + 7, y + 5, 2, 4, '#f2c230'); P(g, x + 5, y + 6, 6, 2, '#f2c230'); P(g, x + 6, y + 9, 1, 1, '#f2c230'); P(g, x + 9, y + 9, 1, 1, '#f2c230'); } } },
+};
+const plantBase = PROPS.plant[2];
+Object.assign(PROPS, {
+  plant: [16, 26, (g, f, c) => { plantBase(g, f, c); if (f === 1) for (const [x, y, k] of [[5, 6, '#ff6fb0'], [11, 7, '#ffd23f'], [8, 3, '#ff6fb0'], [3, 11, '#b070ff'], [13, 11, '#ffd23f']]) { disc(g, x, y, 1.3, k); P(g, x, y, 1, 1, '#fff6a0'); } }, true],
+  mirror: [16, 16, (g) => { P(g, 2, 2, 12, 12, '#c8a030'); P(g, 3, 3, 10, 10, '#bfe0ec'); P(g, 4, 4, 3, 1, '#ffffff'); P(g, 4, 5, 1, 2, '#ffffff'); P(g, 9, 9, 3, 3, '#a8d0e0'); }, true],
+  sink: [16, 24, (g) => { P(g, 0, 10, 16, 14, '#efe6d2'); P(g, 0, 10, 16, 2, '#f8f2e4'); oval(g, 8, 13, 5, 2, '#d8e8f0'); oval(g, 8, 13, 3.5, 1.2, '#b8d0e0'); P(g, 7, 7, 2, 4, '#e8c040'); P(g, 7, 7, 4, 1, '#e8c040'); P(g, 0, 22, 16, 2, '#c8a030'); P(g, 2, 16, 12, 5, '#e4dac4'); }, true],
+  dryer: [16, 16, (g) => { P(g, 2, 3, 12, 9, '#9aa3ad'); P(g, 2, 3, 12, 1, '#d8dde2'); P(g, 4, 11, 8, 2, '#3a3a42'); P(g, 4, 5, 8, 2, '#e23a2e'); P(g, 5, 5, 6, 1, '#ff6a5a'); }, true],
+  plaque: [16, 16, (g) => { P(g, 2, 3, 12, 10, '#8a5a30'); P(g, 3, 4, 10, 8, '#e8c040'); P(g, 3, 4, 10, 1, '#fff0a0'); P(g, 5, 6, 6, 1, '#8a6a10'); P(g, 5, 8, 6, 1, '#8a6a10'); P(g, 6, 10, 4, 1, '#8a6a10'); }, true],
+  stall: [16, 28, (g, f) => { P(g, 0, 0, 16, 28, '#c8bca4'); P(g, 1, 2, 14, 24, f === 3 ? '#1a1410' : '#e8dcc4'); if (f === 3) { for (let i = 0; i < 5; i++) P(g, 3 + i, 8 + i * 3, 10 - i * 2, 2, '#5a5046'); } else { P(g, 1, 2, 14, 1, '#f8f0dc'); P(g, 12, 14, 2, 2, '#c8a030'); P(g, 6, 24, 4, 2, '#9a9080'); }
+    if (f === 2) { P(g, 3, 8, 10, 6, '#ffffff'); P(g, 3, 8, 10, 1, '#e23a2e'); P(g, 4, 10, 8, 1, '#2a1d22'); P(g, 4, 12, 6, 1, '#2a1d22'); } P(g, 0, 26, 16, 2, '#9a9080'); }, true],
+  plungercase: [16, 26, (g, f) => { P(g, 1, 18, 14, 8, '#8a5a30'); P(g, 1, 18, 14, 1, '#b07a44'); P(g, 2, 2, 12, 16, '#dff2f6'); g.globalAlpha = 0.5; P(g, 3, 3, 2, 10, '#ffffff'); g.globalAlpha = 1; P(g, 1, 1, 14, 1, '#c8a030');
+    if (f === 1) { P(g, 7, 5, 2, 9, '#e8c040'); P(g, 7, 5, 1, 9, '#fff0a0'); oval(g, 8, 14, 4, 2, '#e8c040'); P(g, 6, 13, 2, 1, '#fff0a0'); } else { P(g, 5, 15, 6, 2, '#ffffff'); P(g, 6, 15, 4, 1, '#c8c8c4'); } }, true],
+  roomdoor: [16, 16, (g, f) => { if (f === 1) { P(g, 2, 0, 12, 16, '#3a332c'); for (let i = 0; i < 4; i++) P(g, 3, 2 + i * 4, 10, 2, '#7a7064'); } else { P(g, 2, 0, 12, 16, '#7a4a28'); P(g, 3, 1, 10, 15, '#a8703a'); P(g, 11, 8, 1, 2, '#f2c230'); P(g, 5, 4, 6, 1, '#c8904a'); P(g, 4, 0, 8, 1, '#c8a030'); } }, true],
+  cheeserack: [16, 24, (g, f, c) => { P(g, 1, 0, 2, 24, '#6a4a2a'); P(g, 13, 0, 2, 24, '#6a4a2a'); for (const y of [7, 15, 22]) P(g, 1, y, 14, 2, '#8a6a3a'); for (const [y, s] of [[2, 0], [10, 1], [17, 2]]) { const col = ['#f2c230', '#e8a030', '#f6d870'][s]; oval(g, 8, y + 2, 5, 2.5, col); P(g, 4, y + 1, 8, 1, shade(col, 0.3)); P(g, 4, y + 3, 8, 1, shade(col, -0.25)); } }, true],
+  bigwheel: [34, 34, (g) => { g.translate(1, 1); P(g, 2, 24, 28, 8, '#5a3a1a'); oval(g, 16, 18, 15, 9, '#e8a030'); oval(g, 16, 14, 15, 9, '#f6d060'); oval(g, 16, 14, 11, 6, '#f8e080'); P(g, 6, 12, 4, 1, '#fff6c0'); for (const [x, y] of [[12, 15], [20, 13], [16, 17]]) disc(g, x, y, 1, '#d8a020'); }, true],
+  candle: [16, 20, (g) => { P(g, 6, 8, 4, 10, '#f4ead0'); P(g, 6, 8, 1, 10, '#ffffff'); P(g, 7, 6, 2, 2, '#2a1d22'); oval(g, 8, 4, 1.5, 2.5, '#ffd23f'); P(g, 8, 4, 1, 2, '#ffffff'); P(g, 4, 18, 8, 2, '#8a6a3a'); }, true],
+  vanity: [32, 32, (g) => { P(g, 2, 2, 28, 16, '#2a1a2a'); P(g, 5, 4, 22, 12, '#bfe0ec'); P(g, 6, 5, 6, 1, '#ffffff'); for (let x = 3; x < 30; x += 4) { disc(g, x, 2, 1.3, '#fff6a0'); disc(g, x, 17, 1.3, '#fff6a0'); } for (let y = 6; y < 16; y += 4) { disc(g, 3, y, 1.3, '#fff6a0'); disc(g, 29, y, 1.3, '#fff6a0'); }
+    P(g, 0, 20, 32, 12, '#e8e0f0'); P(g, 0, 20, 32, 2, '#ffffff'); P(g, 6, 18, 3, 3, '#e23a2e'); P(g, 20, 17, 4, 4, '#f2c230'); P(g, 0, 30, 32, 2, '#a898b8'); }, true],
+  jumprack: [32, 30, (g, f) => { P(g, 2, 2, 28, 2, '#c8c8d0'); P(g, 2, 2, 2, 28, '#9aa3ad'); P(g, 28, 2, 2, 28, '#9aa3ad'); for (const [x, on] of [[7, 1], [15, f ? 0 : 1], [23, 1]]) { P(g, x + 2, 3, 1, 3, '#6a6f78'); if (!on) continue; P(g, x - 1, 6, 8, 10, '#f6f6f2'); P(g, x, 16, 3, 10, '#f6f6f2'); P(g, x + 4, 16, 3, 10, '#f6f6f2'); P(g, x - 1, 6, 8, 1, '#e8c040'); for (let i = 0; i < 3; i++) P(g, x + 1 + i * 2, 10, 1, 1, '#e8c040'); P(g, x, 24, 3, 2, '#e8c040'); P(g, x + 4, 24, 3, 2, '#e8c040'); } }, true],
+  goldrec: [16, 16, (g) => { P(g, 1, 1, 14, 14, '#1e1222'); P(g, 1, 1, 14, 1, '#c8a030'); disc(g, 8, 7.5, 5, '#e8c040'); disc(g, 8, 7.5, 3.5, '#c8a030'); disc(g, 8, 7.5, 1, '#e23a2e'); P(g, 5, 4, 2, 1, '#fff0a0'); P(g, 3, 13, 10, 1, '#f4f4f4'); }, true],
+  sofa: [32, 20, (g) => { P(g, 0, 4, 32, 14, '#e8c040'); P(g, 0, 4, 32, 3, '#fff0a0'); P(g, 2, 9, 13, 6, '#f6d860'); P(g, 17, 9, 13, 6, '#f6d860'); P(g, 0, 7, 3, 11, '#c8a030'); P(g, 29, 7, 3, 11, '#c8a030'); P(g, 1, 18, 2, 2, '#3a2a1a'); P(g, 29, 18, 2, 2, '#3a2a1a'); P(g, 8, 6, 5, 4, '#a8202e'); }, true],
+  rider: [16, 22, (g) => { P(g, 1, 8, 14, 3, '#8a5a30'); P(g, 1, 8, 14, 1, '#b07a44'); P(g, 2, 11, 2, 10, '#6a4422'); P(g, 12, 11, 2, 10, '#6a4422'); P(g, 4, 4, 7, 5, '#ffffff'); P(g, 5, 5, 5, 1, '#8a8a92'); P(g, 5, 7, 4, 1, '#8a8a92'); disc(g, 12, 6, 1.5, '#f2c230'); P(g, 11, 4, 2, 1, '#8a6a10'); }, true],
+  cutout: [16, 34, (g) => { P(g, 5, 28, 6, 2, '#8a6a3a'); P(g, 4, 10, 8, 18, '#f6f6f2'); P(g, 4, 10, 8, 1, '#e8c040'); P(g, 6, 14, 4, 1, '#e8c040'); disc(g, 8, 6, 4, '#e8b45a'); P(g, 4, 1, 8, 3, '#15151d'); P(g, 5, 5, 6, 1, '#1a1a24'); P(g, 6, 8, 4, 1, '#8a3a1a'); P(g, 3, 12, 1, 8, '#d8943a'); P(g, 12, 12, 1, 8, '#d8943a'); }, true],
+  capsule: [18, 26, (g) => { g.translate(1, 1); P(g, 1, 13, 14, 11, '#2e6ad8'); P(g, 1, 13, 14, 1, '#6a9aff'); disc(g, 8, 17, 2.5, '#f4f4f4'); P(g, 7, 16, 2, 2, '#c8c8d0'); P(g, 5, 21, 6, 2, '#2a2a2a'); P(g, 12, 15, 2, 1, '#f2c230'); disc(g, 8, 7, 6.5, '#d8f0ff');
+    for (const [x, y, c] of [[5, 9, '#ff6fb0'], [9, 10, '#ffd23f'], [11, 7, '#5ee07a'], [6, 5, '#3ac0ff'], [8, 7, '#e8c040'], [4, 8, '#ff8a2a']]) { disc(g, x, y, 1.6, c); P(g, x - 1, y, 2, 1, '#fff'); } g.globalAlpha = 0.6; P(g, 4, 3, 2, 3, '#fff'); g.globalAlpha = 1; P(g, 3, 0, 10, 2, '#2e6ad8'); }, true],
+  pa: [16, 24, (g) => { P(g, 4, 12, 8, 12, '#2e7d3b'); P(g, 4, 12, 8, 1, '#4aa858'); P(g, 7, 4, 2, 8, '#6a6f78'); oval(g, 8, 4, 2, 2.5, '#2a2a32'); P(g, 7, 3, 1, 2, '#8a8a92'); P(g, 3, 22, 10, 2, '#1e4a26'); disc(g, 8, 17, 2, '#f2c230'); }, true],
+  stagedoor: [16, 24, (g) => { P(g, 0, 0, 16, 24, '#3a2440'); P(g, 2, 2, 12, 22, '#5a3a62'); P(g, 2, 2, 12, 1, '#7a5a82'); P(g, 11, 13, 2, 2, '#f2c230'); P(g, 7, 5, 2, 5, '#f2c230'); P(g, 5, 6, 6, 2, '#f2c230'); P(g, 6, 10, 1, 1, '#f2c230'); P(g, 9, 10, 1, 1, '#f2c230'); P(g, 0, 22, 16, 2, '#1e1222'); }, true],
+  todd: [10, 7, (g) => { P(g, 2, 3, 6, 2, '#c8302a'); P(g, 1, 2, 2, 2, '#e8402a'); P(g, 7, 2, 2, 2, '#e8402a'); P(g, 6, 3, 1, 1, '#1a1a1a'); P(g, 3, 1, 1, 2, '#c8302a'); P(g, 5, 5, 1, 1, '#c8302a'); P(g, 3, 0, 4, 1, '#2a3a8a'); }, true],
+});
 
 // ===== renderer =====
 const R = { cv: null, g: null, SC: 3, vw: 0, vh: 0, cx: 0, cy: 0, dpr: 1, t: 0, night: null };
@@ -2663,7 +3214,7 @@ function resize() {
   R.dpr = Math.min(2, window.devicePixelRatio || 1);
   R.cv.width = Math.floor(innerWidth * R.dpr); R.cv.height = Math.floor(innerHeight * R.dpr);
   R.SC = Math.max(2, Math.min(7, Math.floor(Math.min(R.cv.width / (16 * (R.cv.width < R.cv.height ? 12 : 24)), R.cv.height / (16 * 14)))));
-  R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC;
+  R.SCb = R.SC; R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC;
 }
 function buildNight() {
   const c = cv(MW * T, MH * T), g = c.getContext('2d'); g.fillStyle = '#0a1030';
@@ -2691,7 +3242,7 @@ function drawBoss() {
   else if (s > 6) { if (PL.braking) pose = 'brake'; else if (PL.input) { const ph = (PL.stride || 0) / (PL.period || 0.34); pose = ph < 0.45 ? (PL.side ? 'pushL' : 'pushR') : 'glide'; } else pose = 'glide'; }
   const dk = PL.dir === 'left' || PL.dir === 'right' ? 'side' : PL.dir; const wf = Math.floor(PL.anim / 3) % 2;
   shadow(PL.x, PL.y + 0.5, 6);
-  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
+  drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk, PL.outfit), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
   PL.carry.forEach((k, i) => drawSpr(crateSprite(k), PL.x - 7, PL.y - 36 - i * 8));
   if (s > 55 && Math.random() < 0.35) RT.parts.push({ x: PL.x - PL.vx * 0.06 + (Math.random() - 0.5) * 6, y: PL.y - 1, vx: -PL.vx * 0.2, vy: -6, t: 0.35, c: '#ffffff', dust: true });
 }
@@ -2709,13 +3260,16 @@ function objDraw(o) {
     case 'pallet': return drawSpr(palletSprite(o.crate), x - 1, y - 8 - 1);
     case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob, dir: 'down', frame: 0 }, o.look); return; } // givers shift their weight now and then
     case 'bar': return bot(propSprite('bar', o.frame || 0));
+    case 'register': { const l = W.lanes[o.lane], on = !!l && laneOpen(l); return bot(registerSprite(o.lane, on, on && l.queue.length ? Math.floor(t * 4) % 2 : 0)); }
+    case 'belt': { const l = W.lanes[o.lane], busy = l && l.queue.length && laneOpen(l); return bot(beltSprite(o.lane, busy ? Math.floor(t * 6) % 3 : 0)); }
     case 'stool': return drawSpr(propSprite('stool', 0), x, y);
     case 'bigcheese': { bot(propSprite('bigcheese', 0)); const hot = Math.max(0, Math.min(1, (ST.cheeseTemp - 30) / 20)); const g = R.g; g.fillStyle = hot > 0.75 ? '#ff3a2a' : '#e23a2e'; const bh = 13 * hot; g.fillRect(sx(x + 29 + 1), sy(y + 32 - 10 - bh - 4), R.SC, bh * R.SC); if (ST.cheeseTemp > 45 && Math.floor(t * 4) % 2) { g.fillStyle = 'rgba(255,60,40,0.18)'; g.fillRect(sx(x), sy(y - 8), 32 * R.SC, 40 * R.SC); } return; }
     case 'anim': {
       const a = ST.anims[o.anim]; const broken = a && a.broken; let f = 0;
-      if (o.anim === 'elvis') f = RT.elvisT > 0 ? Math.floor(t * 6) % 2 : 0; else if (o.anim === 'swing') f = broken ? 0 : Math.floor(t * 1.5) % 2; else f = broken ? 0 : Math.floor(t * 2) % 2;
+      if (o.anim === 'elvis') f = RT.elvisT > 0 ? Math.floor(t * 6) % 2 : 0; else if (o.anim === 'swing') f = broken ? 0 : Math.floor(t * (RT.swingT > 0 ? 5 : 1.5)) % 2; else f = broken ? 0 : Math.floor(t * (o.anim === 'firetruck' && RT.sirenT > 0 ? 8 : 2)) % 2;
       const s = propSprite(o.name, f); const dy = o.anim === 'elvis' && RT.elvisT > 0 ? -Math.abs(Math.sin(t * 10)) * 1.5 : 0;
       drawSpr(s, x + (o.w * T - s.width) / 2, (o.y + o.h) * T - s.height + 1 + dy);
+      if (o.anim === 'minnow' && F().toddBoat) drawSpr(propSprite('todd', 0), x + 18, (o.y + o.h) * T - s.height + 10); // captain todd
       if (broken) { if (Math.random() < 0.15) RT.parts.push({ x: x + o.w * 8 + (Math.random() - 0.5) * 12, y: y - 4, vx: (Math.random() - 0.5) * 20, vy: -30, t: 0.5, c: Math.random() < 0.5 ? '#ffe14d' : '#8a8a8a', smoke: true }); }
       return;
     }
@@ -2732,16 +3286,18 @@ function objDraw(o) {
     case 'elephant': return drawSpr(propSprite('elephant', 0), x - 9, y - 10);
     case 'penguin': return drawSpr(propSprite('penguin', 0), x, y - 6);
     case 'hive': return drawSpr(propSprite('hive', Math.floor(R.t * 3) % 2), x, y - 8);
-    default: { const s = propSprite(o.type, o.type === 'ringlight' ? Math.floor(t * 3) % 2 : 0); if (s) bot(s); }
+    default: { const s = propSprite(o.type, o.type === 'ringlight' ? Math.floor(t * 3) % 2 : (o.frame || 0)); if (s) bot(s); }
   }
 }
 function objBase(o) { return (o.y + o.h) * T + (o.type === 'tree' || o.type === 'lamp' ? 0 : 0); }
 
 function render() {
+  const zw = RT.zoomT > 0 ? Math.max(1, Math.floor(R.SCb / 2)) : R.SCb; if (zw && R.SC !== zw) { R.SC = zw; R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC; } // the observation deck zooms out
   const g = R.g, SC = R.SC; R.t += 1 / 60;
   let cx = PL.x - R.vw / 2, cy = PL.y - 8 - R.vh / 2;
-  cx = Math.max(0, Math.min(MW * T - R.vw, cx)); cy = Math.max(0, Math.min(MH * T - R.vh, cy));
-  if (R.vw > MW * T) cx = (MW * T - R.vw) / 2; if (R.vh > MH * T) cy = (MH * T - R.vh) / 2;
+  const rm = RT.room && ROOMS[RT.room], X0 = rm ? (rm.x0 - 1) * T : 0, X1 = rm ? (rm.x1 + 2) * T : SW * T, Y0 = rm ? (rm.y0 - 2) * T : 0, Y1 = rm ? (rm.y1 + 2) * T : MH * T; // rooms keep the camera inside them
+  cx = Math.max(X0, Math.min(X1 - R.vw, cx)); cy = Math.max(Y0, Math.min(Y1 - R.vh, cy));
+  if (R.vw > X1 - X0) cx = (X0 + X1 - R.vw) / 2; if (R.vh > Y1 - Y0) cy = (Y0 + Y1 - R.vh) / 2;
   R.cx = Math.round(cx * SC) / SC; R.cy = Math.round(cy * SC) / SC;
   g.imageSmoothingEnabled = false; g.fillStyle = '#2a4a2a'; g.fillRect(0, 0, R.cv.width, R.cv.height);
   g.drawImage(W.groundCanvas, R.cx, R.cy, R.vw, R.vh, 0, 0, R.cv.width, R.cv.height);
@@ -2779,6 +3335,9 @@ function render() {
   if (ST.minute >= CLOSE_MIN || ST.minute < OPEN_MIN - 60) { g.fillStyle = 'rgba(10,16,48,0.22)'; g.fillRect(0, 0, R.cv.width, R.cv.height); }
   if (ST.weather === 'rain') drawRain();
   if (RT.sleeping) { g.fillStyle = 'rgba(5,8,25,0.55)'; g.fillRect(0, 0, R.cv.width, R.cv.height); g.fillStyle = '#fff'; g.font = `${SC * 10}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('z z z', R.cv.width / 2, R.cv.height / 2); g.font = `${SC * 7}px VT323, monospace`; g.fillText('the store runs without you till close', R.cv.width / 2, R.cv.height / 2 + SC * 14); g.textAlign = 'left'; }
+  if (rm) { const a = sx((rm.x0 - 1) * T), b = sx((rm.x1 + 2) * T), c = sy((rm.y0 - 1) * T - 8), d = sy((rm.y1 + 2) * T); g.fillStyle = '#07070c'; // only the room you're in
+    g.fillRect(0, 0, R.cv.width, c); g.fillRect(0, d, R.cv.width, R.cv.height - d); g.fillRect(0, c, a, d - c); g.fillRect(b, c, R.cv.width - b, d - c); }
+  if (RT.fadeT > 0) { g.fillStyle = `rgba(0,0,0,${Math.min(1, RT.fadeT / 0.4)})`; g.fillRect(0, 0, R.cv.width, R.cv.height); }
   drawOverlay();
 }
 function lampGlow(dark) {
@@ -2812,14 +3371,14 @@ function label(x, y, text, fg, bg, size, font) {
 function drawOverlay() {
   const g = R.g, SC = R.SC;
   // dept signs: pixel art, same grid as the world
-  for (const s of W.signs) {
+  if (!RT.room) for (const s of W.signs) {
     const d = DEPTS.find(d => d.name === s.text); const low = d && d.max && deptOpen(d) && fill(d.id) < 0.15;
     const sp = signSprite(typo(s.text).replace(/\u2019/g, "'"), s.locked ? 'locked' : low ? 'low' : s.dark ? 'dark' : 'open');
     const x = s.x * T - sp.width / 2, y = s.y * T - 9; if (sx(x) > R.cv.width || sx(x + sp.width) < 0 || sy(y) > R.cv.height || sy(y + 15) < 0) continue;
     drawSpr(sp, Math.round(x), Math.round(y));
   }
   // aisle labels (only when near)
-  for (const l of W.labels) { if (Math.abs(l.x * T - PL.x) > 14 * T || Math.abs(l.y * T - PL.y) > 9 * T) continue; const sp = tagSprite(l.text); drawSpr(sp, Math.round(l.x * T - sp.width / 2), Math.round(l.y * T - 4)); }
+  if (!RT.room) for (const l of W.labels) { if (Math.abs(l.x * T - PL.x) > 14 * T || Math.abs(l.y * T - PL.y) > 9 * T) continue; const sp = tagSprite(l.text); drawSpr(sp, Math.round(l.x * T - sp.width / 2), Math.round(l.y * T - 4)); }
   // target highlight
   if (!RT.dialog && !RT.menu && !RT.sleeping) {
     const t = targetInfo(); RT.target = t; const f = playerFacing();
@@ -2889,7 +3448,7 @@ function updateUI(dt) {
   const st = stars(); setText('h-stars', '★'.repeat(st) + '<span class="dim">' + '★'.repeat(5 - st) + '</span>');
   const e = $('#h-energy i'); if (e) { e.style.width = Math.round(ST.energy) + '%'; e.style.background = ST.energy < 25 ? '#ff5a4a' : '#7dd35a'; }
   TOOLS.forEach((t, i) => { const el = document.getElementById('tool' + i); if (el) el.classList.toggle('on', PL.tool === i); });
-  setText('h-tool', TOOLS[PL.tool].name + (PL.walk ? '<br><small>walking (R for skates)</small>' : '') + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : ''));
+  setText('h-tool', TOOLS[PL.tool].name + (PL.walk ? '<br><small>walking (R for skates)</small>' : '') + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : '') + (F().items.todd ? '<br><small>carrying Todd</small>' : '') + (F().items.plunger ? '<br><small>carrying the Golden Plunger</small>' : '') + (PL.outfit ? '<br><small>in a jumpsuit</small>' : ''));
   // prompt
   let p = ''; if (flashMsg) p = flashMsg.text; else if (RT.target && RT.target.label) p = typo(RT.target.label); const hint = currentHint();
   setText('prompt', p ? `<b>${p}</b>` : ''); $('#prompt').style.display = p ? 'block' : 'none';
@@ -2949,7 +3508,7 @@ function bindMenu() {
   on('g-keep', () => closeMenu()); on('g-close', () => { closeMenu(); closeUp(); });
   on('m-cat', () => { UI.fromReport = true; openMenu('catalog'); });
   on('m-resume', () => closeMenu()); on('m-journal', () => openMenu('journal')); on('m-map', () => openMenu('map'));
-  on('m-quit', () => { save(); location.reload(); });
+  on('m-quit', () => { closeMenu(); saveMid(); location.reload(); });
   on('s-clean', () => { ST.settings.clean = !ST.settings.clean; openMenu('pause'); });
   on('s-music', () => { ST.settings.music = !ST.settings.music; AU.musicOn = ST.settings.music; openMenu('pause'); });
   on('s-sfx', () => { ST.settings.sfx = !ST.settings.sfx; AU.sfxOn = ST.settings.sfx; openMenu('pause'); });
@@ -3029,8 +3588,8 @@ function titleHTML() {
   <p class="small">WASD / arrows to skate. R takes skates off to walk. Space to do stuff. 1-4 swap tools. M for the map. Esc pauses.</p>`;
 }
 function drawMap() {
-  const c = $('#mapc'); const maxW = Math.min(innerWidth - 80, 1100), maxH = innerHeight - 200; const sc = Math.min(maxW / (MW * T), maxH / (MH * T)); c.width = MW * T * sc; c.height = MH * T * sc;
-  const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(W.groundCanvas, 0, 0, c.width, c.height);
+  const c = $('#mapc'); const maxW = Math.min(innerWidth - 80, 1100), maxH = innerHeight - 200; const sc = Math.min(maxW / (SW * T), maxH / (MH * T)); c.width = SW * T * sc; c.height = MH * T * sc;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(W.groundCanvas, 0, 0, SW * T, MH * T, 0, 0, c.width, c.height);
   g.fillStyle = 'rgba(30,30,40,0.55)'; W.objs.forEach(o => { if (['tree', 'lamp', 'giraffe', 'rhino', 'billboard'].includes(o.type)) return; g.fillRect(o.x * T * sc, o.y * T * sc, o.w * T * sc, o.h * T * sc); });
   g.textAlign = 'center'; g.textBaseline = 'middle';
   DEPTS.forEach(d => { const open = deptOpen(d); const low = d.max && open && fill(d.id) < 0.15; const x = (d.x + d.w / 2) * T * sc, y = (d.y + d.h / 2) * T * sc; g.font = `${Math.max(10, 13 * sc * 1.6)}px VT323, monospace`; const nm = d.name.replace('International: ', ''); const w = g.measureText(nm).width + 8; g.fillStyle = !open ? 'rgba(120,90,50,0.9)' : low ? 'rgba(168,42,32,0.95)' : 'rgba(31,106,48,0.92)'; g.fillRect(x - w / 2, y - 9, w, 18); g.fillStyle = '#ffe14d'; g.fillText(nm, x, y + 1);
@@ -3049,7 +3608,9 @@ function beginGame(cont) {
   if (!(cont && load())) { newState(); try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
   AU.musicOn = ST.settings.music; AU.sfxOn = ST.settings.sfx;
   buildWorld(ST.ups); buildNight(); startDay(); MUSIC.setDay(ST.day); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; RT.paused = false; $('#hud').style.display = 'block';
-  if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. we need ${fmtMoney(dayGoal())} today. everybody with a yellow ! over their head has a job for you, and every job pays. make the money, then close up by the clock. monday to friday. go get 'em.`, null, 'J opens the quest log. The stock room is behind the bakery.');
+  const resumed = cont && restoreMid();
+  if (resumed) toast(`Back to ${weekday()}, week ${weekNo()}. ${fmtMoney(earnedToday())} of ${fmtMoney(dayGoal())} made so far.`);
+  else if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. we need ${fmtMoney(dayGoal())} today. everybody with a yellow ! over their head has a job for you, and every job pays. make the money, then close up by the clock. monday to friday. go get 'em.`, null, 'J opens the quest log. The stock room is behind the bakery.');
   else toast(`Welcome back. ${weekday()}, week ${weekNo()}. Goal today: ${fmtMoney(dayGoal())}.`);
 }
 const VK = { x: 0, y: 0 };
@@ -3072,6 +3633,7 @@ function bindInput() {
   addEventListener('keyup', e => { KEYS[e.code] = false; });
   addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
   addEventListener('resize', resize);
+  addEventListener('pagehide', saveMid); document.addEventListener('visibilitychange', () => { if (document.hidden) saveMid(); });
   // touch
   if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     $('#touch').style.display = 'block'; const pad = $('#t-pad'), knob = $('#t-knob'); let id = null, ox = 0, oy = 0;

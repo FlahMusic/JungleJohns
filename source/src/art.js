@@ -240,11 +240,13 @@ function caseSprite(art, seed, fill) {
   return spr(`case_${art}_${sv}_${lv}`, 16, 24, g => {
     const r = mkRng(sv * 53 + art.length);
     const base = CASE_STYLE[art] || '#888';
-    P(g, 0, 2, 16, 13, '#dff2f6'); P(g, 1, 5, 14, 9, art === 'fish' ? '#eef6fa' : '#f6f2ea');
-    if (art === 'fish') for (let i = 0; i < 14; i += 2) P(g, 1 + i, 12, 1, 1, '#c8e0ea');
-    const slots = [[1, 6], [5, 6], [9, 6], [12, 6], [3, 9], [8, 9], [11, 9]].slice(0, 7);
+    // inside the glass: a back wall in shadow under the steel top, a glass shelf, an ice bed for fish
+    P(g, 0, 2, 16, 13, '#dff2f6'); P(g, 1, 3, 14, 11, art === 'fish' ? '#eef6fa' : '#f6f2ea'); P(g, 1, 3, 14, 1, '#c9d6dc');
+    P(g, 1, 9, 14, 1, '#c6d2d8'); P(g, 1, 10, 14, 1, '#ffffff');
+    if (art === 'fish') { P(g, 1, 12, 14, 2, '#e4f2f8'); for (let i = 0; i < 14; i += 2) P(g, 1 + i, 12 + (i % 4 ? 1 : 0), 1, 1, '#c8e0ea'); }
+    const slots = [[1, 5], [5, 5], [9, 5], [12, 5], [3, 10], [8, 10], [11, 10]].slice(0, 7);
     const show = Math.round(slots.length * lv / 4);
-    slots.forEach((s, i) => { if (i >= show) return; const [x, y] = s;
+    slots.forEach((s, i) => { if (i >= show) return; const [x, y] = s; P(g, x + 1, y < 9 ? 8 : 13, 2, 1, '#ffffff'); P(g, x + 1, y < 9 ? 8 : 13, 1, 1, '#e23a2e'); // price tag
       switch (art) {
         case 'deli': if (r() < 0.5) { disc(g, x + 1.5, y + 1.5, 1.8, '#b03040'); P(g, x + 1, y + 1, 1, 1, '#f0b0b8'); } else { P(g, x, y, 4, 3, '#f0a0a8'); P(g, x, y, 4, 1, '#f8d0d4'); } break;
         case 'bakery': if (r() < 0.5) { oval(g, x + 1.5, y + 1.5, 2, 1.4, '#b87a3a'); P(g, x + 1, y + 1, 2, 1, '#e8b070'); } else { P(g, x, y, 3, 3, '#f8b8d0'); P(g, x, y, 3, 1, '#fff'); P(g, x + 1, y - 1, 1, 1, '#e23a2e'); } break;
@@ -253,9 +255,14 @@ function caseSprite(art, seed, fill) {
         case 'cheesecase': if (r() < 0.5) { P(g, x, y + 1, 4, 2, '#f6d040'); P(g, x + 1, y, 3, 1, '#f6d040'); P(g, x + 2, y + 1, 1, 1, '#d8a820'); } else { oval(g, x + 1.5, y + 1.5, 2, 1.5, '#e8a030'); P(g, x, y + 1, 4, 1, '#f6d070'); } break;
         case 'sushi': disc(g, x + 1.5, y + 1.5, 1.6, '#1a1a1a'); P(g, x + 1, y + 1, 1, 1, '#ffffff'); P(g, x + 2, y + 1, 1, 1, '#f06a5a'); break;
       } });
-    g.globalAlpha = 0.12; P(g, 0, 2, 16, 13, '#bfe8ff'); g.globalAlpha = 0.9; P(g, 2, 3, 6, 1, '#ffffff'); P(g, 1, 4, 1, 2, '#ffffff'); g.globalAlpha = 1;
+    // curved front glass: a tint, a bright curve along the top, two glare streaks, a mullion between panes
+    g.globalAlpha = 0.12; P(g, 0, 2, 16, 13, '#bfe8ff'); g.globalAlpha = 0.5; P(g, 0, 2, 16, 1, '#ffffff'); g.globalAlpha = 0.9; P(g, 2, 3, 6, 1, '#ffffff'); P(g, 1, 4, 1, 2, '#ffffff');
+    g.globalAlpha = 0.45; P(g, 11, 4, 1, 4, '#ffffff'); P(g, 12, 3, 1, 2, '#ffffff'); g.globalAlpha = 1; P(g, 15, 2, 1, 13, '#b8c0ca');
     P(g, 0, 0, 16, 2, '#c6ccd4'); P(g, 0, 0, 16, 1, '#e6ebf0');
-    P(g, 0, 15, 16, 9, base); P(g, 0, 15, 16, 1, shade(base, 0.3)); P(g, 0, 18, 16, 1, '#f4f0e0'); P(g, 0, 22, 16, 2, shade(base, -0.4));
+    // the cabinet: lit lip, cream trim, a recessed panel, a steel kick plate
+    P(g, 0, 15, 16, 9, base); P(g, 0, 15, 16, 1, shade(base, 0.3)); P(g, 0, 18, 16, 1, '#f4f0e0');
+    P(g, 2, 19, 12, 2, shade(base, -0.14)); P(g, 2, 19, 12, 1, shade(base, -0.28)); P(g, 15, 15, 1, 6, shade(base, -0.2));
+    P(g, 0, 21, 16, 1, '#b8c0ca'); P(g, 0, 22, 16, 2, '#4a4f58');
   });
 }
 // candy bulk bin
@@ -347,13 +354,21 @@ function personSprite(o, dir, frame, carry) {
     }
     // torso
     const sc = o.shirt;
+    const pat = (x0, w) => { // shirt patterns, drawn over the base colour before the arms
+      if (o.pattern === 'stripe') for (let y = torsoY + 2; y < torsoY + tH - 1; y += 2) P(g, x0, y, w, 1, o.pc);
+      if (o.pattern === 'logo' && dir === 'down') { P(g, 6, torsoY + 2, 2, 2, o.pc); P(g, 6, torsoY + 2, 1, 1, shade(o.pc, 0.3)); }
+      if (o.pattern === 'flowers') for (const [x, y] of [[x0 + 1, torsoY + 1], [x0 + w - 3, torsoY + 3], [x0 + 2, torsoY + 4]]) { P(g, x, y, 1, 1, '#ff8fc0'); P(g, x + 1, y, 1, 1, '#fff6a0'); }
+      if (o.pattern === 'track') { P(g, x0, torsoY + 1, 1, tH - 1, '#ffffff'); P(g, x0 + w - 1, torsoY + 1, 1, tH - 1, '#ffffff'); }
+    };
     if (dir === 'side') {
-      P(g, 5, torsoY, 6, tH, sc); P(g, 5, torsoY, 6, 1, shade(sc, 0.25)); P(g, 5, torsoY + tH - 1, 6, 1, shade(sc, -0.25));
+      P(g, 5, torsoY, 6, tH, sc); P(g, 5, torsoY, 6, 1, shade(sc, 0.25)); P(g, 5, torsoY + tH - 1, 6, 1, shade(sc, -0.25)); pat(5, 6);
       if (o.jim) { P(g, 8, torsoY + 2, 2, 2, shade(sc, -0.2)); P(g, 5, torsoY, 6, 1, '#d8342a'); }
       if (carry) { P(g, 8, torsoY - 4, 2, 5, sc); P(g, 8, torsoY - 5, 2, 1, skin); }
       else { const f = frame === 1 ? 1 : frame === 2 ? -1 : 0; P(g, 7 + f, torsoY + 1, 2, tH - 2, shade(sc, -0.12)); P(g, 7 + f, torsoY + tH - 1, 2, 2, skin); }
     } else {
-      P(g, 4, torsoY, 8, tH, sc); P(g, 4, torsoY, 8, 1, shade(sc, 0.25)); P(g, 4, torsoY + tH - 1, 8, 1, shade(sc, -0.25));
+      P(g, 4, torsoY, 8, tH, sc); P(g, 4, torsoY, 8, 1, shade(sc, 0.25)); P(g, 4, torsoY + tH - 1, 8, 1, shade(sc, -0.25)); pat(4, 8);
+      if (o.pattern === 'track') { P(g, 4, legY, 1, lH, '#ffffff'); P(g, 11, legY, 1, lH, '#ffffff'); }
+      if (o.costume === 'tourist' && dir === 'down') { P(g, 5, torsoY, 1, 2, '#2a2a2a'); P(g, 10, torsoY, 1, 2, '#2a2a2a'); P(g, 6, torsoY + 2, 4, 3, '#2a2a2a'); P(g, 7, torsoY + 3, 2, 1, '#8ab4d0'); P(g, 9, torsoY + 2, 1, 1, '#e8e8f0'); }
       if (dir === 'down') { P(g, 7, torsoY, 2, 1, skin); if (o.jim) { P(g, 6, torsoY, 4, 1, '#d8342a'); P(g, 7, torsoY + 1, 2, 1, '#d8342a'); P(g, 5, torsoY + 2, 2, 2, shade(sc, -0.2)); P(g, 9, torsoY + 2, 2, 2, shade(sc, -0.2)); P(g, 8, torsoY + 1, 1, tH - 2, shade(sc, -0.3)); } }
       if (o.apron) { P(g, 5, torsoY + 1, 6, tH, o.apron); }
       P(g, 11, torsoY + 1, 1, tH - 1, shade(sc, -0.28)); P(g, 4, torsoY + 1, 1, tH - 2, shade(sc, 0.12)); if (!o.jim) { P(g, 6, legY, 1, lH - 1, shade(legCol, -0.25)); P(g, 11, legY, 1, lH - 1, shade(legCol, -0.25)); }
@@ -361,6 +376,7 @@ function personSprite(o, dir, frame, carry) {
       else { const a = frame === 1 ? 1 : 0, b = frame === 2 ? 1 : 0; P(g, 3, torsoY + 1 + a, 1, tH - 2, shade(sc, -0.12)); P(g, 12, torsoY + 1 + b, 1, tH - 2, shade(sc, -0.12)); P(g, 3, torsoY + tH - 1 + a, 1, 2, skin); P(g, 12, torsoY + tH - 1 + b, 1, 2, skin); }
       if (o.basket && dir === 'down' && !carry) { P(g, 12, torsoY + tH, 3, 3, '#d8342a'); P(g, 12, torsoY + tH - 1, 1, 1, '#d8342a'); P(g, 14, torsoY + tH - 1, 1, 1, '#d8342a'); P(g, 13, torsoY + tH, 1, 1, '#f2c230'); }
     }
+    if (o.tote && !carry) { const bc = o.tote, bx = dir === 'side' ? 4 : 1; P(g, bx, torsoY + 3, 3, 4, bc); P(g, bx, torsoY + 3, 3, 1, shade(bc, 0.25)); P(g, bx + 2, torsoY + 4, 1, 3, shade(bc, -0.2)); if (dir !== 'side') P(g, 3, torsoY, 1, 3, shade(bc, -0.35)); }
     // head
     const hy = headY;
     const rows = [[2, 6], [1, 8], [0, 10], [0, 10], [0, 10], [0, 10], [0, 10], [0, 10], [1, 8], [2, 6]];
@@ -381,6 +397,11 @@ function personSprite(o, dir, frame, carry) {
       if (dir === 'down') { P(g, 5, hy + 8, 6, 1, '#6a3a1a'); P(g, 4, hy + 9, 2, 1, '#6a3a1a'); P(g, 10, hy + 9, 2, 1, '#6a3a1a'); }
       if (dir === 'up') { P(g, 3, hy + 5, 10, 3, '#5a3a22'); }
       if (dir === 'side') { P(g, 3, hy + 5, 4, 3, '#5a3a22'); P(g, 9, hy + 8, 4, 1, '#6a3a1a'); }
+    } else if (st === 'beanie' || st === 'propeller' || st === 'sunhat') { // a bit of hair at the sides, then the hat
+      if (dir === 'down') { P(g, 3, hy + 3, 2, 3, hair); P(g, 11, hy + 3, 2, 3, hair); } if (dir === 'side') P(g, 3, hy + 3, 4, 4, hair); if (dir === 'up') P(g, 3, hy + 3, 10, 5, hair);
+      if (st === 'beanie') { const c = o.hat; P(g, 3, hy - 1, 10, 4, c); P(g, 4, hy - 2, 8, 1, c); P(g, 3, hy + 2, 10, 1, shade(c, -0.3)); for (let x = 4; x < 12; x += 2) P(g, x, hy, 1, 2, shade(c, -0.15)); P(g, 5, hy - 2, 3, 1, shade(c, 0.3)); disc(g, 8, hy - 3, 1.4, '#f4f4f0'); }
+      if (st === 'propeller') { P(g, 3, hy - 1, 5, 4, '#e23a2e'); P(g, 8, hy - 1, 5, 4, '#2e7de2'); P(g, 4, hy - 2, 4, 1, '#f2c230'); P(g, 8, hy - 2, 4, 1, '#2fa84f'); P(g, 7, hy - 4, 2, 2, '#6a6f78'); if (frame % 2) P(g, 3, hy - 5, 10, 1, '#f2c230'); else P(g, 6, hy - 5, 4, 1, '#f2c230'); }
+      if (st === 'sunhat') { P(g, 4, hy - 3, 8, 3, '#f0e2b0'); P(g, 4, hy - 1, 8, 1, '#d8342a'); P(g, 1, hy, 14, 2, '#e8d8a0'); P(g, 1, hy, 14, 1, '#f8ecc0'); P(g, 5, hy - 3, 3, 1, '#fff6d8'); }
     } else if (st === 'cap') {
       const c = o.hat; P(g, 3, hy, 10, 3, c); P(g, 4, hy - 1, 8, 1, c); P(g, 5, hy - 1, 3, 1, shade(c, 0.35));
       if (dir === 'down') P(g, 3, hy + 3, 10, 1, shade(c, -0.3)); else if (dir === 'side') P(g, 10, hy + 3, 5, 1, shade(c, -0.3)); else P(g, 3, hy + 3, 10, 3, hair);
@@ -396,6 +417,18 @@ function personSprite(o, dir, frame, carry) {
       if (st === 'pony') { if (dir === 'side') { P(g, 1, hy + 3, 2, 6, hair); } if (dir === 'up') P(g, 7, hy + 9, 2, 4, hair); }
       if (st === 'curly') { [3, 6, 9, 12].forEach(x => P(g, x - 1, hy - 2, 2, 1, hair)); P(g, 2, hy + 1, 1, 4, hair); P(g, 13, hy + 1, 1, 4, hair); }
     } else { if (dir !== 'side') { P(g, 3, hy + 3, 1, 3, hair); P(g, 12, hy + 3, 1, 3, hair); } else P(g, 3, hy + 3, 3, 3, hair); if (dir === 'up') P(g, 3, hy + 4, 10, 3, hair); }
+    // face extras: beard, glasses, a jogger's sweatband
+    if (o.beard) { const bc = shade(hair, -0.05); if (dir === 'down') { P(g, 3, hy + 6, 1, 2, bc); P(g, 12, hy + 6, 1, 2, bc); P(g, 4, hy + 7, 1, 1, bc); P(g, 11, hy + 7, 1, 1, bc); P(g, 4, hy + 8, 8, 1, bc); P(g, 5, hy + 9, 6, 1, bc); P(g, 7, hy + 8, 2, 1, '#6a3a3a'); } else if (dir === 'side') { P(g, 7, hy + 7, 6, 2, bc); P(g, 8, hy + 9, 4, 1, bc); P(g, 11, hy + 7, 2, 1, '#6a3a3a'); } }
+    if (o.glasses) { const fc = o.glasses; if (dir === 'down') { P(g, 4, hy + 4, 3, 1, fc); P(g, 9, hy + 4, 3, 1, fc); P(g, 7, hy + 5, 2, 1, fc); P(g, 4, hy + 5, 1, 1, fc); P(g, 11, hy + 5, 1, 1, fc); if (fc === '#1a1a24') { P(g, 5, hy + 5, 2, 1, fc); P(g, 9, hy + 5, 2, 1, fc); } } else if (dir === 'side') { P(g, 9, hy + 4, 3, 1, fc); P(g, 11, hy + 5, 1, 1, fc); P(g, 5, hy + 5, 4, 1, fc); } }
+    if (o.costume === 'jogger') P(g, 3, hy + 2, 10, 1, '#e23a2e');
+    if (o.costume === 'banana') { // a full banana suit with a hole for the face
+      const top = hy - 6, bot = legY + 1, H = bot - top;
+      for (let y = top; y <= bot; y++) { const k = (y - top) / H, half = Math.max(1.5, Math.min(5.5, k * 16, (1 - k) * 26)), off = dir === 'side' ? Math.round((k - 0.5) * (k - 0.5) * 10) : 0, x0 = Math.round(8 + off - half), w = Math.round(half * 2);
+        P(g, x0, y, w, 1, '#f6d83a'); P(g, x0 + w - 2, y, 2, 1, '#dcae1c'); P(g, x0, y, 1, 1, '#fff08a'); }
+      P(g, 7, top - 3, 2, 4, '#6a4a1a'); P(g, 7, top - 3, 1, 1, '#8a6a3a'); P(g, 6, bot - 1, 1, 1, '#6a4a1a');
+      if (dir === 'down') { P(g, 5, hy + 3, 6, 6, skin); P(g, 5, hy + 3, 6, 1, sd); P(g, 6, hy + 5, 1, 2, '#2a1b1b'); P(g, 9, hy + 5, 1, 2, '#2a1b1b'); P(g, 7, hy + 7, 2, 1, sd); }
+      if (dir === 'side') { P(g, 9, hy + 3, 4, 6, skin); P(g, 11, hy + 5, 1, 2, '#2a1b1b'); }
+    }
   }, true);
 }
 const SKINS = ['#f6d3b3', '#e9b48a', '#d09a6c', '#a86f45', '#7a4a2a', '#5a3620', '#f2c9a0'];
@@ -403,13 +436,23 @@ const HAIRS = ['#2a1a12', '#5a3418', '#8a5a2a', '#d8b050', '#1a1a1a', '#b04020',
 const SHIRTS = ['#d8342a', '#2e7de2', '#2fa84f', '#f2b51c', '#8a52d8', '#e8549a', '#1fb8b8', '#f4f4f4', '#3a3a48', '#f07a22', '#6a8a3a', '#9a2a5a'];
 const PANTS = ['#2a3a6a', '#3a3a42', '#6a5a4a', '#2a2a2a', '#4a6a8a', '#7a3a3a', '#c8b890'];
 let personKey = 0;
-function randomLook(r, type) {
+function randomLook(r, type, cust) {
   const o = { skin: pick(r, SKINS), hair: pick(r, HAIRS), shirt: pick(r, SHIRTS), pants: pick(r, PANTS), shoes: pick(r, ['#2a2a2a', '#f4f4f4', '#7a4a22', '#c0392b', '#2e7de2']) };
   o.style = pick(r, ['short', 'short', 'long', 'cap', 'pony', 'curly', 'bun', 'bald']);
   if (o.style === 'cap') o.hat = pick(r, ['#c0392b', '#2e7de2', '#2a2a2a', '#2fa84f', '#f2b51c']);
   if (type === 'kid') { o.kid = true; if (o.style === 'bald') o.style = 'short'; }
   if (type === 'old') { o.old = true; o.hair = pick(r, ['#d8d8d8', '#b8b8b8', '#f0f0f0']); if (o.style === 'cap' || o.style === 'pony') o.style = 'short'; }
-  o.key = (personKey++) % 400; return o;
+  // extras (drawn after the picks above, so everyone who already had a look keeps it)
+  if (r() < (type === 'old' ? 0.5 : 0.16)) o.glasses = pick(r, ['#2a2a2a', '#8a5a2a', '#9aa3ad', '#c0392b']);
+  if (type === 'adult' && r() < 0.16 && ['short', 'bald', 'cap', 'curly'].includes(o.style)) o.beard = true;
+  const pr = r(); if (pr < 0.2) o.pattern = 'stripe'; else if (pr < 0.36) o.pattern = 'logo'; o.pc = pick(r, ['#ffffff', '#2a2a2a', '#f2c230', '#e23a2e', '#2e7de2'].filter(c => c !== o.shirt));
+  if (type !== 'kid' && r() < 0.13) o.tote = pick(r, ['#c8a060', '#2e7d3b', '#e8549a', '#f4f4f0', '#3a3a48']);
+  if (type !== 'old' && o.style === 'short' && r() < 0.12) { o.style = 'beanie'; o.hat = pick(r, ['#c0392b', '#2e7de2', '#f2b51c', '#2fa84f', '#8a52d8']); }
+  if (type === 'kid' && r() < 0.08) o.style = 'propeller';
+  if (cust && type === 'adult' && r() < 0.03) o.costume = pick(r, ['banana', 'tourist', 'jogger']);
+  if (o.costume === 'tourist') { o.shirt = '#1fb8b8'; o.pattern = 'flowers'; o.style = 'sunhat'; o.glasses = '#1a1a24'; }
+  if (o.costume === 'jogger') { o.shirt = '#2e5fd8'; o.pants = '#2e5fd8'; o.pattern = 'track'; o.shoes = '#f4f4f4'; }
+  o.key = (personKey++) % 400 + (o.costume ? '_' + o.costume : ''); return o;
 }
 const JIM_LOOK = { key: 'jim', jim: true, skin: '#f0c49a', hair: '#5a3a22', shirt: '#9aa35a', pants: '#a8875a', shoes: '#fff' };
 
@@ -519,11 +562,18 @@ const PROPS = {
     P(g, 0, 22, 16, 2, '#6a737e');
   }, true],
   counter: [16, 24, (g) => { P(g, 0, 10, 16, 14, '#b88a55'); P(g, 0, 10, 16, 2, '#d8aa75'); P(g, 0, 14, 16, 1, '#8a5a30'); P(g, 0, 22, 16, 2, '#6a4422'); }, true],
-  bar: [16, 24, (g, f) => {
-    P(g, 0, 8, 16, 16, '#7a4a28'); P(g, 0, 8, 16, 3, '#a8703a'); P(g, 0, 8, 16, 1, '#c8904a'); for (let i = 1; i < 16; i += 5) P(g, i, 13, 3, 9, '#6a3e20');
-    P(g, 0, 22, 16, 2, '#4a2a14');
-    if (f === 1) { P(g, 3, 2, 1, 6, '#c8c8d0'); P(g, 8, 2, 1, 6, '#c8c8d0'); P(g, 12, 2, 1, 6, '#c8c8d0'); P(g, 2, 1, 3, 2, '#f2c230'); P(g, 7, 1, 3, 2, '#e23a2e'); P(g, 11, 1, 3, 2, '#2e7de2'); }
-    else { P(g, 4, 4, 3, 2, '#f4f4f4'); P(g, 5, 6, 1, 2, '#e8e8e8'); P(g, 4, 4, 3, 1, '#7a1a30'); P(g, 10, 3, 2, 5, '#2c4a28'); P(g, 10, 2, 2, 1, '#8a1a2a'); }
+  bar: [16, 24, (g, f) => { // tasting bar: glossy top, raised wood panels, a brass foot rail. f: 0 wine, 1 beer taps, 2 cheese board
+    P(g, 0, 8, 16, 4, '#a8703a'); P(g, 0, 8, 16, 1, '#e0a868'); P(g, 0, 9, 16, 1, '#c8904a'); P(g, 0, 11, 16, 1, '#5a3418');
+    P(g, 0, 12, 16, 10, '#7a4a28');
+    for (const i of [1, 9]) { P(g, i, 13, 6, 6, '#8a5530'); P(g, i, 13, 6, 1, '#a8703a'); P(g, i, 13, 1, 6, '#a06a3a'); P(g, i, 18, 6, 1, '#5a3418'); P(g, i + 5, 13, 1, 6, '#5a3418'); }
+    P(g, 0, 19, 16, 1, '#ffe48a'); P(g, 0, 20, 16, 1, '#e0b030'); P(g, 0, 21, 16, 1, '#9a7410'); P(g, 3, 21, 1, 1, '#5a4410'); P(g, 12, 21, 1, 1, '#5a4410');
+    P(g, 0, 22, 16, 2, '#3a2414');
+    if (f === 1) { P(g, 2, 3, 12, 2, '#c8c8d0'); P(g, 2, 3, 12, 1, '#eef0f4'); for (const [x, c] of [[3, '#f2c230'], [7, '#e23a2e'], [11, '#2e7de2']]) { P(g, x, 0, 2, 3, c); P(g, x, 0, 1, 1, shade(c, 0.4)); P(g, x, 5, 1, 2, '#8a929e'); }
+      P(g, 2, 7, 12, 1, '#4a4f58'); P(g, 13, 4, 2, 3, '#f8d860'); P(g, 13, 4, 2, 1, '#ffffff'); }
+    else if (f === 2) { P(g, 2, 5, 12, 3, '#c8904a'); P(g, 2, 5, 12, 1, '#e0b070'); P(g, 2, 7, 12, 1, '#8a5a30'); P(g, 3, 3, 4, 2, '#f6d040'); P(g, 4, 2, 3, 1, '#f6d040'); P(g, 5, 3, 1, 1, '#d8a828');
+      disc(g, 11, 4, 1.2, '#7a2a8a'); disc(g, 12.5, 3.5, 1.1, '#8a3a9a'); P(g, 11, 3, 1, 1, '#c8a0d8'); P(g, 8, 4, 2, 1, '#e8c890'); P(g, 8, 3, 2, 1, '#f0d8a8'); }
+    else { g.globalAlpha = 0.7; P(g, 3, 2, 4, 3, '#f4f8fc'); g.globalAlpha = 1; P(g, 3, 4, 4, 1, '#8a1a30'); P(g, 3, 2, 1, 1, '#ffffff'); P(g, 4, 5, 2, 2, '#d8d8e0'); P(g, 3, 7, 4, 1, '#d8d8e0');
+      P(g, 10, 2, 2, 2, '#2c4a28'); P(g, 9, 4, 4, 4, '#2c4a28'); P(g, 9, 5, 4, 2, '#f0e0c0'); P(g, 10, 5, 2, 1, '#8a1a2a'); P(g, 10, 1, 2, 1, '#8a1a2a'); P(g, 9, 4, 1, 3, '#4a6a44'); }
   }, true],
   stool: [16, 16, (g) => { P(g, 7, 7, 2, 8, '#b8c0ca'); P(g, 4, 14, 8, 1, '#b8c0ca'); oval(g, 8, 6, 5, 3, '#c8282a'); oval(g, 8, 5, 4, 2, '#e84a4a'); }, true],
   infodesk: [16, 24, (g) => { P(g, 0, 10, 16, 14, '#2e7d3b'); P(g, 0, 10, 16, 2, '#4aa858'); P(g, 0, 22, 16, 2, '#1e4a26'); disc(g, 8, 17, 4, '#f2c230'); P(g, 7, 14, 2, 1, '#2e7d3b'); P(g, 7, 16, 2, 4, '#2e7d3b'); P(g, 6, 16, 1, 1, '#2e7d3b'); P(g, 6, 19, 4, 1, '#2e7d3b'); }, true],
@@ -550,6 +600,42 @@ const PROPS = {
   }, true],
   dock: [16, 24, (g) => { P(g, 0, 0, 16, 24, '#6a6f78'); P(g, 1, 1, 14, 22, '#8a909a'); for (let i = 3; i < 23; i += 3) P(g, 1, i, 14, 1, '#7a808a'); P(g, 6, 18, 4, 2, '#f2c230'); }, true],
 };
+// register (16x34): numbered lane light on a pole (lit when the lane is open), monitor, scanner with a red laser, impulse rack
+function registerSprite(lane, open, f) {
+  return spr(`reg_${lane}_${open ? 1 : 0}_${f}`, 16, 34, g => {
+    const n = lane === 5 ? 'Q' : String(lane + 1);
+    P(g, 3, 8, 1, 13, '#6a6f78'); P(g, 4, 8, 1, 13, '#4a4f58');
+    P(g, 0, 0, 9, 8, '#2a2a32'); P(g, 1, 1, 7, 6, open ? (f ? '#fff6a0' : '#ffe14d') : '#5a5a62'); P(g, 1, 1, 7, 1, open ? '#fffbe0' : '#6a6a72');
+    pxText(g, n, 1 + Math.floor((7 - glyphW(n)) / 2), 2, open ? '#2a1d22' : '#33333b');
+    // monitor on its stand, a receipt curling out of the printer
+    P(g, 6, 11, 9, 7, '#d8d0b8'); P(g, 6, 11, 9, 1, '#f0ead8'); P(g, 14, 11, 1, 7, '#a8a090'); P(g, 7, 12, 7, 4, open ? '#1e3a2a' : '#2a2a30');
+    if (open) { P(g, 8, 13, 4, 1, '#7aff9a'); P(g, 8, 14, 2, 1, '#7aff9a'); P(g, 11, 14, 2, 1, '#ffe14d'); }
+    P(g, 10, 18, 2, 2, '#6a6f78'); P(g, 1, 17, 3, 3, '#f4f4f0'); P(g, 1, 16, 3, 1, '#ffffff'); P(g, 1, 19, 3, 1, '#c8c8c4');
+    // cabinet top: scanner glass with the laser, keypad
+    P(g, 0, 20, 16, 4, '#c9d0d8'); P(g, 0, 20, 16, 1, '#eef2f6'); P(g, 1, 21, 8, 2, '#1e1e24'); if (open) P(g, 2, 22, 6, 1, f ? '#ff3a3a' : '#c82020');
+    P(g, 10, 21, 5, 2, '#4a4a54'); for (let i = 0; i < 4; i++) P(g, 10 + i + (i > 1 ? 1 : 0), 21 + (i % 2), 1, 1, '#c8c8d0');
+    // body + gum and candy rack
+    P(g, 0, 24, 16, 10, '#9aa3ad'); P(g, 0, 24, 16, 1, '#c9d0d8'); P(g, 15, 24, 1, 10, '#7a828e');
+    P(g, 1, 25, 14, 6, '#e23a2e'); P(g, 1, 25, 14, 1, '#ff6a5a'); const r = mkRng(lane * 7 + 3);
+    for (let i = 2; i < 14; i += 3) { P(g, i, 26, 2, 2, pick(r, ['#ffd23f', '#3ac0ff', '#5ee07a', '#ff8fc0'])); P(g, i, 29, 2, 1, pick(r, ['#ffffff', '#f2c230', '#2e7de2'])); }
+    P(g, 0, 32, 16, 2, '#6a737e');
+  }, true);
+}
+// conveyor counter in front of a register (16x24): black belt with ridges, a few groceries, a divider bar
+function beltSprite(lane, f) {
+  return spr(`belt_${lane}_${f}`, 16, 24, g => {
+    P(g, 0, 8, 16, 16, '#8a929e'); P(g, 0, 8, 16, 6, '#c9d0d8'); P(g, 0, 8, 16, 1, '#eef2f6');
+    P(g, 1, 9, 14, 4, '#26262c'); for (let x = (f % 3); x < 14; x += 3) P(g, 1 + x, 9, 1, 4, '#34343c');
+    const r = mkRng(lane * 31 + 5);
+    if (r() < 0.8) { const c = pick(r, ['#e23a2e', '#2e7de2', '#f2c230', '#2fa84f']); P(g, 3, 6, 3, 5, c); P(g, 3, 6, 3, 1, shade(c, 0.4)); P(g, 3, 8, 3, 1, '#ffffff'); }
+    if (r() < 0.7) { P(g, 8, 8, 2, 3, '#c8ccd2'); P(g, 8, 8, 2, 1, '#eef2f6'); P(g, 8, 9, 2, 1, pick(r, ['#e23a2e', '#2fa84f'])); }
+    if (r() < 0.5) { P(g, 11, 9, 3, 1, '#f2d23a'); P(g, 12, 8, 2, 1, '#f2d23a'); P(g, 11, 9, 1, 1, '#6a4a1a'); }
+    P(g, 6, 12, 5, 1, '#e8e0c8');
+    // the counter under the belt keeps the old warm wood
+    P(g, 0, 14, 16, 10, '#b88a55'); P(g, 0, 14, 16, 1, '#d8aa75'); P(g, 0, 17, 16, 1, '#8a5a30'); for (const x of [2, 9]) { P(g, x, 18, 5, 3, '#a87a48'); P(g, x, 18, 5, 1, '#8a5a30'); }
+    P(g, 0, 22, 16, 2, '#6a4422');
+  }, true);
+}
 // car top-down 16x24
 function carSprite(col) {
   return spr('car_' + col, 16, 26, g => {

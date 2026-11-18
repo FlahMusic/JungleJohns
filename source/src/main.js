@@ -4,7 +4,9 @@ function beginGame(cont) {
   if (!(cont && load())) { newState(); try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
   AU.musicOn = ST.settings.music; AU.sfxOn = ST.settings.sfx;
   buildWorld(ST.ups); buildNight(); startDay(); MUSIC.setDay(ST.day); RT.menu = null; document.body.classList.remove('inmenu'); $('#menu').style.display = 'none'; RT.paused = false; $('#hud').style.display = 'block';
-  if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. we need ${fmtMoney(dayGoal())} today. everybody with a yellow ! over their head has a job for you, and every job pays. make the money, then close up by the clock. monday to friday. go get 'em.`, null, 'J opens the quest log. The stock room is behind the bakery.');
+  const resumed = cont && restoreMid();
+  if (resumed) toast(`Back to ${weekday()}, week ${weekNo()}. ${fmtMoney(earnedToday())} of ${fmtMoney(dayGoal())} made so far.`);
+  else if (!cont || ST.day === 1) showDialog(CONFIG.cashierName, `morning boss. we need ${fmtMoney(dayGoal())} today. everybody with a yellow ! over their head has a job for you, and every job pays. make the money, then close up by the clock. monday to friday. go get 'em.`, null, 'J opens the quest log. The stock room is behind the bakery.');
   else toast(`Welcome back. ${weekday()}, week ${weekNo()}. Goal today: ${fmtMoney(dayGoal())}.`);
 }
 const VK = { x: 0, y: 0 };
@@ -27,6 +29,7 @@ function bindInput() {
   addEventListener('keyup', e => { KEYS[e.code] = false; });
   addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
   addEventListener('resize', resize);
+  addEventListener('pagehide', saveMid); document.addEventListener('visibilitychange', () => { if (document.hidden) saveMid(); });
   // touch
   if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     $('#touch').style.display = 'block'; const pad = $('#t-pad'), knob = $('#t-knob'); let id = null, ox = 0, oy = 0;

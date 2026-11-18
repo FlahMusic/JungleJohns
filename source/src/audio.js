@@ -39,7 +39,7 @@ function musicStart() {
 // tests/mzone.py checks every pair of departments you can walk between is at most one note apart.
 const ZONE_SONG = {
   produce: 'fresh', natural: 'fresh', bakery: 'counter', meat: 'counter', frozen: 'frozen', candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy',
-  europe: 'europe', eurosouth: 'europe', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'americas',
+  europe: 'europe', eurosouth: 'med', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'mercado',
   hotsauce: 'hot', intl: 'souk', seafood: 'harbor', honey: 'herb', herb: 'herb', tiktok: 'viral',
   wine: 'lounge', liquor: 'lounge', cigars: 'lounge', tasting: 'lounge', cheese: 'bistro', tenants: 'bistro', deli: 'bistro', beer: 'beerhall', sushi: 'sushi',
 };
@@ -62,6 +62,7 @@ function musicTick() { // pick the song from where you are; music.js gets there 
     else if (stock) s = 'stock';
     else if (outdoor) s = ST.weather === 'rain' ? 'rain' : 'outside';
     else s = AU.zone || 'market';
+    if (RT.room && ROOMS[RT.room]) s = ROOMS[RT.room].song;
     if (RT.dayT < 40) moods.push('morning'); // the store just opened
     if (ST.weather === 'rain') moods.push('rain');
     if (eventToday()) moods.push('fest');

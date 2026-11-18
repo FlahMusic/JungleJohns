@@ -3,7 +3,10 @@ JUNGLE JOHN'S
 PLAY
   Double-click jungle-johns.html. It opens in your browser. Nothing to install.
   Each workday (Mon-Fri) has a money goal. Make it, then click the clock
-  (or "Close up for the night") to end the day. Saves at the end of each day.
+  (or "Close up for the night") to end the day. Saves every 15 seconds and
+  when you quit or close the tab; Continue picks up mid-day.
+  Lots of things in the store do something when you face them and press Space.
+  There are 16 secrets and three rooms to find. The quest log (J) lists them.
   Staff with a yellow ! have a job. Yellow ? = job done, go get paid
   (the yellow arrow at the screen edge points to them). J = quest log.
 
@@ -28,6 +31,7 @@ WHAT'S WHERE (source/src)
   world.js   store layout
   game.js    rules: customers, money, the day
   quests.js  the day's goal, side jobs, close up / night
+  fun.js     secrets, walk-in rooms, things to poke
   music.js   the generated music (built from Slimehedron)
   audio.js   sound effects + picks which music plays where
   render.js  drawing

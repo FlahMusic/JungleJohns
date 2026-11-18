@@ -26,9 +26,10 @@ function floatSprite(text, col) { return spr('fl_' + col + text, pxTextW(text) +
 // ===== the boss: original design, built for skating =====
 // pose: idle | glide | pushL | pushR | brake | walkL | walkR. dir: down | up | side. shoes: skates off
 const BOSS = { skin: '#f2c49a', hair: '#3a2414', shirt: '#2e9a4a', leaf: '#f2d23a', shorts: '#2a4a8a', boot: '#f6f6f2', stripe: '#e2342a', wheel: '#ffb21c', pad: '#e2342a', sole: '#3a3a40' };
-function bossSprite(dir, pose, carry, wheelF, shoes) {
-  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}_${shoes ? 1 : 0}`, 20, 31, g => {
-    g.translate(2, 4); const B = BOSS, sk = B.skin, sd = shade(sk, -0.18);
+const OUTFITS = { jumpsuit: { shirt: '#f6f6f2', leaf: '#e8c040', shorts: '#f6f6f2' } }; // from the rack in Elvis's dressing room
+function bossSprite(dir, pose, carry, wheelF, shoes, outfit) {
+  return spr(`boss_${dir}_${pose}_${carry ? 1 : 0}_${wheelF}_${shoes ? 1 : 0}_${outfit || ''}`, 20, 31, g => {
+    g.translate(2, 4); const B = outfit ? { ...BOSS, ...OUTFITS[outfit] } : BOSS, sk = B.skin, sd = shade(sk, -0.18);
     const crouch = pose === 'glide' || pose === 'brake' ? 1 : 0; const lean = dir === 'side' && pose !== 'idle' && !shoes ? 1 : 0;
     const wcol = wheelF ? B.wheel : shade(B.wheel, -0.25);
     const skate = shoes ? (x, y, w) => { P(g, x, y, w, 2, B.boot); P(g, x, y + 1, w, 1, B.stripe); P(g, x, y + 2, w, 1, B.sole); }

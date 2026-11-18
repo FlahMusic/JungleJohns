@@ -24,7 +24,11 @@ with sync_playwright() as p:
     pg.keyboard.press('Space')
     n=E("Q('gus').n"); check('Space accepts it; marker turns to a grey ?', E("Q('gus').state")=='active' and E("giverMarker(Q('gus').g)")=='grey?', n)
     E("step(35)")
-    crowd=E("RT.custs.filter(c=>c.type!=='kid' && inZone(c,['cheese']) && !(c.sampled&&c.sampled[Q('gus').key])).length")
+    # people are walking in, so count for up to 15 more seconds before calling it
+    for _ in range(15):
+        crowd=E("RT.custs.filter(c=>c.type!=='kid' && inZone(c,['cheese']) && !(c.sampled&&c.sampled[Q('gus').key])).length")
+        if crowd>=min(n,10): break
+        E("step(1)")
     check(f'the Cheese Shop fills up with people to sample (want {min(n,10)})', crowd>=min(n,10), crowd)
     gave=0
     for i in range(80):
@@ -48,7 +52,10 @@ with sync_playwright() as p:
     pg.keyboard.press('Space'); pg.keyboard.press('Space')
     # --- other job types ---
     E("acceptQuest(Q('trixie')); step(45)")
-    kids=E("RT.custs.filter(c=>c.type==='kid' && inZone(c,Q('trixie').def.zones)).length")
+    for _ in range(15):
+        kids=E("RT.custs.filter(c=>c.type==='kid' && inZone(c,Q('trixie').def.zones)).length")
+        if kids>=min(E("Q('trixie').n"),10): break
+        E("step(1)")
     check('a kids-only job brings families to Candy', kids>=min(E("Q('trixie').n"),10), kids)
     adult=E("(()=>{ const c=RT.custs.find(c=>c.type!=='kid' && inZone(c,Q('trixie').def.zones)); return c ? canSample(c,Q('trixie')) : 'none'; })()")
     check('adults cannot get a lollipop', adult in (False,'none'), adult)

@@ -23,7 +23,7 @@ function updateUI(dt) {
   const st = stars(); setText('h-stars', '★'.repeat(st) + '<span class="dim">' + '★'.repeat(5 - st) + '</span>');
   const e = $('#h-energy i'); if (e) { e.style.width = Math.round(ST.energy) + '%'; e.style.background = ST.energy < 25 ? '#ff5a4a' : '#7dd35a'; }
   TOOLS.forEach((t, i) => { const el = document.getElementById('tool' + i); if (el) el.classList.toggle('on', PL.tool === i); });
-  setText('h-tool', TOOLS[PL.tool].name + (PL.walk ? '<br><small>walking (R for skates)</small>' : '') + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : ''));
+  setText('h-tool', TOOLS[PL.tool].name + (PL.walk ? '<br><small>walking (R for skates)</small>' : '') + (PL.carry.length ? `<br><small>carrying ${PL.carry.map(k => CRATES[k].name).join(', ')}</small>` : '') + (F().items.todd ? '<br><small>carrying Todd</small>' : '') + (F().items.plunger ? '<br><small>carrying the Golden Plunger</small>' : '') + (PL.outfit ? '<br><small>in a jumpsuit</small>' : ''));
   // prompt
   let p = ''; if (flashMsg) p = flashMsg.text; else if (RT.target && RT.target.label) p = typo(RT.target.label); const hint = currentHint();
   setText('prompt', p ? `<b>${p}</b>` : ''); $('#prompt').style.display = p ? 'block' : 'none';
@@ -83,7 +83,7 @@ function bindMenu() {
   on('g-keep', () => closeMenu()); on('g-close', () => { closeMenu(); closeUp(); });
   on('m-cat', () => { UI.fromReport = true; openMenu('catalog'); });
   on('m-resume', () => closeMenu()); on('m-journal', () => openMenu('journal')); on('m-map', () => openMenu('map'));
-  on('m-quit', () => { save(); location.reload(); });
+  on('m-quit', () => { closeMenu(); saveMid(); location.reload(); });
   on('s-clean', () => { ST.settings.clean = !ST.settings.clean; openMenu('pause'); });
   on('s-music', () => { ST.settings.music = !ST.settings.music; AU.musicOn = ST.settings.music; openMenu('pause'); });
   on('s-sfx', () => { ST.settings.sfx = !ST.settings.sfx; AU.sfxOn = ST.settings.sfx; openMenu('pause'); });
@@ -163,8 +163,8 @@ function titleHTML() {
   <p class="small">WASD / arrows to skate. R takes skates off to walk. Space to do stuff. 1-4 swap tools. M for the map. Esc pauses.</p>`;
 }
 function drawMap() {
-  const c = $('#mapc'); const maxW = Math.min(innerWidth - 80, 1100), maxH = innerHeight - 200; const sc = Math.min(maxW / (MW * T), maxH / (MH * T)); c.width = MW * T * sc; c.height = MH * T * sc;
-  const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(W.groundCanvas, 0, 0, c.width, c.height);
+  const c = $('#mapc'); const maxW = Math.min(innerWidth - 80, 1100), maxH = innerHeight - 200; const sc = Math.min(maxW / (SW * T), maxH / (MH * T)); c.width = SW * T * sc; c.height = MH * T * sc;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(W.groundCanvas, 0, 0, SW * T, MH * T, 0, 0, c.width, c.height);
   g.fillStyle = 'rgba(30,30,40,0.55)'; W.objs.forEach(o => { if (['tree', 'lamp', 'giraffe', 'rhino', 'billboard'].includes(o.type)) return; g.fillRect(o.x * T * sc, o.y * T * sc, o.w * T * sc, o.h * T * sc); });
   g.textAlign = 'center'; g.textBaseline = 'middle';
   DEPTS.forEach(d => { const open = deptOpen(d); const low = d.max && open && fill(d.id) < 0.15; const x = (d.x + d.w / 2) * T * sc, y = (d.y + d.h / 2) * T * sc; g.font = `${Math.max(10, 13 * sc * 1.6)}px VT323, monospace`; const nm = d.name.replace('International: ', ''); const w = g.measureText(nm).width + 8; g.fillStyle = !open ? 'rgba(120,90,50,0.9)' : low ? 'rgba(168,42,32,0.95)' : 'rgba(31,106,48,0.92)'; g.fillRect(x - w / 2, y - 9, w, 18); g.fillStyle = '#ffe14d'; g.fillText(nm, x, y + 1);

@@ -32,7 +32,7 @@ function addMoney(n, x, y) { ST.money += n; if (x !== undefined && n !== 0) floa
 function addRep(n) { ST.rep = Math.max(0, Math.min(100, ST.rep + n)); RT.day.repDelta += n; }
 function crateCost(type) { const ds = DEPTS.filter(d => d.crate === type); const p = ds.reduce((a, d) => a + d.price, 0) / Math.max(1, ds.length); return Math.round(CRATES[type].units * p * 0.5); }
 function carryCap() { return ST.ups.pallet ? 3 : ST.ups.dolly ? 2 : 1; }
-function maxSpeed() { return 72 * (ST.ups.skates3 ? 1.6 : ST.ups.skates2 ? 1.3 : 1); }
+function maxSpeed() { return 72 * (ST.ups.skates3 ? 1.6 : ST.ups.skates2 ? 1.3 : 1) * (RT.beesT > 0 ? 1.35 : 1); }
 const WALK_SPEED = 44; // skates off (R)
 function toggleSkates() { PL.walk = !PL.walk; PL.vx = PL.vy = 0; }
 function deptOpen(d) { return d && (!d.lock || ST.ups[d.lock]); }
@@ -50,15 +50,15 @@ function startDay() {
   PL.x = W.spots.start[0] * T; PL.y = W.spots.start[1] * T; PL.vx = PL.vy = 0; PL.dir = 'down';
   Object.keys(ANIMS).forEach(k => { ST.anims[k] = ST.anims[k] || { broken: false, fix: 0 }; ST.anims[k].fix = 0; });
   ST.monorailBroken = false;
-  setupStaff(); buildQuests();
+  setupStaff(); buildQuests(); resetFunDay();
   // the store opens with people already shopping, somewhere different every day
   for (let i = 0; i < 14; i++) spawnInside();
 }
 function setupStaff() {
   RT.staff = [];
-  const names = [CONFIG.cashierName, 'Gary', 'Marcus', 'Bev', 'Tyler'], ups = ['', '', 'cashier1', 'cashier2', 'cashier3'];
+  const names = [CONFIG.cashierName, 'Gary', 'Marcus', 'Bev', 'Tyler', 'Earl'], ups = ['', '', 'cashier1', 'cashier2', 'cashier3', 'cashierQ'];
   W.lanes.forEach(l => l.staff = null);
-  ups.forEach((u, i) => { if (!u || ST.ups[u]) { const l = W.lanes[i]; const look = randomLook(mkRng(i * 911 + 7), i === 0 ? 'old' : 'adult'); look.shirt = '#2e7d3b'; look.key = 'cashier' + i; const s = { kind: 'cashier', name: names[i], look, x: (l.cash[0] + 0.5) * T, y: (l.cash[1] + 0.7) * T, dir: 'side', flip: false, lane: l }; l.staff = s; RT.staff.push(s); } });
+  ups.forEach((u, i) => { if (!u || ST.ups[u]) { const l = W.lanes[i]; if (!l) return; const look = randomLook(mkRng(i * 911 + 7), i === 0 ? 'old' : 'adult'); look.shirt = '#2e7d3b'; look.key = 'cashier' + i; const s = { kind: 'cashier', name: names[i], look, x: (l.cash[0] + 0.5) * T, y: (l.cash[1] + 0.7) * T, dir: 'side', flip: false, lane: l }; l.staff = s; RT.staff.push(s); } });
   const walker = (kind, name, shirt, i) => { const look = randomLook(mkRng(kind.length * 33 + i), 'adult'); look.shirt = shirt; look.key = 'st_' + kind + i; RT.staff.push({ kind, name, look, x: (W.spots.stockDoor[0] + i) * T, y: W.spots.stockDoor[1] * T, dir: 'down', state: 'idle', timer: 3 + i * 20, carry: null, path: null }); };
   if (ST.ups.stocker) walker('stocker', 'Ray', '#3d6fd1', 0);
   if (ST.ups.stocker2) walker('stocker', 'Nina', '#3d6fd1', 1);
@@ -88,7 +88,7 @@ function spawnInside() { // a shopper already in the store: parked car outside, 
   c.x = (t[0] + 0.5) * T; c.y = (t[1] + 0.7) * T; c.path = null; if (c.kid) { c.kid.x = c.x - 6; c.kid.y = c.y; } nextTask(c);
 }
 function mkCust(type, car, door) {
-  const look = randomLook(Math.random, type); const c = { id: RT.nextId++, type, look, x: car.x, y: car.y + 10, dir: 'down', frame: 0, anim: 0, state: 'toStore', path: null, pi: 0, mood: 62 + Math.random() * 10, items: 0, spend: 0, list: [], car, door, bubble: null, lostDone: false, wait: 0, timer: 0, speed: type === 'old' ? 36 : type === 'kid' ? 56 : 46 + Math.random() * 10, seen: {}, hist: [] };
+  const look = randomLook(Math.random, type, true); const c = { id: RT.nextId++, type, look, x: car.x, y: car.y + 10, dir: 'down', frame: 0, anim: 0, state: 'toStore', path: null, pi: 0, mood: 62 + Math.random() * 10, items: 0, spend: 0, list: [], car, door, bubble: null, lostDone: false, wait: 0, timer: 0, speed: type === 'old' ? 36 : type === 'kid' ? 56 : 46 + Math.random() * 10, seen: {}, hist: [] };
   RT.custs.push(c); const tgt = door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; goTo(c, tgt[0], tgt[1]); return c;
 }
 function goTo(e, tx, ty) { const p = findPath(e.x / T, e.y / T - 0.2, tx, ty); e.path = p; e.pi = 1; e.goal = [tx, ty]; if (!p) { e.path = [[Math.floor(tx), Math.floor(ty)]]; e.pi = 0; } return !!p; }
@@ -124,13 +124,16 @@ function makeLost(c, id) {
   c.lostItem = pick(Math.random, DEPT[id].items || [DEPT[id].name]); bubble(c, '?', 999, 'q');
 }
 function laneOpen(l) { return !!l.staff || (PL.onCash === l); }
+const QUICK_MAX = 5; // quick trips lane: 5 items or less
 function joinLane(c) {
-  const open = W.lanes.filter(l => laneOpen(l) && l.queue.length < l.q.length + 2); if (!open.length) { c.state = 'waitLane'; c.timer = 2; return; }
-  open.sort((a, b) => a.queue.length - b.queue.length); const l = open[0]; l.queue.push(c); c.lane = l; c.state = 'queue'; c.wait = 0; c.scanned = 0; queueMove(l);
+  const open = W.lanes.filter(l => laneOpen(l) && l.queue.length < l.q.length + 2 && (!l.quick || c.items <= QUICK_MAX)); if (!open.length) { c.state = 'waitLane'; c.timer = 2; return; }
+  // shortest line wins, a long walk counts against it, and people who came in the side door like the quick lane by it
+  const cost = l => l.queue.length + Math.hypot(l.pay[0] - c.x / T, l.pay[1] - c.y / T) / 12 - (l.quick && c.door === 'side' ? 1.5 : 0);
+  open.sort((a, b) => cost(a) - cost(b)); const l = open[0]; l.queue.push(c); c.lane = l; c.state = 'queue'; c.wait = 0; c.scanned = 0; queueMove(l);
 }
 function queueMove(l) { l.queue.forEach((c, i) => { const q = l.q[Math.min(i, l.q.length - 1)]; c.qi = i; if (!c.qgoal || c.qgoal[0] !== q[0] || c.qgoal[1] !== q[1]) { c.qgoal = q; goTo(c, q[0] + 0.5, q[1] + 0.7 - (i >= l.q.length ? 0.35 : 0)); } }); }
 function leaveStore(c) {
-  c.state = 'leaving'; const out = c.items > 0 ? W.spots.exitIn : c.door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; c.state = 'walk'; c.then = 'exit'; goTo(c, out[0], out[1]);
+  c.state = 'leaving'; const out = c.paidQuick || (c.items <= 0 && c.door === 'side') ? W.spots.sideDoorIn : c.items > 0 ? W.spots.exitIn : W.spots.mainDoorIn; c.state = 'walk'; c.then = 'exit'; goTo(c, out[0], out[1]);
   if (c.stool) { c.stool.cust = null; c.stool = null; }
 }
 function finishCust(c) {
@@ -224,7 +227,7 @@ function updateLanes(dt) {
 }
 function pay(c, l) {
   const amt = Math.round(c.spend * 100) / 100; ST.money += amt; RT.day.sales += amt; ST.totals.sales += amt; RT.day.served++; ST.totals.served++; floatText(c.x, c.y - 28, '+' + fmtMoney(amt), '#7dff7a'); if (onScreen(c.x, c.y)) sfx('cash');
-  l.queue.shift(); l.progress = 0; queueMove(l); c.lane = null; leaveStore(c);
+  l.queue.shift(); l.progress = 0; queueMove(l); c.lane = null; c.paidQuick = !!l.quick; leaveStore(c);
 }
 function playerScan() {
   const l = PL.onCash; if (!l) return false; const c = l.queue[0];
@@ -247,6 +250,7 @@ function updateDay(dt) {
   ST.cheeseTemp += dt * 0.06; if (ST.cheeseTemp > 45) { if (!RT.cheeseAlarm) { RT.cheeseAlarm = true; toast('The Big Cheese cooler is too warm. Go check it.', 'warn'); sfx('alarm'); } addRep(-dt * 0.02); } else RT.cheeseAlarm = false;
   if (eventToday()) { const empty = DEPTS.some(d => d.max && deptOpen(d) && ST.stock[d.id] <= 0); if (empty) RT.day.emptyDuringFest = true; }
   RT.evT += dt; if (RT.evT >= 40) { RT.evT = 0; storeTick(); }
+  RT.midT = (RT.midT || 0) + dt; if (RT.midT >= 15) { RT.midT = 0; saveMid(); }
   questCrowd(dt); questTrouble(dt); checkDayGoal();
   // somebody on screen says something now and then
   if ((RT.chatT -= dt) <= 0) { RT.chatT = 5 + Math.random() * 6; const cs = RT.custs.filter(c => !c.bubble && c.state !== 'lost' && onScreen(c.x, c.y)); if (cs.length) { const c = pick(Math.random, cs); bubble(c, c.type === 'kid' ? line('kid') : Math.random() < 0.5 ? pick(Math.random, CHATTER) : line(c.type === 'old' ? 'old' : 'adult'), 4); } }
@@ -258,9 +262,9 @@ function storeTick() { // every 40 s: things break, rain drips in, Elvis sings, 
   if (ST.ups.monorail && !ST.monorailBroken && (weekday() === 'Fri' || eventToday())) { const riders = 8 + Math.floor(Math.random() * 10); RT.day.extra += riders * 3; ST.money += riders * 3; addRep(0.4); }
 }
 function startElvis(byPlayer) {
-  if (RT.elvisT > 0) return false; RT.elvisT = 9; if (onScreen(W.spots.elvis[0] * T, W.spots.elvis[1] * T) || byPlayer) sfx('elvis');
+  if (RT.elvisT > 0) return false; RT.elvisT = F().found.honey ? 14 : 9; if (onScreen(W.spots.elvis[0] * T, W.spots.elvis[1] * T) || byPlayer) sfx('elvis');
   RT.custs.forEach(c => { const d = Math.hypot(c.x / T - W.spots.elvis[0], c.y / T - W.spots.elvis[1]); if (d < 7) { moodHit(c, c.type === 'kid' ? 10 : 5); } });
-  if (byPlayer) questEvent('elvis'); return true;
+  if (byPlayer) { questEvent('elvis'); if (RT.fun) RT.fun.elvisSang++; } return true;
 }
 // ---------- staff AI ----------
 function updateStaff(dt) {
@@ -361,18 +365,19 @@ function targetInfo() {
   }
   if (best && best.kind) return { act: 'talkStaff', s: best, label: `Space: talk to ${best.name}` };
   if (!o) return spill && tool !== 'mop' ? { label: 'Spill here. Switch to the mop (2).' } : null;
+  const fi = RT.fun && funInfo(o, tool); if (fi) return fi;
   const dept = o.dept ? DEPT[o.dept] : null;
   if (o.type === 'pallet') { const cost = crateCost(o.crate); if (tool !== 'hands') return { label: 'Switch to hands (1) to grab crates' }; if (PL.carry.length && PL.carry[PL.carry.length - 1] === o.crate) return { act: 'return', o, label: `Space: put back ${CRATES[o.crate].name} crate (refund)` }; if (PL.carry.length >= carryCap()) return { label: `Hands full (${carryCap()} max)` }; return { act: 'grab', o, label: `Space: grab ${CRATES[o.crate].name} crate (${fmtMoney(cost)})` }; }
   if (dept && dept.max) {
     const lbl = `${dept.name}: ${ST.stock[dept.id]}/${dept.max}`;
     if (PL.carry.length) { const i = PL.carry.indexOf(dept.crate); if (i >= 0) return { act: 'stock', o, dept, i, label: `Space: restock ${dept.name} (${ST.stock[dept.id]}/${dept.max})` }; return { label: `${lbl}. Needs a ${CRATES[dept.crate].name} crate.` }; }
     if (o.type === 'tank') { if (tool === 'food') return { act: 'feed', o, label: ST.fedToday ? 'Fish are full' : 'Space: feed the tanks' }; return { label: ST.fedToday ? 'Live tanks (fed)' : 'Live tanks are hungry. Fish food is tool 4.' }; }
-    if (o.type === 'bigcheese') return cheeseInfo(tool);
+    if (o.type === 'bigcheese') return cheeseInfo(tool, o);
     if (o.anim && ST.anims[o.anim] && ST.anims[o.anim].broken) return animInfo(o, tool);
     return { label: lbl + (ST.stock[dept.id] < dept.max * 0.3 ? ` - low! grab a ${CRATES[dept.crate].name} crate` : '') };
   }
   if (o.type === 'tank') { if (tool === 'food') return { act: 'feed', o, label: ST.fedToday ? 'Fish are full' : 'Space: feed the tanks' }; return { label: ST.fedToday ? 'Live tanks (fed)' : 'Live tanks are hungry. Fish food is tool 4.' }; }
-  if (o.type === 'bigcheese') return cheeseInfo(tool);
+  if (o.type === 'bigcheese') return cheeseInfo(tool, o);
   if (o.anim) return animInfo(o, tool);
   if (o.type === 'desk') return { act: 'computer', label: 'Space: use the computer (catalog)' };
   if (o.type === 'couch') return { act: 'sleep', label: RT.goalHit ? 'Space: close up for the night' : `Couch. Make ${fmtMoney(goalLeft())} more before closing up` };
@@ -382,7 +387,7 @@ function targetInfo() {
   if (o.type === 'register') return { label: 'Stand on the left side of a register to work it' };
   return null;
 }
-function cheeseInfo(tool) { return { act: 'cheese', label: `Big Cheese cooler: ${Math.round(ST.cheeseTemp)}°F. Space: crank the cold` + (ST.cheeseTemp > 45 ? ' NOW' : '') }; }
+function cheeseInfo(tool, o) { return { act: 'cheese', o, label: `Big Cheese cooler: ${Math.round(ST.cheeseTemp)}°F. Space: crank the cold` + (ST.cheeseTemp > 45 ? ' NOW' : '') }; }
 function animInfo(o, tool) { const a = ST.anims[o.anim]; const nm = ANIMS[o.anim].name; if (!a.broken) { if (o.anim === 'elvis') return { act: 'elvis', label: 'Space: make Elvis sing' }; return { label: nm[0].toUpperCase() + nm.slice(1) }; } if (tool !== 'wrench') return { label: `${nm} is broken. Wrench is tool 3.` }; return { act: 'fix', o, label: `Space: fix ${nm} (${a.fix}/4)` }; }
 
 function doAction() {
@@ -395,16 +400,21 @@ function doAction() {
     case 'grab': { const c = crateCost(t.o.crate); if (ST.money < c) { sfx('err'); flash('Not enough money for that crate'); return; } ST.money -= c; RT.day.wholesale += c; PL.carry.push(t.o.crate); sfx('pick'); cost(1.5); floatText(PL.x, PL.y - 30, '-' + fmtMoney(c), '#ff8a7a'); hint('grabbed'); break; }
     case 'return': { const c = crateCost(t.o.crate); PL.carry.pop(); ST.money += c; RT.day.wholesale -= c; sfx('pick'); break; }
     case 'stock': { const d = t.dept; PL.carry.splice(t.i, 1); ST.stock[d.id] = Math.min(d.max, ST.stock[d.id] + CRATES[d.crate].units); sfx('stock'); cost(1.5); questEvent('stock', d.id); sparkle(t.o.x * T + 8, t.o.y * T); floatText(PL.x, PL.y - 30, d.name + ' restocked', '#9fe8ff'); hint('stocked'); break; }
-    case 'mop': { t.spill.hp -= ST.ups.mop2 ? 3 : 1; sfx('mop'); cost(1); if (t.spill.hp <= 0) { RT.spills.splice(RT.spills.indexOf(t.spill), 1); sparkle(t.spill.x * T + 8, t.spill.y * T + 8); questEvent('mop'); } break; }
+    case 'mop': { t.spill.hp -= (ST.ups.mop2 || F().found.plunger) ? 3 : 1; sfx('mop'); cost(1); if (t.spill.hp <= 0) { RT.spills.splice(RT.spills.indexOf(t.spill), 1); sparkle(t.spill.x * T + 8, t.spill.y * T + 8); questEvent('mop'); } break; }
     case 'fix': { const a = ST.anims[t.o.anim]; a.fix++; sfx('clank'); cost(2); RT.parts.push({ x: t.o.x * T + 10, y: t.o.y * T, vx: (Math.random() - 0.5) * 40, vy: -40, t: 0.4, c: '#ffe14d' }); if (a.fix >= 4) { a.broken = false; a.fix = 0; sfx('good'); toast(`Fixed ${ANIMS[t.o.anim].name}.`); addRep(0.5); questEvent('fix'); } break; }
     case 'feed': { if (ST.fedToday) return; ST.fedToday = true; sfx('feed'); cost(1); questEvent('feed'); W.tanks.forEach(o => sparkle(o.x * T + 8, o.y * T + 4)); toast('Tanks fed. Happy fish.'); break; }
-    case 'cheese': { const warm = ST.cheeseTemp > 37; ST.cheeseTemp = 34; sfx('good'); cost(1); toast('Big Cheese cooler back to 34°F.'); if (warm) questEvent('cool'); else flash('Already cold. Give it a minute to warm up.'); break; }
+    case 'cheese': { const warm = ST.cheeseTemp > 37;
+      if (!warm) { // already cold: the case sounds hollow. crank it again quick and a panel opens onto the cheese cave
+        if (RT.fun && RT.dayT - RT.fun.hollowT < 4) { RT.fun.hollowT = -99; sfx('clank'); showDialog('The Big Cheese', 'you crank it again. something clunks. a panel under the case swings open. stone stairs go down. it smells like a cheese that went to college.', () => enterRoom('cave')); break; }
+        if (RT.fun) RT.fun.hollowT = RT.dayT; sfx('clank'); flash('Already cold. ...it sounds hollow in there.'); break; }
+      ST.cheeseTemp = 34; sfx('good'); cost(1); toast('Big Cheese cooler back to 34°F.'); questEvent('cool'); break; }
     case 'elvis': { if (!startElvis(true)) flash('He\'s catching his breath'); break; }
     case 'help': { const c = t.c; c.state = 'follow'; c.timer = 60; c.path = null; c.repath = 0; c.bubble = null; PL.escort = c; sfx('talk'); showDialog('Customer', line('lost').replace('{item}', c.lostItem), null, `They want ${c.lostItem}. Lead them to ${DEPT[c.cur].name}.`); break; }
     case 'pour': { const c = t.c; c.poured = true; c.timer = 5; c.bubble = null; moodHit(c, 12); addMoney(5, c.x, c.y - 28); RT.day.extra += 5; sfx('pour'); cost(0.5); bubble(c, line('poured'), 3); questEvent('pour'); if (Math.random() < 0.6) c.list.unshift(Math.random() < 0.6 ? 'wine' : 'beer'); break; }
-    case 'talk': { const c = t.c; sfx('talk'); const cat = c.type === 'kid' ? 'kid' : c.type === 'old' ? 'old' : 'adult'; bubble(c, line(cat), 4); if (!c.talked) { c.talked = true; moodHit(c, 3); } break; }
+    case 'talk': { const c = t.c; sfx('talk'); const cos = c.look && c.look.costume; if (cos) { bubble(c, funPick(COSTUME_LINES[cos]), 4); if (cos === 'banana') foundSecret('banana'); break; } const cat = c.type === 'kid' ? 'kid' : c.type === 'old' ? 'old' : 'adult'; bubble(c, line(cat), 4); if (!c.talked) { c.talked = true; moodHit(c, 3); } break; }
     case 'talkStaff': { sfx('talk'); showDialog(t.s.name, staffLine(t.s)); break; }
     case 'giver': talkGiver(t.g); break;
+    case 'fun': funAct(t); break;
     case 'sample': giveSample(t.c, t.q); cost(0.5); break;
     case 'computer': openMenu('catalog'); break;
     case 'sleep': trySleep(); break;
@@ -433,7 +443,7 @@ function endDay() {
   checkGoals();
   ST.weekEarned = (weekday() === 'Mon' ? 0 : ST.weekEarned || 0) + earnedToday();
   RT.report = { ...d, day: ST.day, wd: weekday(), week: weekNo(), goal: dayGoal(), earned: earnedToday(), weekEarned: ST.weekEarned, weekDone: weekday() === 'Fri', stars: stars(), quests: (RT.quests || []).map(q => ({ who: q.g.gv.name, text: questGoalText(q), done: q.state === 'done', reward: q.reward })) };
-  ST.day++; save(); openMenu('report');
+  ST.day++; ST.mid = null; save(); openMenu('report');
 }
 function checkGoals() {
   const done = (id, cond) => { if (!ST.goals[id] && cond) { ST.goals[id] = true; const g = GOALS.find(g => g.id === id); ST.money += g.reward; toast(`Goal done: ${g.text}. +${fmtMoney(g.reward)}`, 'good'); sfx('good'); if (id === 'stars5') RT.legend = true; } };
@@ -483,7 +493,7 @@ function update(dt) {
   if (RT.dialog || (RT.menu && RT.menu !== 'map')) { updateUI(dt); return; }
   const sub = 1;
   for (let i = 0; i < sub; i++) {
-    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt);
+    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt); updateFun(dt);
     for (let k = RT.custs.length - 1; k >= 0; k--) { const c = RT.custs[k]; if (c) updateCust(c, dt); }
     updateLanes(dt); updateStaff(dt); updateCars(dt);
     if (RT.elvisT > 0) { RT.elvisT -= dt; if (Math.random() < dt * 4) RT.parts.push({ x: W.spots.elvis[0] * T + (Math.random() - 0.5) * 20, y: (W.spots.elvis[1] - 3) * T, vx: (Math.random() - 0.5) * 20, vy: -25, t: 1.4, note: true, c: pick(Math.random, ['#ffe14d', '#ff8fc0', '#9ff0ff']) }); }
@@ -500,5 +510,24 @@ function update(dt) {
 // ---------- save / load ----------
 const SAVE_KEY = 'jungle-store-save-v1';
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(ST)); } catch (e) { } }
+// mid-day save: the day so far (money in, jobs and their progress, spills, where you stand). shoppers aren't saved;
+// a fresh crowd walks in when you continue. saved every 15 s, on quit, and when the tab is hidden or closed.
+const MID_KEEP = ['weather', 'fedToday', 'snacks', 'hype', 'filmed', 'tourney', 'cheeseTemp', 'energy', 'pa'];
+function saveMid() {
+  if (!RT.day || ST.phase !== 'day' || RT.menu === 'title' || RT.menu === 'report') return;
+  const keep = {}; MID_KEEP.forEach(k => keep[k] = ST[k]);
+  ST.mid = { day: ST.day, d: RT.day, q: (RT.quests || []).map(q => ({ id: q.g.gv.id, got: q.got, state: q.state })), goalHit: RT.goalHit, dayT: RT.dayT, keep,
+    pl: [PL.x, PL.y, PL.dir], spills: RT.spills.map(s => ({ x: s.x, y: s.y, kind: s.kind, hp: s.hp })), room: RT.room || null };
+  save();
+}
+function restoreMid() { // after startDay() on Continue: put the saved day back on top of the fresh one
+  const m = ST.mid; if (!m || m.day !== ST.day) { ST.mid = null; return false; }
+  Object.assign(RT.day, m.d); Object.assign(ST, m.keep); RT.dayT = m.dayT || 0; RT.goalHit = !!m.goalHit;
+  for (const s of m.q || []) { const q = (RT.quests || []).find(q => q.g.gv.id === s.id); if (q) { q.got = s.got; q.state = s.state; } }
+  RT.spills = (m.spills || []).map(s => ({ ...s, id: RT.nextId++ }));
+  if (m.pl && !isSolid(Math.floor(m.pl[0] / T), Math.floor((m.pl[1] - 3) / T))) { PL.x = m.pl[0]; PL.y = m.pl[1]; PL.dir = m.pl[2] || 'down'; }
+  if (m.room && typeof enterRoomAt === 'function') enterRoomAt(m.room, PL.x, PL.y);
+  return true;
+}
 function load() { try { const s = localStorage.getItem(SAVE_KEY); if (!s) return false; const o = JSON.parse(s); if (!o || o.v !== 1) return false; newState(); Object.assign(ST, o); return true; } catch (e) { return false; } }
 function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }

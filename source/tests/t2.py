@@ -69,7 +69,7 @@ with sync_playwright() as p:
     for i in range(3): pg.keyboard.press('Space')
     check('player scans 3 items and gets paid', E("__game.ST.money")-m0>=29.9 and E("QC.state")=='walk', (E("__game.ST.money")-m0, E("QC.state")))
     # end of day: no clock. the couch refuses before the goal; making the goal celebrates; the clock closes up; night runs into the report
-    E("(()=>{const P=__game.PL; P.x=W.spots.bed[0]*16; P.y=(W.spots.bed[1]-0.5)*16+12; P.dir='down';})()"); E("step(0.05); render()"); pg.keyboard.press('Space'); E("updateUI(0.016)")
+    E("(()=>{const P=__game.PL; P.x=W.spots.bed[0]*16; P.y=(W.spots.bed[1]-0.5)*16+12; P.dir='down';})()"); E("step(0.05); render()"); pg.keyboard.press('Space'); E("render()"); pg.keyboard.press('Space'); E("updateUI(0.016)")  # first press searches the cushions
     check('couch refuses to close up before the goal', E("__game.ST.phase")=='day' and 'more' in pg.inner_text('#prompt'), pg.inner_text('#prompt'))
     E("__game.RT.day.sales += dayGoal(); step(0.1); updateUI(0.016)")
     check('making the goal opens the celebration', E("__game.RT.menu")=='goal' and pg.is_visible('#nextday'), E("__game.RT.menu"))
