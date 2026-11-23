@@ -1776,7 +1776,7 @@ const MUSIC = (() => {
     for (const m of M.moods) { const d = MOOD[m]; if (!d || !d.places.includes(s.place)) continue; for (const k in d.add || {}) p[k] += d.add[k]; for (const k in d.mul || {}) p[k] *= d.mul[k]; Object.assign(p, d.set || {}); }
     p.dens = Math.max(s.dens ? 1 : 0, p.dens); p.x = Math.min(0.6, Math.max(0, p.x)); p.drums = Math.min(0.7, p.drums); p.pad = Math.min(1, p.pad); return p;
   }
-  function reset(name, moods) { M.cur = M.want = name; M.moods = moods || []; M.p = M.kp = build(name); M.bpm = M.p.bpm; M.sw = M.p.swing; M.bar = 0; M.pb = -1; M.turn = null; M.land = false; M.jumpPending = false; M.motif = null; M.barLen = undefined; M.lastMel = undefined; M.voices = []; }
+  function reset(name, moods) { M.cur = M.want = name; M.moods = moods || []; M.p = M.kp = build(name); M.bpm = M.p.bpm; M.sw = M.p.swing; M.bar = 0; M.pb = -1; M.turn = null; M.land = false; M.jumpPending = false; M.motif = null; M.barLen = undefined; M.lastMel = undefined; M.voices = []; M.pivot = null; }
   reset('title');
 
   function init(ctx, dest) {
@@ -1902,19 +1902,22 @@ const MUSIC = (() => {
     const from = M.cur;
     if (M.want !== M.cur && SONGS[M.want].place !== SONGS[M.cur].place) { // new place: cut in now, tempo snaps
       M.cur = M.want; M.turn = null; M.land = true; M.crash = 0.9; M.p = build(M.cur); M.bpm = M.p.bpm; M.sw = M.p.swing;
-    } else if (M.turn) { M.cur = M.turn; M.turn = null; M.land = true; M.crash = 0.45; } // turnaround done: land on the new song
-    M.jumpPending = false;
-    if (M.land) { M.pb = 0; M.bar = 0; if (M.log && M.log.sw) M.log.sw.push({ step: i, from, to: M.cur, kind: SONGS[from].place === SONGS[M.cur].place ? 'phrase' : 'place' }); }
+      M.pivot = null;
+    } else if (M.pivot && M.pivot.ready) { // the old bar ended on the shared chord: the new zone takes over on this downbeat
+      if (M.want !== M.cur && SONGS[M.want].place === SONGS[M.cur].place) { M.cur = M.want; M.land = true; M.crash = 0.45; M.p = build(M.cur); M.bpm = M.p.bpm; M.sw = M.p.swing; }
+      M.pivot = null;
+    } else if (M.pivot) M.pivot.ready = true; // no room left in the last bar: this whole bar is the shared chord
+    M.jumpPending = false; M.turn = null;
+    if (M.land) { M.pb = 0; M.bar = 0; if (M.log && M.log.sw) M.log.sw.push({ step: i, from, to: M.cur, kind: SONGS[from].place === SONGS[M.cur].place ? 'bar' : 'place' }); }
     M.p = build(M.cur);
-    if (!M.land && M.pb === 3 && M.want !== M.cur) M.turn = M.want; // last bar of the phrase: turn around into the next song
-    // tempo and swing ease toward where the music is heading, a little each bar
-    const target = M.turn ? build(M.turn) : M.p, cl = (v, a) => Math.max(-a, Math.min(a, v));
-    M.bpm += cl(target.bpm - M.bpm, 2); M.sw += cl(target.swing - M.sw, 0.2); setTempo();
-    M.kp = M.turn ? SONGS[M.turn] : M.p; M.barLen = M.p.meter * 4;
+    // moods nudge tempo and swing a little each bar (a zone change snaps them on its downbeat, above)
+    const cl = (v, a) => Math.max(-a, Math.min(a, v));
+    M.bpm += cl(M.p.bpm - M.bpm, 2); M.sw += cl(M.p.swing - M.sw, 0.2); setTempo();
+    M.kp = M.p; M.barLen = M.p.meter * 4;
     if (M.log && M.log.bars) M.log.bars.push([i, +M.bpm.toFixed(2), M.cur]);
     // chords: the phrase opens on home, the turnaround plays its two approach chords, the 4th bar leans home
     const slow = M.p.bpm < 95 || M.p.meter === 3; M.chord2 = null;
-    if (M.turn) { const ap = APPROACH[M.kp.scale] || APPROACH.major; M.chord = ap[0]; M.chord2 = ap[1]; }
+    if (M.pivot && M.pivot.ready && M.pivot.at === 0 && M.pivot.chord !== null) applyPivot(i);
     else if (M.pb === 0) M.chord = 0;
     else if (M.pb === 3) M.chord = Math.random() < 0.6 ? (APPROACH[M.kp.scale] || APPROACH.major)[1] : nextChord();
     else if (M.pb === 2 || slow) M.chord = nextChord();
@@ -1922,24 +1925,45 @@ const MUSIC = (() => {
     // where the turnaround's last melody note goes: the motif's last note in this bar, or beat 4 if it ends early
     if (M.turn && M.motif) { const bl = M.barLen, off = (M.bar % 2) * bl, mine = M.motif.pos.filter(p => p >= off && p < off + bl).map(p => p - off); M.apPos = Math.max(mine.length ? mine[mine.length - 1] : 0, bl - 4); }
   }
+  // zone change: pick a chord that belongs to both keys (all three triad notes in both scales), preferring one that
+  // leads home in the new key (its V, then IV, ii, vi). null = no shared chord, so the current chord carries on.
+  function pivotChord(fromName, toName) {
+    const A = SONGS[fromName], B = SONGS[toName], sa = SCALES[A.scale], sb = SCALES[B.scale], pc = n => ((n % 12) + 12) % 12;
+    const inB = new Set(sb.map(x => pc(x + B.key))), aPc = d => pc(A.key + sa[((d % 7) + 7) % 7]); let best = null, bs = -1;
+    for (let d = 0; d < 7; d++) { if (d === DIM[A.scale]) continue; const tri = [aPc(d), aPc(d + 2), aPc(d + 4)]; if (!tri.every(q => inB.has(q))) continue;
+      const degB = sb.findIndex(x => pc(x + B.key) === tri[0]), sc = { 4: 3, 3: 2.5, 1: 2, 5: 1.5, 0: 1, 2: 0.5 }[degB] || 0; if (sc > bs) { bs = sc; best = d; } }
+    return best;
+  }
+  function chordFits(fromName, toName, d) { const A = SONGS[fromName], B = SONGS[toName], pc = n => ((n % 12) + 12) % 12, inB = new Set(SCALES[B.scale].map(x => pc(x + B.key))), sa = SCALES[A.scale]; return [0, 2, 4].every(k => inB.has(pc(A.key + sa[(((d + k) % 7) + 7) % 7]))); }
+  function planPivot(inBar) { // the change lands on the next bar line; the shared chord starts on the next beat (or 8th) of this bar
+    const bl = M.barLen, to = M.want, chord = pivotChord(M.cur, to); let at = Math.ceil((inBar + 1) / 4) * 4; if (at >= bl) at = Math.ceil((inBar + 1) / 2) * 2;
+    if (at <= bl - 2) M.pivot = { to, chord, at, ready: true };
+    else if (inBar + 1 < bl && chordFits(M.cur, to, M.chord)) M.pivot = { to, chord: null, at: inBar + 1, ready: true }; // already on a shared chord: the last 16th steps next to the new home
+    else M.pivot = { to, chord, at: 0, ready: false }; // too late in the bar: the next bar is the shared chord
+  }
+  function applyPivot(i) { M.chord = M.pivot.chord; M.chord2 = null; if (M.log && M.log.pivots) M.log.pivots.push({ step: i, from: M.cur, to: M.pivot.to, chord: M.chord }); }
   function stepAt(i, t) {
     if (M.barLen === undefined || i >= M.barStart + M.barLen || i < M.barStart) barLine(i);
-    const P = M.p, inBar = i - M.barStart, bar = M.bar, sixteenth = sd(), bl = M.barLen, beat = 4;
+    const inBar = i - M.barStart, bl = M.barLen;
+    if (M.pivot && M.want === M.cur) M.pivot = null; // walked back before the bar ended
+    if (!M.pivot && M.want !== M.cur && SONGS[M.want].place === SONGS[M.cur].place) planPivot(inBar);
+    if (M.pivot && M.pivot.ready && M.pivot.chord !== null && inBar === M.pivot.at && inBar > 0) applyPivot(i);
+    const P = M.p, bar = M.bar, sixteenth = sd(), beat = 4, pv = M.pivot && M.pivot.ready && M.pivot.at < bl ? M.pivot : null;
     const ch = M.chord2 !== null && inBar >= 8 ? M.chord2 : M.chord;
     const feel = FEEL[P.kit] || FEEL_DEFAULT; let tt = t; if (M.sw && inBar % 4 === 2) tt += M.sw * 0.667 * sixteenth; if (feel.sw16 && inBar % 2 === 1) tt += feel.sw16 * 0.333 * sixteenth;
     const slow = P.bpm < 95 || P.meter === 3;
     // pad: held chord; in a turnaround it moves with each approach chord
-    const padHit = M.turn ? (inBar === 0 || inBar === 8) : inBar === 0 && (bar % 2 === 0 || slow);
-    if (padHit && P.pad > 0) { const len = M.turn ? sixteenth * (inBar === 0 ? 8 : bl - 8) - 0.05 : sixteenth * bl * (slow ? 1 : 2) - 0.05; [2, 4].forEach((k, j) => padTone(degNote(ch + k, 0), t, len, 0.035 * P.pad, j ? 'sine' : 'triangle')); note('pad'); } // the bass has the root
+    const pvHit = !!pv && pv.chord !== null && inBar === pv.at, padHit = pvHit || (inBar === 0 && (bar % 2 === 0 || slow));
+    if (padHit && P.pad > 0) { const len = pv ? sixteenth * (bl - inBar) - 0.05 : sixteenth * bl * (slow ? 1 : 2) - 0.05; [2, 4].forEach((k, j) => padTone(degNote(ch + k, 0), t, len, 0.035 * P.pad, j ? 'sine' : 'triangle')); note('pad'); } // the bass has the root
     // bass: oom-pah. 4/4 = root on 1, fifth on 3 (turnaround: each chord's root). 3/4 = root on 1, chord stabs on 2 and 3 (waltz)
     if (P.bass > 0 && P.bassV) {
       const hit = (deg, len) => { const m = degNote(ch + deg, -2); if (P.bassV === 'tuba') tuba(m, t, len, P.bass); else tone(m, t, len, 0.16 * P.bass, 'triangle', null, 0.008, 900); note('bass'); };
-      if (P.meter === 4 && (inBar === 0 || inBar === 8)) hit(inBar === 8 && !M.turn ? 4 : 0, sixteenth * 3);
-      if (P.meter === 3) { if (inBar === 0 || (M.turn && inBar === 8)) hit(0, sixteenth * 3); else if (inBar === 4 || inBar === 8) { [2, 4].forEach(k => pluck(degNote(ch + k, 0), tt, 0.45)); note('comp'); } }
+      if (P.meter === 4 && (inBar === 0 || inBar === 8 || pvHit)) hit(inBar === 8 && !pv ? 4 : 0, sixteenth * 3);
+      if (P.meter === 3) { if (inBar === 0 || pvHit) hit(0, sixteenth * 3); else if (inBar === 4 || inBar === 8) { [2, 4].forEach(k => pluck(degNote(ch + k, 0), tt, 0.45)); note('comp'); } }
     }
     if (P.comp > 0 && P.meter === 4 && bar % P.comp === P.comp - 1 && (inBar === 6 || inBar === 14)) { [0, 2, 4].forEach(k => pluck(degNote(ch + k, 0), tt, 0.7)); note('comp'); }
     // drums: a fill on the last beat before any song change, a crash on the new downbeat
-    const fillAt = bl - 4, filling = (M.turn || M.jumpPending) && inBar >= fillAt;
+    const fillAt = bl - 4, filling = (!!pv || M.jumpPending) && inBar >= fillAt;
     if (inBar === 0 && M.crash) drum('X', tt, M.crash);
     if (filling) { const k = inBar - fillAt, lv = Math.max(P.drums, 0.3); drum('s', tt, 0.45 + k * 0.15, lv); if (k === 0) drum('K', tt, 0.8, lv); }
     else if (P.kit && P.drums > 0) {
@@ -1958,7 +1982,15 @@ const MUSIC = (() => {
     if (P.perc && P.meter === 4 && !filling) { const kit = KITS[P.perc], pos = (bar % 4) * 16 + inBar; for (const v of ['c', 'C', 'r']) if (kit[v] && kit[v].includes(pos)) drum(v, tt, 0.6, Math.max(P.drums, 0.35)); }
     // lead: the motif over 2 bars, re-fitted to the chord, rested every 4th pair of bars (never across a song change)
     if (!P.lead || !M.motif) return;
-    if (M.turn) { // turnaround: motif up to the last note, which steps next to the new home note
+    if (pv) { // the shared-chord stretch: motif notes fit the chord; the last note sits right next to the new home note
+      const last = Math.max(pv.at, bl - 4);
+      if (inBar === last) { const home = ((M.root + SONGS[pv.to].key) % 12 + 12) % 12, ch0 = M.chord, pcd = m => { const d = Math.abs(((m % 12) + 12) % 12 - home); return Math.min(d, 12 - d); };
+        let bd = ch0 + 4, bm = 99; for (const k of [0, 2, 4, 7]) { const d = ch0 + k, dist = pcd(degNote(d, 1)); if (dist < bm) { bm = dist; bd = d; } }
+        M.lastMel = bd; lead(P.lead, degNote(bd, 1), tt, Math.max(sixteenth * (bl - inBar) - 0.02, 0.08), 0.9); note('mel'); return; }
+      if (inBar > last) return;
+      const mo = M.motif, local = (bar % 2) * bl + inBar, k = mo.pos.indexOf(local); if (k >= 0) playMotif(P, k, local, tt, sixteenth, ch, beat); return;
+    }
+    if (M.turn) { // (no longer used) the old 4-bar turnaround
       const mo = M.motif, local = (bar % 2) * bl + inBar, k = mo.pos.indexOf(local);
       if (inBar === M.apPos) { const d = nearest(M.lastMel === undefined ? 4 : M.lastMel, [-1, 1, 6, 8]); M.lastMel = d; lead(P.lead, degNote(d, 1), tt, Math.max(sixteenth * (bl - inBar) - 0.02, 0.08), 0.9); note('mel'); }
       else if (k >= 0 && inBar < M.apPos) playMotif(P, k, local, tt, sixteenth, ch, beat);

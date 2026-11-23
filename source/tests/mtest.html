@@ -1,5 +1,5 @@
 <html><body><script src="../src/music.js"></script><script>
-const fresh=()=>({n:0,kinds:{},maxV:0,mel:[],sw:[],bars:[]});
+const fresh=()=>({n:0,kinds:{},maxV:0,mel:[],sw:[],bars:[],pivots:[]});
 async function render(song,moods,sec){
   const ctx=new OfflineAudioContext(2,44100*sec,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
   MUSIC.reset(song,moods); M.log=fresh(); M.step=0; M.next=0.05; M.running=true;
@@ -10,7 +10,8 @@ async function render(song,moods,sec){
 }
 // drive the conductor without rendering: start on a song, ask for another at step `at`, run `steps` 16ths
 function drive(from,to,at,steps,moods){
-  const ctx=new OfflineAudioContext(2,44100,44100); MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
+  const ctx=window.__dctx||(window.__dctx=new OfflineAudioContext(2,44100*30,44100)); // one context for every drive (chrome caps how many you can make)
+  MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
   MUSIC.reset(from,moods); M.log=fresh(); M.step=0; M.next=0;
   for(let i=0;i<steps;i++){ if(i===at) MUSIC.set(to,moods); MUSIC.scheduleUntil(M.next+1e-6); }
   return M.log;
@@ -23,16 +24,23 @@ async function run(){
   out.moods['busy+fest+checkout']=await render('market',['busy','fest','checkout'],16);
   // every store song into every other store song, asked for at a few different moments
   const store=Object.keys(S).filter(k=>S[k].place==='store'), bad=[]; let n=0, maxWait=0;
-  for(const a of store) for(const b of store) if(a!==b) for(const at of [5,23,40]){
+  const pcs=(song,d)=>{ const sc=MUSIC.SCALES[S[song].scale]; return [0,2,4].map(k=>pc(S[song].key+sc[(((d+k)%7)+7)%7])); };
+  const inScale=(song,q)=>MUSIC.SCALES[S[song].scale].some(x=>pc(x+S[song].key)===q);
+  for(const a of store) for(const b of store) if(a!==b) for(const at of [5,23,40,46]){
     const L=drive(a,b,at,260), sw=L.sw[0]; n++;
     if(!sw){ bad.push([a,b,at,'never switched']); continue; }
-    const barIdx=L.bars.findIndex(r=>r[0]===sw.step);
-    if(sw.kind!=='phrase' || barIdx%4!==0) bad.push([a,b,at,'not on a phrase end',barIdx]);
+    if(sw.kind!=='bar') bad.push([a,b,at,'wrong kind',sw.kind]);
+    // the change lands on the next bar line (the one after that if asked in the bar's last 2 sixteenths)
+    const lines=L.bars.map(r=>r[0]).filter(x=>x>at), first=lines[0], prevStart=L.bars.map(r=>r[0]).filter(x=>x<=at).pop(), late=first-at<=2;
+    if(sw.step!==(late?lines[1]:first) && sw.step!==first) bad.push([a,b,at,'not on the next bar line',sw.step,first]);
     maxWait=Math.max(maxWait,sw.step-at);
-    const root=pc(MUSIC.M.root+S[b].key), before=L.mel.filter(e=>e.step<sw.step).pop(), first=L.mel.find(e=>e.step>=sw.step);
-    if(!first || first.step!==sw.step || pc(first.m)!==root) bad.push([a,b,at,'downbeat not the new root',first&&pc(first.m),root]);
+    // the chord before the change belongs to both keys
+    const pv=(L.pivots||[]).filter(e=>e.step<sw.step).pop();
+    if(pv && !pcs(a,pv.chord).every(q=>inScale(b,q))) bad.push([a,b,at,'pivot chord not in both keys',pv.chord]);
+    const root=pc(MUSIC.M.root+S[b].key), before=L.mel.filter(e=>e.step<sw.step).pop(), first2=L.mel.find(e=>e.step>=sw.step);
+    if(!first2 || first2.step!==sw.step || pc(first2.m)!==root) bad.push([a,b,at,'downbeat not the new root',first2&&pc(first2.m),root]);
     if(S[a].lead && (!before || Math.min(pc(before.m-root),pc(root-before.m))>2)) bad.push([a,b,at,'last note not next to new root',before&&pc(before.m),root]);
-    for(let i=1;i<L.bars.length;i++) if(Math.abs(L.bars[i][1]-L.bars[i-1][1])>2.0001) { bad.push([a,b,at,'tempo jump',L.bars[i-1][1],L.bars[i][1]]); break; }
+    const row=L.bars.find(r=>r[0]===sw.step); if(!row || Math.abs(row[1]-S[b].bpm)>0.01) bad.push([a,b,at,'new tempo not on the downbeat',row&&row[1],S[b].bpm]);
   }
   out.zone={pairs:n,bad:bad.slice(0,8),badN:bad.length,maxWaitSteps:maxWait};
   // new place: cuts in on the next bar line, with a fill before it
