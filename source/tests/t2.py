@@ -14,6 +14,12 @@ with sync_playwright() as p:
     check('intro dialog visible', pg.is_visible('#dialog'))
     pg.keyboard.press('Space'); pg.keyboard.press('Space'); pg.wait_for_timeout(200)
     check('dialog closed', not pg.is_visible('#dialog'))
+    # the morning huddle (story chapter 1) follows the intro: press through it like a player would
+    pg.wait_for_timeout(700)
+    for i in range(40):
+        if not pg.is_visible('#dialog'): break
+        pg.keyboard.press('Space'); pg.wait_for_timeout(60)
+    check('the morning huddle plays and can be pressed through', not pg.is_visible('#dialog'))
     E=lambda js: pg.evaluate(js)
     x0=E("__game.PL.x"); pg.keyboard.down('ArrowLeft'); pg.wait_for_timeout(700); pg.keyboard.up('ArrowLeft'); x1=E("__game.PL.x")
     check('holding left skates player left', x1 < x0-20, (x0,x1))

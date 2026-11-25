@@ -9,7 +9,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1280,'height':800}); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)+' '+(e.stack or '')[:300]))
     pg.goto(URL('dist.html')); pg.wait_for_timeout(800); pg.click('#t-new'); pg.wait_for_timeout(300); pg.keyboard.press('Space'); pg.keyboard.press('Space')
     E=lambda js: pg.evaluate(js)
-    E("window.U=window.update; window.update=()=>{}; window.step=(s)=>{for(let i=0;i<s*20;i++) U(0.05)}")
+    E("window.U=window.update; window.update=()=>{}; window.step=(s)=>{for(let i=0;i<s*20;i++) U(0.05)}; RT.huddle=null; while(RT.dialog){ RT.dialog.shown=999; advanceDialog(); }") # skip the morning huddle (t2 covers it)
     # a shopper standing still in the open, the boss facing them
     E("""window.stand=(c)=>{ const s=W.spots.skate; c.x=(s[0]+2)*16; c.y=s[1]*16; c.state='loiter'; c.timer=999; c.path=null; c.bubble=null; c.list=[]; PL.x=c.x-12; PL.y=c.y; PL.dir='right'; PL.vx=PL.vy=0; PL.onCash=null; };
       window.closeD=()=>{ for(let i=0;i<5&&RT.dialog;i++){ RT.dialog.shown=RT.dialog.text.length; advanceDialog(); } };""")

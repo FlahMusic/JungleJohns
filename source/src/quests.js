@@ -25,6 +25,7 @@ function questGoalText(q) { // plain words for the log
 // the giver in reach of where the player is facing (counter clerks stand one tile behind their case)
 function giverNear(f) { let best = null, bd = 26; for (const g of W.givers || []) { const d = Math.hypot(g.px - f.px, g.py - 6 - f.py); if (d < bd) { bd = d; best = g; } } return best; }
 function talkGiver(g) {
+  if (storyTalk(g.gv.name)) return;
   const q = questOf(g); sfx('talk'); const idle = () => pick(Math.random, MOOD_IDLE[workerMood(g.gv.name)]); // a different mood every day
   if (!q) return showDialog(g.gv.name, idle());
   if (q.state === 'offer') showDialog(g.gv.name, q.def.ask, null, `${questGoalText(q)} Reward ${fmtMoney(q.reward)}.`, [['Accept', () => acceptQuest(q)], ['Not now', () => { }]]);
@@ -137,6 +138,8 @@ function confetti() { for (let i = 0; i < 90; i++) RT.parts.push({ x: R.cx + Mat
 function closeUp() { // sunset, the store empties, then the day's report
   if (ST.phase !== 'day') return;
   if (!RT.goalHit) { flash(`Make ${fmtMoney(goalLeft())} more before closing up`); sfx('err'); return; }
+  if (stakeoutStep() && !RT.stakeout) { closeMenu(); RT.nightHold = true; startStakeout(); return; } // chapter 8: you don't go home, you hide
+  if (RT.stakeout === 'on') { flash('Not yet. Catch him first.'); return; }
   ST.phase = 'night'; RT.nightT = 0; RT.seen.bed = true; closeMenu(); PL.escort = null; RT.custs.forEach(c => { if (c.list) c.list = []; c.hold = null; });
   W.stools.forEach(s => { if (s.cust) { s.cust.poured = true; s.cust.timer = 0; } });
   toast('Closing up. Nice work today.', 'good');
@@ -151,7 +154,7 @@ function questLogHTML() {
   const goal = dayGoal(), e = earnedToday(), pct = Math.min(100, Math.round(e / goal * 100));
   const row = (q, mark) => `<div class="qrow"><span class="qm ${mark}">${mark === 'ready' ? '?' : mark === 'grey' ? '?' : mark === 'offer' ? '!' : '✔'}</span><div><b>${typo(q.g.gv.name)}</b> <span class="dim">· ${deptName(q.g.gv.dept)}</span><br>${typo(questGoalText(q))}${q.state === 'active' ? ` <b class="money">${q.got}/${q.n}</b>` : ''}<br><span class="dim">${q.state === 'ready' ? 'Done. Go back for your reward:' : q.state === 'offer' ? `Talk to ${q.g.gv.name} to take it. Reward` : q.state === 'done' ? 'Paid' : 'Reward'} ${fmtMoney(q.reward)}</span></div></div>`;
   const group = (title, st, mark) => { const qs = (RT.quests || []).filter(q => q.state === st); return qs.length ? `<h3>${title}</h3>${qs.map(q => row(q, mark)).join('')}` : ''; };
-  return `<h2>Quest log</h2>
+  return `<h2>Quest log</h2>${storyLogHTML()}
   <h3>Today's goal · ${weekday()}, week ${weekNo()}</h3><div>Make ${fmtMoney(goal)} today. <b class="money">${fmtMoney(e)}</b> so far.</div><div class="qbar"><i style="width:${pct}%"></i></div>
   ${RT.goalHit ? '<p>Goal made. Close up any time with the button by the clock.</p>' : '<p class="dim">Everything you earn counts: sales, tips, tastings and job rewards.</p>'}
   ${group('Ready to turn in', 'ready', 'ready')}${group('In progress', 'active', 'grey')}${group('Jobs on offer', 'offer', 'offer')}${group('Done today', 'done', 'done')}

@@ -52,10 +52,14 @@ Keep all game files inside `C:\jungle jim\jungle-johns-game-folder\game\`.
 | music.js | generative music (built from Slimehedron, section 5) |
 | audio.js | sound effects + musicTick() which picks the music situation |
 | fun.js | walk-in rooms (past x=SW, walled off, camera kept inside), SECRETS (16), CAPSULES, prop interactions (funInfo/funAct), PA, wishes, laps, saved fun state in ST.fun via F() |
+| people.js | personas (name, attitude, patience, overshare), REGULARS (14, story advances per day you talk to them, new clothes daily), portraits (portraitSprite/propPortrait), talkCustomer escalation (annoyed, fuming, shove/storm, cold shoulder), shopper-to-shopper talk, kids running off |
+| life.js | food court (order, eat, spill), carts (shoppers push, abandon in lot; Dustin wrangles; boss can too, cart bay by the Foodie Entrance), crew (Kayla busser, Dustin carts), worker chatter (STAFF_CHAT, PAIR_CHAT, daily MOOD_IDLE) |
+| story.js | MAIN (10 chapters: huddle, steps, gossip, tease), HEIST side chain (starts when you crank the Big Cheese on day 2+), favors (fetch an item from an aisle), shelf browsing, story NPCs (Chad, Brent, Pruitt, Moose, hood), stakeout |
+| art3.js | Eastgate displays: castle towers, pickle barrels, theater, food stalls, tables, ship, VW bus, tuk-tuk, tiki head, hanging race cars, monorail stairs, empty Big Cheese case |
 | main.js | input (keyboard + touch), loop, start-up |
 Walk mode: R (touch: WALK/SKATE button) toggles `PL.walk`. Walking = WALK_SPEED 44 px/s, no glide, stops dead; sprite swaps skates for sneakers (poses walkL/walkR). Not saved; each load starts on skates.
 Debug hook: `window.__game` exposes state. Save key: `localStorage['jungle-store-save-v1']`. Saves at day end, plus mid-day (ST.mid: RT.day, quest progress, spills, position, room) every 15 s, on quit, pagehide and tab hidden; restoreMid() on Continue. Shoppers aren't saved.
-Map is MW=112 wide; the store + lot is SW=78. Rooms: throne (restroom, via porta-potties), cave (Big Cheese hollow knock or stall 3 + wrench), backstage (stage door in Candy after 3 player-made Elvis songs).
+Map is MW=150 x MH=80; the store + lots are SW=112 wide. Layout = Eastgate store map (Dec 2023 PDF from junglejims.com plan-your-trip): FOOT/DEPTS in world.js/data.js, displays via dept `props`. Rooms: throne (restroom, via porta-potties), cave (Big Cheese hollow knock or stall 3 + wrench), backstage (stage door in Candy after 3 player-made Elvis songs).
 Quick trips: lane 5 (`quick`), register at (65,19) by the Rhino door, 5 items or less, staffed by upgrade cashierQ (Earl).
 
 Rename the store: data.js -> CONFIG.storeName / ownerName, then rebuild.
@@ -76,7 +80,7 @@ Credit: pop/bossa/jazz patterns came from casio-music-data via Slimehedron; see 
 
 Built here on top (rewritten 2026-10-29: songs follow the store):
 - Every department has a song (audio.js ZONE_SONG -> music.js SONGS). Three key families a fifth apart: middle of the store C, west international wing G, north-east wine/cheese wing F (relative to the day's root). Neighbouring departments are at most one note apart (tests/mzone.py checks the real map, including across open floor).
-- Department change: waits for the 4-bar phrase end; the last bar is a turnaround (two approach chords per mode, drum fill) and the melody steps next to the new root, then lands on it. Place change (inside/outside/stock/menus/night): next bar line, fill + crash. Tempo/swing ease 2 bpm per bar. 1.2 s settle time before a department takes over; open floor keeps the last song.
+- Department change (Flah, 2026-11-23): the rest of the current bar moves to a chord both keys share (pivotChord: prefers the new key's V, IV, ii, vi), the last melody note sits next to the new root, and the new zone's groove, tempo and home chord start on the next downbeat. mzone checks every walkable pair shares a pivot chord. Place change (inside/outside/stock/menus/night): next bar line, fill + crash. Tempo/swing ease 2 bpm per bar. 1.2 s settle time before a department takes over; open floor keeps the last song.
 - Moods (busy, fest, rain, morning = first 40 s, checkout) change fullness, never the key.
 - Held pads (2 notes; bass has the root) and a broken-chord fill when the melody rests stop bars going hollow (mtest checks loudest-vs-quietest half-second <= 18 dB for store songs).
 - tests/tour.py renders tests/out/music-tour.wav, a 2-minute walk through the store, for listening.

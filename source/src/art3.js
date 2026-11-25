@@ -1,8 +1,9 @@
 // ===== art for the Eastgate layout: displays, food court, theater (same pixel rules: lit from the top left, 1px ink outline) =====
 FLOOR.foodtile = (g, x, y, r, tx, ty) => { checker(g, x, y, (tx + ty) % 2 ? '#e9dcc0' : '#f3ead6', (tx + ty) % 2 ? '#d9c9a8' : '#e7dcc2', 8); if (r() < 0.06) P(g, x + 5, y + 9, 2, 1, '#c8b890'); };
 CASE_STYLE.olive = '#4a6a34';
-const barBase = PROPS.bar[2], carBase = PROPS.racecar[2];
+const barBase = PROPS.bar[2], carBase = PROPS.racecar[2], cheeseBase = PROPS.bigcheese[2];
 Object.assign(PROPS, {
+  bigcheese: [34, 42, (g, f, c) => { if (f !== 1) return cheeseBase(g, 0, c); g.translate(1, 1); P(g, 0, 26, 32, 14, '#7a4a24'); P(g, 0, 26, 32, 2, '#a8703a'); P(g, 0, 2, 32, 25, '#cfe6ee'); P(g, 1, 3, 30, 23, '#e8f4f8'); P(g, 0, 0, 32, 3, '#c6ccd4'); P(g, 8, 10, 16, 9, '#ffffff'); P(g, 8, 10, 16, 2, '#e23a2e'); pxText(g, 'GONE', 10, 13, '#2a1d22'); for (const [x, y] of [[6, 22], [20, 23], [25, 21]]) P(g, x, y, 1, 1, '#f2c230'); }, true],
   // the tasting bar's 4th look: bamboo front + coconut drinks with umbrellas (the Tiki Bar)
   bar: [16, 24, (g, f, c) => { if (f !== 3) return barBase(g, f, c);
     P(g, 0, 8, 16, 4, '#c8a050'); P(g, 0, 8, 16, 1, '#f0d080'); P(g, 0, 11, 16, 1, '#7a5a20'); P(g, 0, 12, 16, 10, '#a8803a');

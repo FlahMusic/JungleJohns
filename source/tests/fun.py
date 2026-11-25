@@ -9,7 +9,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1280,'height':800}); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto(URL('dist.html')); pg.wait_for_timeout(800); pg.click('#t-new'); pg.wait_for_timeout(300); pg.keyboard.press('Space'); pg.keyboard.press('Space')
     E=lambda js: pg.evaluate(js)
-    E("window.U=window.update; window.update=()=>{}; window.step=(s)=>{for(let i=0;i<s*20;i++) U(0.05)}")
+    E("window.U=window.update; window.update=()=>{}; window.step=(s)=>{for(let i=0;i<s*20;i++) U(0.05)}; RT.huddle=null; while(RT.dialog){ RT.dialog.shown=999; advanceDialog(); }") # skip the morning huddle (t2 covers it)
     # stand on a free tile next to an object, facing it, so Space acts on it
     E("""window.face=(o)=>{ for(const [dx,dy,d] of [[0,o.h,'up'],[0,-1,'down'],[-1,0,'right'],[o.w,0,'left']]){ const x=o.x+dx,y=o.y+dy; if(!inb(x,y)||W.solid[idx(x,y)]) continue;
         PL.x=x*16+8; PL.y=y*16+12; PL.dir=d; PL.vx=PL.vy=0; PL.onCash=null; const t=targetInfo(); if(t&&t.o===o) return true; } return false; };

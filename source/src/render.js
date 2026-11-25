@@ -127,7 +127,7 @@ function objDraw(o) {
     case 'register': { const l = W.lanes[o.lane], on = !!l && laneOpen(l); return bot(registerSprite(o.lane, on, on && l.queue.length ? Math.floor(t * 4) % 2 : 0)); }
     case 'belt': { const l = W.lanes[o.lane], busy = l && l.queue.length && laneOpen(l); return bot(beltSprite(o.lane, busy ? Math.floor(t * 6) % 3 : 0)); }
     case 'stool': return drawSpr(propSprite('stool', 0), x, y);
-    case 'bigcheese': { bot(propSprite('bigcheese', 0)); const hot = Math.max(0, Math.min(1, (ST.cheeseTemp - 30) / 20)); const g = R.g; g.fillStyle = hot > 0.75 ? '#ff3a2a' : '#e23a2e'; const bh = 13 * hot; g.fillRect(sx(x + 29 + 1), sy(y + 32 - 10 - bh - 4), R.SC, bh * R.SC); if (ST.cheeseTemp > 45 && Math.floor(t * 4) % 2) { g.fillStyle = 'rgba(255,60,40,0.18)'; g.fillRect(sx(x), sy(y - 8), 32 * R.SC, 40 * R.SC); } return; }
+    case 'bigcheese': { if (cheeseGone()) { bot(propSprite('bigcheese', 1)); return; } bot(propSprite('bigcheese', 0)); const hot = Math.max(0, Math.min(1, (ST.cheeseTemp - 30) / 20)); const g = R.g; g.fillStyle = hot > 0.75 ? '#ff3a2a' : '#e23a2e'; const bh = 13 * hot; g.fillRect(sx(x + 29 + 1), sy(y + 32 - 10 - bh - 4), R.SC, bh * R.SC); if (ST.cheeseTemp > 45 && Math.floor(t * 4) % 2) { g.fillStyle = 'rgba(255,60,40,0.18)'; g.fillRect(sx(x), sy(y - 8), 32 * R.SC, 40 * R.SC); } return; }
     case 'anim': {
       const a = ST.anims[o.anim]; const broken = a && a.broken; let f = 0;
       if (o.anim === 'elvis') f = RT.elvisT > 0 ? Math.floor(t * 6) % 2 : 0; else if (o.anim === 'swing') f = broken ? 0 : Math.floor(t * (RT.swingT > 0 ? 5 : 1.5)) % 2; else f = broken ? 0 : Math.floor(t * (o.anim === 'firetruck' && RT.sirenT > 0 ? 8 : 2)) % 2;
@@ -179,6 +179,7 @@ function render() {
   for (const c of RT.custs) { if (c.x < L || c.x > Rr || c.y < Tp || c.y > B) continue; list.push([c.y, 2, c]); }
   for (const s of RT.staff) { if (s.kind === 'cashier' || (s.x > L && s.x < Rr && s.y > Tp && s.y < B)) list.push([s.y, 3, s]); }
   if (!RT.sleeping && RT.menu !== 'title') list.push([PL.y, 4, PL]);
+  for (const n of RT.snpcs || []) if (n.x > L && n.x < Rr && n.y > Tp && n.y < B) list.push([n.y, 2, n]);
   list.sort((a, b) => a[0] - b[0]);
   for (const [, k, e] of list) {
     if (k === 0) objDraw(e);
@@ -198,6 +199,7 @@ function render() {
   if (ST.weather === 'rain') dark = Math.max(dark, 0.28); else if (ST.weather === 'cloudy') dark = Math.max(dark, 0.12);
   if (dark > 0) { g.globalAlpha = dark; g.drawImage(R.night, R.cx, R.cy, R.vw, R.vh, 0, 0, R.cv.width, R.cv.height); g.globalAlpha = 1; if (dark > 0.3) lampGlow(dark); }
   if (ST.minute >= CLOSE_MIN || ST.minute < OPEN_MIN - 60) { g.fillStyle = 'rgba(10,16,48,0.22)'; g.fillRect(0, 0, R.cv.width, R.cv.height); }
+  if (RT.stakeout === 'on') { const px = sx(PL.x), py = sy(PL.y - 10), rg = g.createRadialGradient(px, py, 10 * SC, px, py, 70 * SC); rg.addColorStop(0, 'rgba(4,6,20,0)'); rg.addColorStop(1, 'rgba(4,6,20,0.86)'); g.fillStyle = rg; g.fillRect(0, 0, R.cv.width, R.cv.height); } // stakeout: lights off, a flashlight
   if (ST.weather === 'rain') drawRain();
   if (RT.sleeping) { g.fillStyle = 'rgba(5,8,25,0.55)'; g.fillRect(0, 0, R.cv.width, R.cv.height); g.fillStyle = '#fff'; g.font = `${SC * 10}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('z z z', R.cv.width / 2, R.cv.height / 2); g.font = `${SC * 7}px VT323, monospace`; g.fillText('the store runs without you till close', R.cv.width / 2, R.cv.height / 2 + SC * 14); g.textAlign = 'left'; }
   if (rm) { const a = sx((rm.x0 - 1) * T), b = sx((rm.x1 + 2) * T), c = sy((rm.y0 - 1) * T - 8), d = sy((rm.y1 + 2) * T); g.fillStyle = '#07070c'; // only the room you're in
@@ -264,7 +266,7 @@ function drawOverlay() {
       g.save(); g.translate(ax, ay); g.rotate(a); g.scale(pulse, pulse); g.fillStyle = '#ffe14d'; g.strokeStyle = '#2a1d22'; g.lineWidth = 1.5 * SC; g.beginPath(); g.moveTo(11 * SC, 0); g.lineTo(-6 * SC, -8 * SC); g.lineTo(-2 * SC, 0); g.lineTo(-6 * SC, 8 * SC); g.closePath(); g.fill(); g.stroke(); g.restore();
       questMark(ax - Math.cos(a) * 16 * SC, ay - Math.sin(a) * 16 * SC + 6 * SC, '?'); } }
   // bubbles
-  drawStaffBubbles();
+  drawStaffBubbles(); for (const n of RT.snpcs || []) if (n.bubble) drawBubble(sx(n.x), sy(n.y - 30), n.bubble); drawStory();
   for (const c of RT.custs) { if (!c.bubble) continue; const x = sx(c.x), y = sy(c.y - 30); if (x < -100 || x > R.cv.width + 100 || y < -50 || y > R.cv.height + 50) continue; drawBubble(x, y, c.bubble); }
   // floats
   RT.floats.forEach(f => { g.globalAlpha = Math.min(1, f.t * 1.5); const sp = floatSprite(f.text.replace(/,/g, ''), f.col); drawSpr(sp, Math.round(f.x - sp.width / 2), Math.round(f.y)); g.globalAlpha = 1; });
@@ -279,7 +281,7 @@ function questMark(x, y, m) { // chunky pixel ! or ? with an ink outline, bobbin
 }
 function drawBubble(x, y, b) {
   const g = R.g, SC = R.SC;
-  if (b.kind === 'q') { const bob = Math.sin(R.t * 6) * SC; g.fillStyle = '#2a1d22'; g.fillRect(x - 5 * SC, y - 10 * SC + bob, 10 * SC, 11 * SC); g.fillStyle = '#7fd4ff'; g.fillRect(x - 4 * SC, y - 9 * SC + bob, 8 * SC, 9 * SC); g.fillStyle = '#2a1d22'; g.font = `${Math.round(6 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText('?', x + SC * 0.5, y - 1.5 * SC + bob); g.textAlign = 'left'; return; }
+  if (b.kind === 'q' || b.kind === 'favor') { const bob = Math.sin(R.t * 6) * SC; g.fillStyle = '#2a1d22'; g.fillRect(x - 5 * SC, y - 10 * SC + bob, 10 * SC, 11 * SC); g.fillStyle = b.kind === 'favor' ? '#ff9ad0' : '#7fd4ff'; g.fillRect(x - 4 * SC, y - 9 * SC + bob, 8 * SC, 9 * SC); g.fillStyle = '#2a1d22'; g.font = `${Math.round(6 * SC)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.fillText(b.kind === 'favor' ? '!' : '?', x + SC * 0.5, y - 1.5 * SC + bob); g.textAlign = 'left'; return; }
   let text = b.text; if (b.kind === 'wine' && !text) { g.font = `${Math.round(8 * SC)}px sans-serif`; g.textAlign = 'center'; g.fillText('🍷', x, y); g.textAlign = 'left'; return; }
   g.font = `${Math.round(5.5 * SC)}px VT323, monospace`; const maxW = 74 * SC; const words = text.split(' '); const lines = []; let cur = '';
   for (const w of words) { const t2 = cur ? cur + ' ' + w : w; if (g.measureText(t2).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t2; } if (cur) lines.push(cur);

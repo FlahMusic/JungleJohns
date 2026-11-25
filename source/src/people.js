@@ -156,6 +156,9 @@ const ARGUE = [['you took my parking spot.', 'there were forty spots!'], ['that\
 const KID_RUN = ['WEEEEE', 'CANDY CANDY CANDY', 'you can\'t catch me!', 'i\'m a dinosaur!', 'look, a penguin!'];
 const PARENT_CALL = ['GET BACK HERE.', 'i\'m counting to three!', 'we talked about running!', 'that is NOT the way to the car.', 'please. i\'m begging.'];
 
+// shuffle bags: nothing comes round again until the whole pool has been used (people don't repeat themselves)
+const PBAGS = {};
+function bagPick(name, arr) { let b = PBAGS[name]; if (!b || !b.length) b = PBAGS[name] = arr.map((_, i) => i).sort(() => Math.random() - 0.5); return arr[b.pop()]; }
 // ---------- giving people a persona ----------
 function regularsToday() { // which regulars come in today: about half, different each day, rolled once per day
   if (RT.regDay === ST.day) return RT.regToday; const r = mkRng(ST.day * 977 + 3); RT.regDay = ST.day;
@@ -167,7 +170,7 @@ function makePersona(c) {
     const avail = today.filter(id => !RT.regUsed[id] && REG[id].type === c.type); if (avail.length) { const id = pick(Math.random, avail); RT.regUsed[id] = 1; dressRegular(c, REG[id]); return; }
   }
   const att = c.type === 'kid' ? 'chatty' : pick(Math.random, Object.keys(ATTITUDES)), A = ATTITUDES[att];
-  c.p = { name: c.type === 'kid' ? pick(Math.random, ['Tyler', 'Ava', 'Jayden', 'Mia', 'Noah', 'Zoe', 'Liam', 'Ellie']) : pick(Math.random, FIRST_NAMES), att, patience: A.patience + Math.floor(Math.random() * 2), talks: 0, irk: 0, topic: pick(Math.random, OVERSHARE) };
+  c.p = { name: c.type === 'kid' ? pick(Math.random, ['Tyler', 'Ava', 'Jayden', 'Mia', 'Noah', 'Zoe', 'Liam', 'Ellie']) : pick(Math.random, FIRST_NAMES), att, patience: A.patience + Math.floor(Math.random() * 2), talks: 0, irk: 0, topic: bagPick('over', OVERSHARE) };
 }
 function dressRegular(c, R) { // same face, different clothes every day
   const r = mkRng(R.id.length * 131 + ST.day * 7919), L = randomLook(r, R.type);
@@ -190,7 +193,7 @@ function talkCustomer(c) {
     moodHit(c, 3); return showDialog(name, pick(Math.random, A.hi) + ' ' + p.topic, null, null, null, faceOf(c, 'happy'));
   }
   if (p.irk <= Math.ceil(p.patience * 0.5)) return showDialog(name, pick(Math.random, A.more), null, null, null, faceOf(c, 'n'));
-  if (p.irk <= p.patience) { moodHit(c, -4); bubble(c, pick(Math.random, ANNOYED), 3, 'mad'); return; }
+  if (p.irk <= p.patience) { moodHit(c, -4); bubble(c, bagPick('annoyed', ANNOYED), 3, 'mad'); return; }
   if (p.irk === p.patience + 1) { moodHit(c, -8); bubble(c, pick(Math.random, FUMING), 3, 'mad'); showDialog(name, pick(Math.random, FUMING), null, 'They\'re about to snap. Maybe give them some space.', null, faceOf(c, 'fume')); return; }
   // they snap: a shove, or they storm out
   p.cold = 30; RT.day.snaps = (RT.day.snaps || 0) + 1; addRep(-0.4);
@@ -214,9 +217,9 @@ function shopperMeet() {
     let pair;
     if (ra && rb && (ra.foe === rb.id)) pair = [`${rb.name}.`, `${ra.name}.`]; // carol and linda
     else if (ra && rb) pair = [`${rb.name}! how\'s it going?`, `${ra.name}! don\'t ask.`];
-    else if ((a.p.att === 'grumpy' || b.p.att === 'grumpy' || a.p.att === 'rushed') && Math.random() < 0.6) { pair = pick(Math.random, ARGUE); moodHit(a, -3); moodHit(b, -3);
+    else if ((a.p.att === 'grumpy' || b.p.att === 'grumpy' || a.p.att === 'rushed') && Math.random() < 0.6) { pair = bagPick('argue', ARGUE); moodHit(a, -3); moodHit(b, -3);
       if (Math.random() < 0.25) { makeSpill(a, pick(Math.random, ['milk', 'salsa', 'pickle', 'grape'])); a.y -= 3; b.y += 3; } }
-    else pair = pick(Math.random, CONVOS);
+    else pair = bagPick('convo', CONVOS);
     bubble(a, pair[0], 3.2); RT.later = RT.later || []; RT.later.push({ t: 1.6, c: b, text: pair[1] }); return;
   }
 }

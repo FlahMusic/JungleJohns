@@ -15,7 +15,7 @@ function updateUI(dt) {
   const gb = $('#h-gbar i'); if (gb) { gb.style.width = Math.min(100, got / goal * 100) + '%'; gb.style.background = got >= goal ? '#ffe14d' : '#7dd35a'; }
   setText('h-wx', ST.weather === 'rain' ? 'Rain' : ST.weather === 'cloudy' ? 'Cloudy' : 'Sunny');
   const night = ST.phase === 'night'; if (UI.face !== night) { UI.face = night; $('#clockface').src = iconURL(clockFace(night)); }
-  $('#nextday').style.display = RT.goalHit && !night ? 'block' : 'none';
+  $('#nextday').style.display = RT.goalHit && !night && RT.stakeout !== 'on' ? 'block' : 'none';
   const ready = (RT.quests || []).filter(q => q.state === 'ready').length, offers = (RT.quests || []).filter(q => q.state === 'offer').length;
   setText('qbadge', ready ? `<span class="rdy">${ready}?</span>` : offers ? `<span class="off">${offers}!</span>` : '');
   setText('h-ev', ev ? typo(ev.name) : '');
@@ -132,6 +132,7 @@ function reportHTML() {
   <tr class="tot"><td>Net today</td><td class="${net < 0 ? 'neg' : 'pos'}">${net < 0 ? '-' : ''}${fmtMoney(Math.abs(net))}</td></tr>
   </table>
   <div class="tasks">${r.quests.map(q => `<div class="${q.done ? 'ok' : 'no'}">${q.done ? '✔' : '•'} ${typo(q.who)}: ${typo(q.text)}${q.done ? ` <span class="dim">+${fmtMoney(q.reward)}</span>` : ''}</div>`).join('')}</div>
+  ${r.tease ? `<p class="dim">${typo(r.tease)}</p>` : ''}
   <p>${r.served} customers paid. Mood: <b>${moodWord}</b>. ${r.helped} lost people helped. You're at <span class="stars">${'★'.repeat(stars())}</span>. Cash: <b class="money">${fmtMoney(ST.money)}</b></p>
   <p class="small">Next: ${weekday()}, week ${weekNo()}. Goal ${fmtMoney(dayGoal())}${ev ? `. <b>${ev.name}</b>` : ''}. Saved.</p>
   <div class="row"><button id="m-cat">Catalog</button><button id="m-next" class="buy">${r.weekDone ? 'Start next week' : `Start ${weekday()}`}</button></div>`;

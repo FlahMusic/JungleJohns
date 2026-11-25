@@ -120,7 +120,7 @@ function updateStaffTalk(dt) {
     const a = near[i], b = near[j], [ax, ay] = pos(a), [bx, by] = pos(b); if (Math.hypot(ax - bx, ay - by) > 12 * T) continue;
     const key1 = a.name + '|' + b.name, key2 = b.name + '|' + a.name; let lines = PAIR_CHAT[key1] || (PAIR_CHAT[key2] && PAIR_CHAT[key2].map(([w, t]) => [w === 'a' ? 'b' : 'a', t]));
     if (!lines && typeof storyGossip === 'function') lines = storyGossip(a.name, b.name);
-    if (!lines) lines = pick(Math.random, STAFF_CHAT);
+    if (!lines) lines = bagPick('staff', STAFF_CHAT);
     RT.chatQ = lines.map(([w, t], k) => ({ e: w === 'a' ? a.e : b.e, text: t.replace('{a}', a.name.toLowerCase()).replace('{b}', b.name.toLowerCase()), t: k ? 2.3 : 0 }));
     return;
   }

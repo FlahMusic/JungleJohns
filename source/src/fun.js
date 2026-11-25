@@ -289,6 +289,9 @@ function paAnnounce() {
   if (RT.dayT - RT.fun.paT < 45) { flash('the mic is still squealing. give it a minute.'); return; }
   const go = (fn) => () => { RT.fun.paT = RT.dayT; sfx('alarm'); fn(); };
   const free = () => RT.custs.filter(c => isFree(c));
+  const truth = curStep('main') && curStep('main').t === 'pa';
+  if (truth) return showDialog('PA system', 'you pick up the mic. it squeals. the whole store goes quiet. chad is by the registers, smiling.', null, null, [
+    ['Tell everyone the truth', () => { RT.fun.paT = RT.dayT; sfx('alarm'); toast('"Attention shoppers: ValuMax has been sabotaging this store. Here\'s Brent to tell you how."', 'good'); RT.custs.forEach(c => { moodHit(c, 10); if (Math.random() < 0.4) bubble(c, pick(Math.random, ['BOOOO', 'get out, suit!', 'not the lion!', 'we love this store!', 'shame!']), 4, 'mad'); }); addRep(5); advance('main'); }]]);
   showDialog('PA system', 'you pick up the mic. it squeals. everyone looks up.', null, null, [
     ['Free cheese samples!', go(() => { free().slice(0, 6).forEach(c => { goLoiter(c, ['cheese']); moodHit(c, 3); }); toast('"Free samples in the Cheese Shop!" People head that way.'); })],
     ['Elvis is on!', go(() => { RT.custs.filter(c => c.kid).forEach(k => { const p = k.parent; if (p && isFree(p)) goLoiter(p, ['candy']); }); startElvis(false); toast('"Elvis is about to perform!" Families run to Candy.'); })],

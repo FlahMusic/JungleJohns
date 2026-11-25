@@ -126,7 +126,8 @@ const MUSIC = (() => {
   function scale() { return SCALES[M.kp.scale] || SCALES.major; }
   function degNote(deg, oct) { const s = scale(), n = s.length; const o = Math.floor(deg / n); return M.root + (M.kp.key || 0) + 12 * (oct + o) + s[((deg % n) + n) % n]; }
   // 8 voice cap: drums and tones share it, like the real chip
-  function grab(t, dur, lim = 6) { M.voices = M.voices.filter(e => e > t); if (M.voices.length >= lim) { if (M.log) M.log.drops = (M.log.drops || 0) + 1; return false; } M.voices.push(t + dur); if (M.log) M.log.maxV = Math.max(M.log.maxV, M.voices.length); return true; }
+  // M.dry: timing-only runs (tests) make no sound
+  function grab(t, dur, lim = 6) { if (M.dry) return false; M.voices = M.voices.filter(e => e > t); if (M.voices.length >= lim) { if (M.log) M.log.drops = (M.log.drops || 0) + 1; return false; } M.voices.push(t + dur); if (M.log) M.log.maxV = Math.max(M.log.maxV, M.voices.length); return true; }
   function note(kind) { if (M.log) { M.log.n++; M.log.kinds[kind] = (M.log.kinds[kind] || 0) + 1; } }
 
   // ---- voices ----

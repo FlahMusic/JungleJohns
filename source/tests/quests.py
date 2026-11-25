@@ -10,7 +10,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1280,'height':800}); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto(URL('dist.html')); pg.wait_for_timeout(800); pg.click('#t-new'); pg.wait_for_timeout(300); pg.keyboard.press('Space'); pg.keyboard.press('Space')
     E=lambda js: pg.evaluate(js)
-    E("window.U=window.update; window.update=()=>{}; window.step=(s)=>{for(let i=0;i<s*20;i++) U(0.05)}")
+    E("window.U=window.update; window.update=()=>{}; window.step=(s)=>{for(let i=0;i<s*20;i++) U(0.05)}; RT.huddle=null; while(RT.dialog){ RT.dialog.shown=999; advanceDialog(); }") # skip the morning huddle (t2 covers it)
     # helpers in the page: stand where Space would talk to a giver / hand a sample to a customer
     E("""window.Q=id=>RT.quests.find(q=>q.g.gv.id===id);
     window.faceGiver=id=>{ const g=W.givers.find(g=>g.gv.id===id); for(const [dx,dy,d] of [[0,2,'up'],[0,1,'up'],[1,0,'left'],[-1,0,'right'],[0,-1,'down'],[1,2,'up'],[-1,2,'up']]){ const x=g.o.x+dx,y=g.o.y+dy; if(!inb(x,y)||W.solid[idx(x,y)]) continue; PL.x=x*16+8; PL.y=y*16+12; PL.dir=d; const t=targetInfo(); if(t&&t.act==='giver'&&t.g===g) return true; } return false; };

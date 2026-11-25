@@ -5,6 +5,11 @@ PLAY
   Each workday (Mon-Fri) has a money goal. Make it, then click the clock
   (or "Close up for the night") to end the day. Saves every 15 seconds and
   when you quit or close the tab; Continue picks up mid-day.
+  The store follows the Eastgate (Cincinnati) layout. There's a main story over
+  two work weeks (a big chain wants to buy the store, and somebody's sabotaging it):
+  the crew huddles every morning, a purple * shows where to go next.
+  Everyone in the store has a name and a life. Regulars come back on other days.
+  Don't pester people: they get annoyed, then storm out or shove you.
   Lots of things in the store do something when you face them and press Space.
   There are 16 secrets and three rooms to find. The quest log (J) lists them.
   Staff with a yellow ! have a job. Yellow ? = job done, go get paid
@@ -32,6 +37,10 @@ WHAT'S WHERE (source/src)
   game.js    rules: customers, money, the day
   quests.js  the day's goal, side jobs, close up / night
   fun.js     secrets, walk-in rooms, things to poke
+  people.js  shoppers: names, regulars, portraits, patience, small talk
+  life.js    food court, carts, the crew (Kayla, Dustin), workers chatting
+  story.js   the main story, the Big Cheese heist, favors, aisle browsing
+  art3.js    art for the Eastgate displays and the food court
   music.js   the generated music (built from Slimehedron)
   audio.js   sound effects + picks which music plays where
   render.js  drawing
