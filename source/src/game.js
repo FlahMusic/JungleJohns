@@ -10,7 +10,7 @@ function newState() {
     tut: 0, weather: 'sunny', cheeseTemp: 36, tanks: [0, 0, 0, 0], anims: {},
   });
   DEPTS.forEach(d => { if (d.max) ST.stock[d.id] = Math.round(d.max * 0.85); });
-  ST.stock.toys = ST.stock.gacha = ST.stock.cards = ST.stock.tiktok = ST.stock.sushi = 0;
+  ST.stock.gacha = ST.stock.tiktok = 0; // locked areas start empty
 }
 function fmtMoney(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
 function stars() { return Math.max(1, Math.min(5, Math.ceil(ST.rep / 20))); }
@@ -64,6 +64,7 @@ function setupStaff() {
   if (ST.ups.stocker2) walker('stocker', 'Nina', '#3d6fd1', 1);
   if (ST.ups.janitor) walker('janitor', 'Big Lou', '#6a8a3a', 0);
   if (ST.ups.tech) walker('tech', 'the tech', '#f07a22', 0);
+  crewSetup(); // Kayla and Dustin are always on
 }
 
 // ---------- customers ----------
@@ -78,7 +79,7 @@ function spawnCustomer(forced, withKid) {
   const sp = spots[Math.floor(Math.random() * spots.length)];
   const rr = Math.random(); const type = forced || (rr < 0.17 ? 'old' : 'adult'); const family = withKid || (type === 'adult' && Math.random() < 0.3);
   const car = { x: sp.x * T + 8, y: sp.y * T + 13, col: pick(Math.random, CAR_COLS), slot: sp, t: 0, leaving: false, enter: 1 }; sp.car = car; RT.cars.push(car);
-  const c = mkCust(type, car, sp.side ? 'side' : 'main'); c.list = pickList(type, family);
+  const c = mkCust(type, car, sp.side ? 'side' : 'main'); c.list = pickList(type, family); c.cart = cartFor(c);
   if (family) { const k = mkCust('kid', car, c.door); k.parent = c; k.state = 'tag'; c.kid = k; k.x = c.x - 6; }
   return c;
 }
@@ -89,7 +90,7 @@ function spawnInside() { // a shopper already in the store: parked car outside, 
 }
 function mkCust(type, car, door) {
   const look = randomLook(Math.random, type, true); const c = { id: RT.nextId++, type, look, x: car.x, y: car.y + 10, dir: 'down', frame: 0, anim: 0, state: 'toStore', path: null, pi: 0, mood: 62 + Math.random() * 10, items: 0, spend: 0, list: [], car, door, bubble: null, lostDone: false, wait: 0, timer: 0, speed: type === 'old' ? 36 : type === 'kid' ? 56 : 46 + Math.random() * 10, seen: {}, hist: [] };
-  RT.custs.push(c); const tgt = door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; goTo(c, tgt[0], tgt[1]); return c;
+  RT.custs.push(c); makePersona(c); const tgt = door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; goTo(c, tgt[0], tgt[1]); return c;
 }
 function goTo(e, tx, ty) { const p = findPath(e.x / T, e.y / T - 0.2, tx, ty); e.path = p; e.pi = 1; e.goal = [tx, ty]; if (!p) { e.path = [[Math.floor(tx), Math.floor(ty)]]; e.pi = 0; } return !!p; }
 function stepPath(e, dt, spd) {
@@ -116,6 +117,7 @@ function nextTask(c) {
     if (!c.wandered && Math.random() < 0.18) { c.wandered = true; c.list.unshift(id); if (goLoiter(c, [id])) return; c.list.shift(); }
     const f = fr[Math.floor(Math.random() * fr.length)]; c.state = 'walk'; c.then = 'browse'; c.front = f; goTo(c, f[0] + 0.5, f[1] + 0.75); return;
   }
+  if (!c.ate && c.type !== 'kid' && isOpen() && Math.random() < 0.22 && goEat(c)) return; // a bite at the food court first
   if (c.items > 0) { c.state = 'toLane'; joinLane(c); return; }
   leaveStore(c);
 }
@@ -139,18 +141,20 @@ function leaveStore(c) {
 function finishCust(c) {
   const m = c.mood; RT.day.moods.push(m); addRep((m - 55) / 100 * 0.55);
   const i1 = RT.custs.indexOf(c); if (i1 >= 0) RT.custs.splice(i1, 1); if (c.kid) { const i2 = RT.custs.indexOf(c.kid); if (i2 >= 0) RT.custs.splice(i2, 1); }
-  c.car.leaving = true; c.car.t = 0;
+  abandonCart(c); c.car.leaving = true; c.car.t = 0;
 }
 function moodHit(c, n, why) { c.mood = Math.max(0, Math.min(100, c.mood + n)); if (c.kid) c.kid.mood = c.mood; }
 
 function updateCust(c, dt) {
   if (c.bubble) { c.bubble.t -= dt; if (c.bubble.t <= 0) c.bubble = null; }
+  if (c.state === 'run') { c.runT -= dt; if (stepPath(c, dt, 72) || c.runT <= 0) c.state = 'tag'; if (c.parent && c.parent.state === 'gone') c.state = 'gone'; return; } // a kid who bolted
   if (c.state === 'tag') { // kid follows parent
     const p = c.parent; if (!p) return; const h = p.hist; const tgt = h.length > 10 ? h[h.length - 10] : [p.x - 8, p.y];
     const dx = tgt[0] - c.x, dy = tgt[1] - c.y, d = Math.hypot(dx, dy); if (d > 1) { const s = Math.min(d, Math.max(30, d * 3) * dt); c.x += dx / d * s; c.y += dy / d * s; c.anim += s; c.frame = Math.floor(c.anim / 4) % 4; c.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'); } else c.frame = 0;
     if (p.state === 'gone') c.state = 'gone'; return;
   }
   c.hist.push([c.x, c.y]); if (c.hist.length > 30) c.hist.shift();
+  if ((c.state === 'order' || c.state === 'eat') && updateFood(c, dt)) return;
   const spd = c.speed * (c.state === 'follow' ? 1.6 : 1);
   switch (c.state) {
     case 'toStore': if (stepPath(c, dt, spd)) nextTask(c); break;
@@ -193,6 +197,7 @@ function updateCust(c, dt) {
   if (inb(tx, ty)) { const zi = W.zone[idx(tx, ty)]; if (zi >= 0) { const did = DEPTS[zi].id; for (const k in ANIMS) if (ANIMS[k].dept === did && ST.anims[k] && ST.anims[k].broken && !c.seen['a' + k]) { c.seen['a' + k] = 1; moodHit(c, -4); if (Math.random() < 0.35) bubble(c, line('broken').replace('{anim}', ANIMS[k].name), 3, 'mad'); } if (did === 'cheese' && ST.cheeseTemp > 45 && !c.seen.hot) { c.seen.hot = 1; moodHit(c, -5); if (Math.random() < 0.5) bubble(c, 'is the big cheese... sweating?', 3, 'mad'); } } }
 }
 function arrive(c) {
+  if (arriveFood(c)) return;
   const t = c.then;
   if (t === 'browse') { c.state = 'browse'; c.timer = 1.8 + Math.random() * 2.2; if (c.front) { const o = c.front[2]; c.dir = o.y < c.front[1] ? 'up' : o.y > c.front[1] ? 'down' : o.x > c.front[0] ? 'right' : 'left'; } }
   else if (t === 'sit') { c.state = 'sit'; c.timer = 32; c.poured = false; bubble(c, Math.random() < 0.4 ? line('tasting') : '', 999, 'wine'); }
@@ -258,7 +263,7 @@ function updateDay(dt) {
 function storeTick() { // every 40 s: things break, rain drips in, Elvis sings, monorail riders pay
   for (const k in ANIMS) { if (!W.anims[k]) continue; const a = ST.anims[k]; if (!a.broken && Math.random() < 0.045) { a.broken = true; a.fix = 0; toast(`${ANIMS[k].name[0].toUpperCase() + ANIMS[k].name.slice(1)} broke down. Bring the wrench.`, 'warn'); sfx('alarm'); hint('broken'); } }
   if (!ST.anims.elvis.broken && W.anims.elvis) startElvis(false);
-  if (ST.weather === 'rain' && Math.random() < 0.6) { const x = 58 + Math.floor(Math.random() * 4), y = 44 + Math.floor(Math.random() * 2); if (!RT.spills.find(s => s.x === x && s.y === y) && !W.solid[idx(x, y)]) RT.spills.push({ id: RT.nextId++, x, y, kind: 'water', hp: 2 }); }
+  if (ST.weather === 'rain' && Math.random() < 0.6) { const x = Math.floor(W.spots.mainDoorIn[0]) - 2 + Math.floor(Math.random() * 4), y = Math.floor(W.spots.mainDoorIn[1]) - 1 + Math.floor(Math.random() * 2); if (!RT.spills.find(s => s.x === x && s.y === y) && !W.solid[idx(x, y)]) RT.spills.push({ id: RT.nextId++, x, y, kind: 'water', hp: 2 }); }
   if (ST.ups.monorail && !ST.monorailBroken && (weekday() === 'Fri' || eventToday())) { const riders = 8 + Math.floor(Math.random() * 10); RT.day.extra += riders * 3; ST.money += riders * 3; addRep(0.4); }
 }
 function startElvis(byPlayer) {
@@ -270,6 +275,7 @@ function startElvis(byPlayer) {
 function updateStaff(dt) {
   RT.staff.forEach(s => {
     if (s.kind === 'cashier') { s.anim = (s.anim || 0) + dt; s.dir = 'right'; s.frame = 0; return; }
+    if (updateCrew(s, dt)) return;
     if (s.state === 'walk') { if (stepPath(s, dt, 46)) s.onArrive && s.onArrive(); return; }
     if (s.state === 'work') { s.timer -= dt; s.frame = 0; if (s.timer <= 0) { s.state = 'idle'; s.timer = 1; s.done && s.done(); } return; }
     s.timer -= dt * minPerSec(); s.frame = 0; if (s.timer > 0) return;
@@ -356,12 +362,14 @@ function targetInfo() {
   const spill = RT.spills.find(s => (s.x === f.tx && s.y === f.ty) || (s.x === Math.floor(PL.x / T) && s.y === Math.floor((PL.y - 3) / T)));
   if (PL.onCash && tool === 'hands') { const c = PL.onCash.queue[0]; return { act: 'scan', label: c && c.qi === 0 ? `Space: scan item (${c.scanned}/${c.items})` : 'Waiting for a customer' }; }
   if (tool === 'mop' && spill) return { act: 'mop', spill, label: 'Space: mop the spill' };
+  if (tool === 'hands' && !PL.carry.length) { const k = looseCartNear(f.px, f.py + 4, 14); if (k && (PL.carts || 0) < 4) return { act: 'cart', k, label: `Space: grab the cart (${(PL.carts || 0) + 1} of 4 max). Bring them to the cart bay by the Foodie Entrance.` };
+    const b = cartBay(); if (PL.carts && Math.hypot(PL.x / T - b[0], PL.y / T - b[1]) < 1.8) return { act: 'cartbay', label: `Space: push ${PL.carts} cart${PL.carts > 1 ? 's' : ''} into the bay` }; }
   if (best && best.kind) return { act: 'talkStaff', s: best, label: `Space: talk to ${best.name}` };
   if (best && (tool === 'hands' || best.state === 'lost')) {
     if (best.state === 'lost') return { act: 'help', c: best, label: 'Space: help this lost customer' };
     if (best.state === 'sit' && !best.poured) return { act: 'pour', c: best, label: 'Space: pour a tasting ($5)' };
     const sq = tool === 'hands' && sampleQuestFor(best); if (sq) return { act: 'sample', c: best, q: sq, label: sq.def.type === 'talk' ? `Space: ask about sandwiches (${sq.got}/${sq.n})` : `Space: give a ${sq.def.item} (${sq.got}/${sq.n})` };
-    return { act: 'talk', c: best, label: 'Space: talk' };
+    return { act: 'talk', c: best, label: `Space: talk to ${personaName(best)}` + (best.p && best.p.cold ? ' (they are done with you)' : '') };
   }
   if (best && best.kind) return { act: 'talkStaff', s: best, label: `Space: talk to ${best.name}` };
   if (!o) return spill && tool !== 'mop' ? { label: 'Spill here. Switch to the mop (2).' } : null;
@@ -411,9 +419,11 @@ function doAction() {
     case 'elvis': { if (!startElvis(true)) flash('He\'s catching his breath'); break; }
     case 'help': { const c = t.c; c.state = 'follow'; c.timer = 60; c.path = null; c.repath = 0; c.bubble = null; PL.escort = c; sfx('talk'); showDialog('Customer', line('lost').replace('{item}', c.lostItem), null, `They want ${c.lostItem}. Lead them to ${DEPT[c.cur].name}.`); break; }
     case 'pour': { const c = t.c; c.poured = true; c.timer = 5; c.bubble = null; moodHit(c, 12); addMoney(5, c.x, c.y - 28); RT.day.extra += 5; sfx('pour'); cost(0.5); bubble(c, line('poured'), 3); questEvent('pour'); if (Math.random() < 0.6) c.list.unshift(Math.random() < 0.6 ? 'wine' : 'beer'); break; }
-    case 'talk': { const c = t.c; sfx('talk'); const cos = c.look && c.look.costume; if (cos) { bubble(c, funPick(COSTUME_LINES[cos]), 4); if (cos === 'banana') foundSecret('banana'); break; } const cat = c.type === 'kid' ? 'kid' : c.type === 'old' ? 'old' : 'adult'; bubble(c, line(cat), 4); if (!c.talked) { c.talked = true; moodHit(c, 3); } break; }
+    case 'talk': { talkCustomer(t.c); break; }
     case 'talkStaff': { sfx('talk'); showDialog(t.s.name, staffLine(t.s)); break; }
     case 'giver': talkGiver(t.g); break;
+    case 'cart': { const i = RT.carts.indexOf(t.k); if (i >= 0) RT.carts.splice(i, 1); PL.carts = (PL.carts || 0) + 1; sfx('pick'); cost(0.5); break; }
+    case 'cartbay': { const n = PL.carts; PL.carts = 0; addMoney(n, PL.x, PL.y - 30); RT.day.extra += n; addRep(0.1 * n); sfx('stock'); const d = RT.staff.find(s => s.kind === 'carts'); if (d) sayStaff(d, n >= 3 ? 'boss! a ' + n + '-cart train! you\'re one of us now.' : 'appreciate you, boss.'); break; }
     case 'fun': funAct(t); break;
     case 'sample': giveSample(t.c, t.q); cost(0.5); break;
     case 'computer': openMenu('catalog'); break;
@@ -428,6 +438,8 @@ function staffLine(s) {
     cashier: ['lines are getting long, boss. hop on a register if you want. stand on the left side.', 'someone tried to pay in canadian money again.', 'i\'ve been at this register since the fruit stand days. don\'t ask.'],
     stocker: ['i grab whatever aisle\'s emptiest. you pay for the crates though.', 'produce goes fast. like, weirdly fast.'],
     janitor: ['you spill it, i mop it. that\'s the circle of life.', 'pickle jars. always pickle jars.'],
+    busser: ['food court\'s a war zone, boss. a delicious war zone.', 'somebody left a whole pretzel. untouched. who DOES that.', 'i\'ve seen a man eat tikka masala with a spoon from the froyo place. respect.'],
+    carts: ['the carts talk to me, boss. not out loud. but they talk.', 'people leave carts EVERYWHERE. one was on a car once. ON it.', 'nine-cart train today. personal best.'],
     tech: ['that lion\'s older than both of us. he\'s fine. mostly.', 'if the swing breaks again i\'m quitting. kidding.'],
   };
   return pick(Math.random, L[s.kind] || ['hey boss.']);
@@ -493,7 +505,7 @@ function update(dt) {
   if (RT.dialog || (RT.menu && RT.menu !== 'map')) { updateUI(dt); return; }
   const sub = 1;
   for (let i = 0; i < sub; i++) {
-    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt); updateFun(dt);
+    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt); updateFun(dt); updatePeople(dt); updateLater(dt); updateStaffTalk(dt);
     for (let k = RT.custs.length - 1; k >= 0; k--) { const c = RT.custs[k]; if (c) updateCust(c, dt); }
     updateLanes(dt); updateStaff(dt); updateCars(dt);
     if (RT.elvisT > 0) { RT.elvisT -= dt; if (Math.random() < dt * 4) RT.parts.push({ x: W.spots.elvis[0] * T + (Math.random() - 0.5) * 20, y: (W.spots.elvis[1] - 3) * T, vx: (Math.random() - 0.5) * 20, vy: -25, t: 1.4, note: true, c: pick(Math.random, ['#ffe14d', '#ff8fc0', '#9ff0ff']) }); }

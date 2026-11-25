@@ -64,7 +64,7 @@ with sync_playwright() as p:
     # register
     ln=E("(()=>{const l=__game.W.lanes[3];return [l.cash[0],l.cash[1]]})()"); place(ln[0],ln[1]+0.0,'right'); E("step(0.1)")
     check('player standing at register opens it', E("__game.PL.onCash && __game.PL.onCash.i")==3)
-    E("""(()=>{const c=spawnCustomer('old'); c.kid=null; c.list=[]; c.items=3; c.spend=30; c.x=38.5*16; c.y=38*16; const l=__game.W.lanes[3]; l.queue=[c]; c.lane=l; c.state='queue'; c.scanned=0; c.wait=0; queueMove(l); window.QC=c; })()""")
+    E("""(()=>{const c=spawnCustomer('old'); c.kid=null; c.list=[]; c.items=3; c.spend=30; const l=__game.W.lanes[3]; c.x=(l.q[2][0]+0.5)*16; c.y=(l.q[2][1]+0.7)*16; l.queue=[c]; c.lane=l; c.state='queue'; c.scanned=0; c.wait=0; queueMove(l); window.QC=c; })()""")
     E("step(3)"); m0=E("__game.ST.money")
     for i in range(3): pg.keyboard.press('Space')
     check('player scans 3 items and gets paid', E("__game.ST.money")-m0>=29.9 and E("QC.state")=='walk', (E("__game.ST.money")-m0, E("QC.state")))
@@ -80,13 +80,13 @@ with sync_playwright() as p:
     pg.screenshot(path=os.path.join(ROOT,'tests','out_')+'report.png')
     # catalog buy
     E("__game.ST.money=20000"); pg.click('#m-cat'); pg.wait_for_timeout(100); pg.screenshot(path=os.path.join(ROOT,'tests','out_')+'catalog.png')
-    pg.click('[data-buy=toys]'); 
-    check('buying toys unlocks aisle', E("__game.ST.ups.toys")==True and E("(__game.W.fronts.toys||[]).length")>0)
+    pg.click('[data-buy=gacha]'); 
+    check('buying the gachapon corner unlocks it', E("__game.ST.ups.gacha")==True and E("(__game.W.fronts.gacha||[]).length")>0)
     pg.click('#m-close'); pg.wait_for_timeout(50); pg.click('#m-next'); pg.wait_for_timeout(50); E("updateUI(0.016)")
     check('next day starts', 'Tue' in pg.inner_text('#h-day') and E("__game.ST.phase")=='day', pg.inner_text('#h-day'))
     money=E("__game.ST.money")
     pg.reload(); pg.wait_for_timeout(800)
     check('continue button after reload', pg.is_visible('#t-cont'))
     pg.click('#t-cont'); pg.wait_for_timeout(200); pg.evaluate("updateUI(0.016)")
-    check('continue restores day + money + upgrade', 'Tue' in pg.inner_text('#h-day') and abs(E("__game.ST.money")-money)<1 and E("__game.ST.ups.toys")==True, (pg.inner_text('#h-day'),E("__game.ST.money"),money))
+    check('continue restores day + money + upgrade', 'Tue' in pg.inner_text('#h-day') and abs(E("__game.ST.money")-money)<1 and E("__game.ST.ups.gacha")==True, (pg.inner_text('#h-day'),E("__game.ST.money"),money))
     print('\n'.join(res)); print('errors:',errs[:5]); b.close()

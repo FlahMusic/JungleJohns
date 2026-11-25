@@ -75,6 +75,8 @@ const MUSIC = (() => {
     lounge:   S({ kit: 'jazz', bpm: 100, key: 7, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2, x: 0.3, drums: 0.45, pad: 0.7, swing: 0.85 }),
     bistro:   S({ kit: 'bossa', bpm: 108, key: 5, scale: 'major', lead: 'accordion', dens: 2.5, pad: 0.6, swing: 0.15 }),
     beerhall: S({ kit: 'polka', bpm: 120, key: 0, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.3, comp: 2 }),
+    tiki:     S({ kit: 'bossa', bpm: 96, key: 9, scale: 'minor', lead: 'bell', bassV: 'pluck', dens: 2.5, x: 0.25, drums: 0.35, comp: 0, pad: 0.8, swing: 0.3 }), // exotica at the Tiki Bar
+    foodcourt: S({ kit: 'pop', bpm: 126, key: 7, scale: 'mixolydian', lead: 'square', dens: 3.5, x: 0.4, comp: 2, pad: 0.5 }), // the food court: busy, bright
     sushi:    S({ kit: 'conga', bpm: 106, key: 2, scale: 'minor', lead: 'bell', bassV: 'pluck', dens: 3, x: 0.32, drums: 0.38, comp: 0, pad: 0.85, pent: true }),
     // rooms you walk into (the restroom, the cheese cave, the lion's dressing room): their own place, so they cut in
     spa:       S({ place: 'room', kit: 'bossa', bpm: 88, key: 5, scale: 'lydian', lead: 'tine', bassV: 'pluck', dens: 2, x: 0.2, drums: 0.3, comp: 0, pad: 0.9, swing: 0.1 }),
@@ -347,7 +349,7 @@ const MUSIC = (() => {
     scheduleUntil(now + 0.15);
   }
   return {
-    SONGS, MOOD, SCALES, M,
+    SONGS, MOOD, SCALES, M, pivotChord,
     init, scheduleUntil, reset,
     start() { if (!M.ctx || M.running) return; M.running = true; M.step = 0; M.next = M.ctx.currentTime + 0.1; M.timer = setInterval(tick, 25); },
     stop() { M.running = false; clearInterval(M.timer); },

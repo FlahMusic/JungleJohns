@@ -23,7 +23,7 @@ with sync_playwright() as p:
     E("step(0.5)"); pg.screenshot(path=os.path.join(ROOT,'tests','out_room_throne.png'))
     space_on("obj('dryer')"); y1=E("PL.y"); E("step(0.4)"); y2=E("PL.y")
     check('the hand dryer blows you across the room', y2-y1>20 and E("F().found.dryer")==True, (y1,y2))
-    check('the camera stays on the room', 81*16 <= E("R.cx+R.vw/2") <= 93*16, E("(R.cx+R.vw/2)/16"))
+    check('the camera stays on the room', E("ROOMS.throne.x0*16") <= E("R.cx+R.vw/2") <= E("(ROOMS.throne.x1+1)*16"), E("(R.cx+R.vw/2)/16"))
     # out of order stall: knocking does nothing, three wrench hits open the stairs to the cheese cave
     space_on("obj('stall',o=>o.n===2)"); check('knocking on stall 3 says it needs a wrench', E("RT.room")=='throne' and 'wrench' in E("flashMsg?flashMsg.text:''"))
     pg.keyboard.press('3')
@@ -77,9 +77,9 @@ with sync_playwright() as p:
     pg.keyboard.press('KeyJ'); txt=pg.inner_text('#menu-box'); pg.keyboard.press('KeyJ')
     check('the quest log lists the secrets', 'Secrets' in txt and 'found' in txt)
     # mid-day save: accept a job, make progress, reload, continue
-    E("Object.assign(RT.day,{sales:777}); acceptQuest(RT.quests[0]); RT.quests[0].got=1; PL.x=52*16+8; PL.y=36*16+12; saveMid()")
+    E("Object.assign(RT.day,{sales:777}); acceptQuest(RT.quests[0]); RT.quests[0].got=1; PL.x=W.spots.skate[0]*16; PL.y=W.spots.skate[1]*16; saveMid()")
     pg.reload(); pg.wait_for_timeout(800); pg.click('#t-cont'); pg.wait_for_timeout(300)
     check('mid-day continue keeps the day so far', abs(pg.evaluate("RT.day.sales")-777)<0.01 and pg.evaluate("RT.quests[0].state")=='active' and pg.evaluate("RT.quests[0].got")==1, pg.evaluate("[RT.day.sales,RT.quests[0].state,RT.quests[0].got]"))
-    check('...and where you stood', abs(pg.evaluate("PL.x")-(52*16+8))<1)
+    check('...and where you stood', abs(pg.evaluate("PL.x")-pg.evaluate("W.spots.skate[0]*16"))<1)
     check('...and the secrets', pg.evaluate("F().found.plunger")==True)
     print('\n'.join(res)); print('errors:',errs); b.close()

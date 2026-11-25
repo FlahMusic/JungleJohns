@@ -16,72 +16,84 @@ function addObj(o) { // o: {type, x, y, w=1, h=1, solid=true, ...}
 }
 function deptUnlocked(d, ups) { return !d.lock || ups[d.lock]; }
 
-// building footprint, traced from the Fairfield map (tiles, inclusive)
-const FOOT = [[7, 11, 24, 15], [2, 16, 24, 38], [21, 33, 29, 45], [25, 21, 43, 45], [26, 13, 41, 19], [43, 3, 55, 45], [56, 13, 70, 45]];
-const STOCK = [26, 13, 41, 19];
+// building footprint, traced from the Eastgate map (tiles, inclusive): main hall, the east block (world foods, hot sauce,
+// international), the card-shop strip, the wine wing, State Liquor, the food court along the front, the Foodie Entrance
+// vestibule, and the stock room out back.
+const FOOT = [[28, 15, 86, 51], [87, 11, 108, 44], [87, 45, 94, 51], [8, 31, 27, 51], [1, 45, 7, 51], [28, 52, 61, 58], [76, 52, 86, 57], [34, 8, 50, 13]];
+const STOCK = [34, 8, 50, 13];
 function buildWorld(ups) {
   W.ground = new Array(MW * MH).fill('grass'); W.solid.fill(0); W.cost.fill(1); W.zone.fill(-1); W.wall.fill(0); W.outdoor.fill(1);
   W.objs = []; W.objAt = new Map(); W.fronts = {}; W.lanes = []; W.stools = []; W.pallets = []; W.parking = []; W.signs = []; W.labels = []; W.tanks = []; W.anims = {}; W.spots = {}; W.stockRect = STOCK;
+  W.chairs = []; W.stalls = []; W.doors = []; W.corrals = [];
   const G = (x, y, k) => { if (inb(x, y)) W.ground[idx(x, y)] = k; };
   const rect = (x0, y0, x1, y1, k) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) G(x, y, k); };
   const wall = (x, y) => { if (!inb(x, y)) return; W.wall[idx(x, y)] = 1; W.solid[idx(x, y)] = 1; W.outdoor[idx(x, y)] = 0; G(x, y, 'wall'); };
-  // outdoors
-  rect(0, 62, SW - 1, 64, 'road'); rect(0, 47, SW - 1, 48, 'sidewalk'); rect(2, 49, 75, 61, 'asphalt');
-  rect(56, 2, 77, 10, 'asphalt'); rect(56, 11, 72, 11, 'sidewalk'); rect(72, 11, 73, 46, 'sidewalk');
+  // outdoors: the back dock, the wine-entrance lot (north-west), the plaza + main lot out front, the road
+  rect(30, 1, 56, 6, 'asphalt'); rect(1, 19, 26, 28, 'asphalt'); rect(1, 29, 27, 29, 'sidewalk');
+  rect(1, 60, SW - 2, 61, 'sidewalk'); rect(62, 59, 98, 59, 'sidewalk'); rect(1, 62, SW - 2, 74, 'asphalt'); rect(0, 75, SW - 1, 75, 'sidewalk'); rect(0, 76, SW - 1, 78, 'road');
+  rect(109, 10, 110, 61, 'sidewalk');
   // building: interior = union of FOOT, walls = the ring around it
   const inside = new Uint8Array(MW * MH); FOOT.forEach(([a, b, c, d]) => { for (let y = b; y <= d; y++) for (let x = a; x <= c; x++) inside[idx(x, y)] = 1; });
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { if (inside[idx(x, y)]) { G(x, y, 'lino'); W.outdoor[idx(x, y)] = 0; continue; } let near = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inb(x + dx, y + dy) && inside[idx(x + dx, y + dy)]) near = true; if (near) wall(x, y); }
-  // stock room walls (it touches the store on two sides)
-  for (let y = 12; y <= 20; y++) { wall(25, y); wall(42, y); } for (let x = 25; x <= 42; x++) wall(x, 20);
-  const door = (x, y, k = 'mat') => { W.wall[idx(x, y)] = 0; W.solid[idx(x, y)] = 0; G(x, y, k); };
-  door(59, 46); door(60, 46); door(45, 46); door(46, 46); door(57, 12); door(58, 12); door(33, 20, 'concrete'); door(34, 20, 'concrete');
-  W.spots.mainDoorIn = [59.9, 45]; W.spots.exitIn = [45.9, 45]; W.spots.sideDoorIn = [57.9, 13.2]; W.spots.stockDoor = [33.5, 21.6];
-  // dept floors + layouts
+  for (let y = 0; y < MH; y++) for (let x = 0; x < SW; x++) { if (inside[idx(x, y)]) { G(x, y, 'lino'); W.outdoor[idx(x, y)] = 0; continue; } let near = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inb(x + dx, y + dy) && inside[idx(x + dx, y + dy)]) near = true; if (near) wall(x, y); }
+  const door = (x, y, k = 'mat') => { W.wall[idx(x, y)] = 0; W.solid[idx(x, y)] = 0; G(x, y, k); W.doors.push([x, y, k]); };
+  door(82, 58); door(83, 58); door(72, 52); door(73, 52); door(16, 30); door(17, 30); door(42, 14, 'concrete'); door(43, 14, 'concrete');
+  W.spots.mainDoorIn = [82.9, 57]; W.spots.exitIn = [72.9, 51]; W.spots.sideDoorIn = [16.9, 31.2]; W.spots.stockDoor = [42.5, 15.6];
+  W.spots.skate = [38, 44.6]; W.spots.cartBay = [84.5, 56.7]; // where carts come back in, by the Foodie Entrance // a long clear straight (the walkway along the front shops), for the skate test
+  // dept floors + layouts + displays
   DEPTS.forEach((d, i) => {
     const open = deptUnlocked(d, ups);
     for (let y = d.y; y < d.y + d.h; y++) for (let x = d.x; x < d.x + d.w; x++) { if (W.wall[idx(x, y)]) continue; G(x, y, open ? d.floor : 'plywood'); W.zone[idx(x, y)] = i; }
     if (!open) { W.signs.push({ text: 'Soon: ' + d.name, x: d.x + d.w / 2, y: d.y + d.h / 2, small: true, locked: true }); return; }
-    layoutDept(d, i);
+    layoutDept(d, i); placeProps(d);
     if (d.id !== 'registers' && d.id !== 'custserv') W.signs.push({ text: d.sign || d.name, x: d.x + d.w / 2, y: d.y + (d.signY || 0.2) });
   });
-  W.signs.push({ text: 'Registers', x: 37.5, y: 36.1 }); W.signs.push({ text: 'Customer Service', x: 36.5, y: 44.6, small: true });
-  // quick trips: one express register just inside the Rhino (side) door. 5 items or less, out the side door after.
-  { const ry = 19, rx = 65; addObj({ type: 'register', x: rx, y: ry, lane: 5 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: 5 });
-    W.lanes.push({ i: 5, quick: true, cash: [rx - 1, ry], reg: [rx, ry], pay: [rx + 1, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [rx + 1, ry - k]), staff: null, progress: 0 });
-    W.signs.push({ text: 'Quick Trips', x: rx + 0.5, y: 13.6 }); W.labels.push({ text: '5 items or less', x: rx + 0.5, y: ry + 2.1 }); }
-  // stock room
-  rect(26, 13, 41, 19, 'concrete');
+  W.signs.push({ text: 'Registers', x: 73.5, y: 43.4 }); W.signs.push({ text: 'Customer Service', x: 78, y: 52.6, small: true });
+  // quick trips: the express register by the wine entrance. 5 items or less, out the wine door after.
+  { const ry = 32, rx = 19; addObj({ type: 'register', x: rx, y: ry, lane: 5 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: 5 });
+    W.lanes.push({ i: 5, quick: true, cash: [rx - 1, ry], reg: [rx, ry], pay: [rx + 1, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [rx + 1, ry + k]), staff: null, progress: 0 });
+    W.signs.push({ text: 'Quick Trips', x: rx + 0.5, y: 31.3, small: true }); W.labels.push({ text: '5 items or less', x: rx + 0.5, y: ry + 2.1 }); }
+  // stock room out back
+  rect(STOCK[0], STOCK[1], STOCK[2], STOCK[3], 'concrete');
   const crateOrder = Object.keys(CRATES).filter(k => !CRATES[k].lock || ups[CRATES[k].lock]);
-  const pslots = []; for (let x = 27; x <= 40; x++) if (x !== 33 && x !== 34) pslots.push([x, 14]); for (let x = 27; x <= 32; x++) pslots.push([x, 17]); for (let x = 35; x <= 37; x++) pslots.push([x, 17]);
+  const pslots = []; for (let x = 35; x <= 49; x++) pslots.push([x, 9]); for (let x = 35; x <= 40; x++) pslots.push([x, 11]);
   crateOrder.forEach((k, i) => { const [x, y] = pslots[i]; W.pallets.push(addObj({ type: 'pallet', crate: k, x, y })); });
-  addObj({ type: 'fridge', x: 38, y: 17 }); addObj({ type: 'plant', x: 39, y: 17 }); addObj({ type: 'desk', x: 40, y: 17 }); addObj({ type: 'couch', x: 39, y: 19, w: 2 });
-  W.spots.bed = [39.9, 18.5]; W.spots.start = [37.5, 18.6];
-  W.signs.push({ text: 'Stock Room', x: 33.5, y: 12.4, dark: true });
-  // the famous restrooms: porta-potty doors, nice inside
-  addObj({ type: 'restroom', x: 30, y: 44 }); addObj({ type: 'restroom', x: 31, y: 44 }); addObj({ type: 'restroom', x: 2, y: 37 }); addObj({ type: 'restroom', x: 3, y: 37 });
-  W.labels.push({ text: 'Restrooms', x: 31, y: 45.3 });
-  [[2, 16], [7, 11], [24, 33], [55, 3], [70, 13], [56, 45], [57, 45], [61, 36], [70, 36], [42, 33]].forEach(([x, y]) => { if (!W.solid[idx(x, y)] && !W.objAt.get(idx(x, y))) addObj({ type: 'plant', x, y }); });
-  [[29, 33], [62, 45], [51, 12]].forEach(([x, y]) => { if (!W.solid[idx(x, y)]) addObj({ type: 'trash', x, y }); });
-  addObj({ type: 'penguin', x: 21, y: 45 }); addObj({ type: 'penguin', x: 29, y: 45 });
-  // jungle scene by the exit
-  addObj({ type: 'pond', x: 49, y: 38, w: 5, h: 3, anim: 'jungle' }); W.anims.jungle = true; W.signs.push({ text: 'Jungle Scene', x: 51.5, y: 37.3, small: true });
-  W.labels.push({ text: 'Entrance', x: 60, y: 47.4 }); W.labels.push({ text: 'Exit', x: 46, y: 47.4 }); W.labels.push({ text: 'Quick trips', x: 58, y: 11.4 });
-  // parking
-  for (const ry of [50, 54, 58]) for (let x = 4; x <= 73; x++) { if ((x >= 44 && x <= 47) || (x >= 58 && x <= 61)) continue; W.parking.push({ x, y: ry, car: null }); }
-  for (let x = 58; x <= 76; x += 2) W.parking.push({ x, y: 4, car: null, side: true });
-  if (ups.parking) for (let x = 59; x <= 75; x += 2) W.parking.push({ x, y: 7, car: null, side: true });
-  for (let y = 49; y <= 61; y++) for (const x of [44, 45, 46, 47, 58, 59, 60, 61]) G(x, y, 'cross');
-  [[2, 52], [2, 57], [76, 52], [76, 57], [20, 61], [52, 61], [0, 47], [77, 47], [77, 20], [77, 34], [5, 41], [14, 42]].forEach(([x, y]) => { if (inb(x, y) && !W.solid[idx(x, y)]) addObj({ type: y >= 49 && y <= 61 ? 'lamp' : 'tree', x, y }); });
-  for (let x = 2; x < 55; x += 8) addObj({ type: 'tree', x, y: x < 25 ? 3 : 2, solid: false });
-  addObj({ type: 'tree', x: 3, y: 9, solid: false }); addObj({ type: 'tree', x: 30, y: 7, solid: false }); addObj({ type: 'tree', x: 37, y: 9, solid: false });
-  addObj({ type: 'giraffe', x: 62, y: 47, solid: false }); addObj({ type: 'elephant', x: 64, y: 47 });
-  addObj({ type: 'rhino', x: 59, y: 9, solid: false }); W.labels.push({ text: 'Event Center', x: 47, y: 2.6 });
-  if (ups.billboard) addObj({ type: 'billboard', x: 60, y: 63, solid: false });
-  addObj({ type: 'corral', x: 40, y: 52 }); addObj({ type: 'corral', x: 50, y: 56 });
+  addObj({ type: 'fridge', x: 45, y: 12 }); addObj({ type: 'plant', x: 46, y: 12 }); addObj({ type: 'desk', x: 47, y: 12 }); addObj({ type: 'couch', x: 48, y: 13, w: 2 });
+  W.spots.bed = [48.9, 12.5]; W.spots.start = [44.5, 12.6];
+  W.signs.push({ text: 'Stock Room', x: 42, y: 7.4, dark: true });
+  // the famous restrooms: porta-potty doors, nice inside (north by Seafood, east by the theater, west by the wine)
+  for (const [x, y] of [[71, 15], [72, 15], [89, 35], [90, 35], [11, 44], [12, 44]]) addObj({ type: 'restroom', x, y });
+  W.labels.push({ text: 'Restrooms', x: 72, y: 16.3 }); W.labels.push({ text: 'Restrooms', x: 90, y: 36.3 }); W.labels.push({ text: 'Restrooms', x: 12, y: 45.3 });
+  const freeAt = (x, y) => inb(x, y) && !W.solid[idx(x, y)] && !W.objAt.get(idx(x, y));
+  [[29, 15], [56, 21], [86, 15], [76, 56], [86, 53], [8, 31], [27, 31], [87, 23], [33, 44], [65, 43], [75, 37], [45, 43]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'plant', x, y }); });
+  [[28, 53], [61, 53], [45, 52], [86, 52], [21, 44], [60, 44], [94, 34], [32, 20]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'trash', x, y }); });
+  for (const [x, y] of [[34, 24], [42, 24]]) if (freeAt(x, y)) addObj({ type: 'penguin', x, y });
+  // out front: the parked monorail on its platform, the jungle scene with the hippo, giraffe and elephant
+  addObj({ type: 'mstairs', x: 63, y: 59 }); W.spots.monorail = [61, 77, 60.6];
+  addObj({ type: 'pond', x: 88, y: 54, w: 5, h: 3, anim: 'jungle' }); W.anims.jungle = true; W.signs.push({ text: 'Jungle Scene', x: 90.5, y: 53.3, small: true });
+  addObj({ type: 'giraffe', x: 94, y: 54, solid: false }); addObj({ type: 'elephant', x: 93, y: 57 });
+  addObj({ type: 'rhino', x: 20, y: 27, solid: false });
+  W.labels.push({ text: 'Foodie Entrance', x: 83, y: 59.4 }); W.labels.push({ text: 'Exit', x: 73, y: 53.4 }); W.labels.push({ text: 'Wine Entrance', x: 17, y: 29.4 });
+  // parking: the main lot out front (crosswalks to the doors), the wine lot round the side
+  for (const ry of [63, 67, 71]) for (let x = 2; x <= 109; x++) { if ((x >= 71 && x <= 74) || (x >= 81 && x <= 84)) continue; W.parking.push({ x, y: ry, car: null }); }
+  if (ups.parking) for (let x = 2; x <= 109; x += 1) { if ((x >= 71 && x <= 74) || (x >= 81 && x <= 84)) continue; W.parking.push({ x, y: 73, car: null }); }
+  for (const ry of [20, 24]) for (let x = 3; x <= 25; x += 2) W.parking.push({ x, y: ry, car: null, side: true });
+  for (let y = 62; y <= 74; y++) for (const x of [72, 73, 82, 83]) G(x, y, 'cross');
+  [[1, 66], [1, 70], [110, 66], [110, 70], [30, 74], [60, 74], [95, 74], [20, 62], [50, 62], [100, 62]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'lamp', x, y }); });
+  [[2, 2], [10, 3], [18, 2], [26, 4], [60, 2], [68, 4], [76, 2], [84, 3], [94, 4], [104, 3], [2, 14], [10, 12], [20, 9], [3, 36], [2, 56], [110, 4], [100, 58]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'tree', x, y, solid: false }); });
+  if (ups.billboard) addObj({ type: 'billboard', x: 30, y: 76, solid: false });
+  for (const [x, y] of [[40, 66], [96, 70], [6, 22]]) { W.corrals.push(addObj({ type: 'corral', x, y })); }
   W.lanes.forEach(l => { W.cost[idx(l.cash[0], l.cash[1])] = 30; });
   W.stools.forEach(s => { W.cost[idx(s.x, s.y)] = 12; });
   buildFun(); placeGivers();
   computeFronts(); renderGround();
+}
+// extra displays on a department: [type, dx, dy, w, h, extra]. 'anim:NAME' is an animatronic that can break.
+function placeProps(d) {
+  for (const [type, dx, dy, w = 1, h = 1, extra] of d.props || []) {
+    const x = d.x + dx, y = d.y + dy; for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) removeAt(xx, yy);
+    if (type.startsWith('anim:')) { const name = type.slice(5); addObj({ type: 'anim', name, anim: name, x, y, w, h, dept: d.id }); W.anims[name] = true; }
+    else addObj(Object.assign({ type, x, y, w, h }, type === 'hangcar' ? { solid: false } : {}, extra || {}));
+  }
 }
 
 function shelfRows(d, i, art, kind) {
@@ -99,28 +111,25 @@ function layoutDept(d, i) {
   switch (d.layout) {
     case 'rows': {
       if (d.art === 'beer') shelfRows(d, i, 'beer', 'cooler'); else shelfRows(d, i, d.art);
-      if (d.id === 'grocery') anim('swing', 48, 26);
-      if (d.id === 'pets') { removeAt(x1 - 1, y0); removeAt(x1, y0); addObj({ type: 'racecar', x: x1 - 1, y: y0, w: 2 }); }
-      if (d.id === 'health') anim('corn', x1 - 1, y0, 2);
-      if (d.id === 'europe') anim('robin', x0 + 1, y0 + 4, 2, 1);
       if (d.id === 'honey') { removeAt(x1, y0); addObj({ type: 'hive', x: x1, y: y0 }); }
       if (d.id === 'tiktok') { removeAt(x0, y0); addObj({ type: 'ringlight', x: x0, y: y0, dept: d.id }); W.spots.ringlight = [x0, y0]; }
       break;
     }
-    case 'hot': {
+    case 'hot': { // a wall of fire, the fire truck parked in the middle, more sauce rows under it
       for (let x = x0; x <= x1; x++) addObj({ type: 'shelf', art: 'hotsauce', dept: d.id, x, y: y0, seed: x * 3 });
-      const cx = Math.floor(d.x + d.w / 2) - 1; anim('firetruck', cx, y0 + 2, 2); W.spots.drone = [cx + 1, y0 + 0.5];
-      for (let x = x0; x <= x0 + 2; x++) addObj({ type: 'shelf', art: 'asia', dept: d.id, x, y: y0 + 2, seed: x * 11 });
-      for (let x = x1 - 2; x <= x1; x++) addObj({ type: 'shelf', art: 'americas', dept: d.id, x, y: y0 + 2, seed: x * 13 });
+      const cx = Math.floor(d.x + d.w / 2) - 1; anim('firetruck', cx, y0 + 3, 2);
+      for (let ty = y0 + 6; ty <= y1; ty += 3) for (let x = x0; x <= x1; x++) if (x !== cx && x !== cx + 1) addObj({ type: 'shelf', art: ty % 2 ? 'hotsauce' : 'americas', dept: d.id, x, y: ty, seed: x * 11 + ty });
+      if (d.labels) W.labels.push({ text: d.labels[0][0], x: (x0 + x1 + 1) / 2, y: y0 + 1.05 });
       break;
     }
     case 'candy': {
       for (let x = x0; x <= x1; x++) addObj({ type: 'candy', dept: d.id, x, y: y0, seed: x });
       const cx = Math.floor(d.x + d.w / 2) - 1; removeAt(cx, y0); removeAt(cx + 1, y0); addObj({ type: 'anim', name: 'elvis', anim: 'elvis', x: cx, y: y0, w: 2, h: 2, dept: d.id }); W.anims.elvis = true; W.spots.elvis = [cx + 1, y0 + 2.6];
+      for (const tx of [cx - 1, cx + 2]) { removeAt(tx, y0); addObj({ type: 'tower', x: tx, y: y0 }); } // the candy castle's towers either side of the stage
       break;
     }
     case 'bar': {
-      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: x % 3 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
+      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: d.art === 'tiki' ? 3 : x % 3 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
       break;
     }
     case 'cheese': {
@@ -128,13 +137,16 @@ function layoutDept(d, i) {
       for (let x = x0; x <= x1; x++) if (x < cx || x > cx + 1) addObj({ type: 'case', art: 'cheesecase', dept: d.id, x, y: y0, seed: x });
       for (let x = x0; x <= x1; x++) addObj({ type: 'shelf', art: 'europe', dept: d.id, x, y: y0 + 4, seed: x * 5 });
       W.labels.push({ text: 'Butter Bar', x: x0 + 0.5, y: y0 + 1.05 });
+      for (const px of [x0, x0 + 1, x1 - 1, x1]) addObj({ type: 'pickles', x: px, y: y0 + 2, seed: px }); // the big pickle barrels on the way to the Big Cheese
+      W.labels.push({ text: 'Pickles', x: x0 + 1, y: y0 + 3.05 });
       break;
     }
     case 'counter': {
       for (let x = x0; x <= x1; x++) addObj({ type: 'case', art: d.art, dept: d.id, x, y: y0, seed: x });
       for (let x = x0; x <= x1; x++) W.solid[idx(x, d.y)] = 1;
       addObj({ type: 'staff', x: Math.floor((x0 + x1) / 2), y: d.y, solid: true, look: staffLook(d.id) });
-      if (y0 + 3 <= y1) { if (d.id === 'meat') for (let x = x0; x <= x1; x++) addObj({ type: 'freezer', dept: d.id, x, y: y0 + 3, seed: x }); }
+      if (y0 + 3 <= y1) { if (d.id === 'meat') for (let x = x0; x <= x1; x++) addObj({ type: 'freezer', dept: d.id, x, y: y0 + 3, seed: x });
+        else if (d.id === 'bakery' || d.id === 'deli') for (let x = x0 + 1; x <= x1 - 1; x++) addObj({ type: 'case', art: d.art, dept: d.id, x, y: y0 + 3, seed: x + 7 }); } // a second island of cases
       if (d.labels) W.labels.push({ text: d.labels[0][0], x: (x0 + x1 + 1) / 2, y: y0 + 4.05 });
       break;
     }
@@ -143,13 +155,30 @@ function layoutDept(d, i) {
       for (let x = x0; x <= x1; x++) W.solid[idx(x, d.y)] = 1;
       addObj({ type: 'staff', x: x0 + 2, y: d.y, solid: true, look: staffLook('seafood') });
       addObj({ type: 'anim', name: 'minnow', anim: 'minnow', x: x0 + 1, y: y0 + 3, w: 2, dept: d.id }); W.anims.minnow = true;
+      for (let x = x1 - 2; x <= x1; x++) { const t = addObj({ type: 'tank', kind: x % 2 ? 'lobster' : 'fish', x, y: y0 + 3, dept: d.id }); W.tanks.push(t); } // the live tanks
       break;
     }
     case 'tanks': {
       for (let x = d.x; x < d.x + d.w; x++) { const t = addObj({ type: 'tank', kind: x % 2 ? 'lobster' : 'fish', x, y: y0, dept: d.id }); W.tanks.push(t); }
       break;
     }
-    case 'deck': { addObj({ type: 'deck', x: d.x, y: d.y, w: 3, h: 3 }); break; }
+    case 'coolwall': { for (let y = d.y; y < d.y + d.h; y++) addObj({ type: 'cooler', art: 'dairy', dept: d.id, x: d.x, y, seed: y * 5 }); break; } // a wall of coolers
+    case 'hrow': { for (let x = d.x; x < d.x + d.w; x++) addObj({ type: 'shelf', art: d.art, dept: d.id, x, y: d.y, seed: x * 9 }); break; }
+    case 'binsrow': { for (let x = x0; x <= x1; x++) addObj({ type: 'bin', dept: d.id, x, y: d.y + 1, seed: x * 7 + 3 }); break; }
+    case 'olive': { // hot meals case along the top, the olive bar island below
+      for (let x = x0; x <= x1; x++) addObj({ type: 'case', art: 'deli', dept: d.id, x, y: y0, seed: x + 3 });
+      for (let x = x0 + 1; x <= x1 - 1; x++) addObj({ type: 'case', art: 'olive', dept: d.id, x, y: y0 + 2, seed: x }); break; }
+    case 'theater': { // The Jungle John's Story: a screen and two rows of seats with an aisle
+      addObj({ type: 'screen', x: x0, y: d.y, w: d.w - 2, h: 1 }); const aisle = Math.floor((x0 + x1) / 2) + 1;
+      for (const ty of [y0 + 1, y0 + 2]) for (let x = x0; x <= x1; x++) if (x !== aisle) addObj({ type: 'seat', x, y: ty, solid: false }); break; }
+    case 'jxc': { addObj({ type: 'stage', x: x0, y: d.y, w: d.w - 2, h: 1 }); for (let x = x0; x <= x1; x += 2) addObj({ type: 'chair', x, y: y0 + 1, solid: false }); break; }
+    case 'foodcourt': { // stalls along the back wall (a cook behind each), tables with chairs in the middle
+      const kinds = [['tacos', 'Taqueria'], ['pizza', 'Pizzeria'], ['noodles', 'Noodle Bar'], ['froyo', 'Froyo'], ['pretzels', 'Pretzel Haus'], ['tikka', 'Tikka Stand']];
+      kinds.forEach(([kind, name], k) => { const sx = d.x + 1 + k * 5, sy = d.y + d.h - 2; addObj({ type: 'foodstall', kind, frame: k, x: sx, y: sy, w: 3, h: 1 }); for (let x = sx; x < sx + 3; x++) W.solid[idx(x, sy + 1)] = 1;
+        const cook = addObj({ type: 'staff', x: sx + 1, y: sy + 1, solid: true, look: staffLook('stall_' + kind) }); cook.cook = kind;
+        W.stalls.push({ kind, name, x: sx, y: sy, front: [sx + 1, sy - 1], cook }); W.labels.push({ text: name, x: sx + 1.5, y: sy - 1.45 }); });
+      for (let x = d.x + 2; x + 1 < d.x + d.w - 1; x += 4) { addObj({ type: 'table', x, y: d.y + 2, w: 2, h: 1 }); for (const cx of [x - 1, x + 2]) { const c = { x: cx, y: d.y + 2, cust: null }; W.chairs.push(c); addObj({ type: 'chair', x: cx, y: d.y + 2, solid: false, chair: c }); } }
+      break; }
     case 'tenant': { addObj({ type: 'counter', x: x0, y: y0 }); addObj({ type: 'counter', x: x0 + 1, y: y0 }); addObj({ type: 'staff', x: x0, y: d.y, solid: true, look: staffLook('coffee') }); W.labels.push({ text: 'Sub Counter', x: x0 + 1, y: y0 + 3 }); addObj({ type: 'counter', x: x0, y: y0 + 3 }); addObj({ type: 'counter', x: x0 + 1, y: y0 + 3 }); break; }
     case 'binscol': { for (let y = d.y + 1; y <= d.y + d.h - 2; y++) if (y !== d.y + 4 && y !== d.y + 8) addObj({ type: 'bin', dept: d.id, x: d.x, y, seed: y * 3 + 1 }); break; }
     case 'vcol': { for (let y = y0; y <= y1; y++) addObj({ type: 'shelf', art: d.art, dept: d.id, x: x0, y, seed: y * 17 }); break; }
@@ -173,6 +202,7 @@ function layoutDept(d, i) {
         const cx = d.x + i2 * 3, rx = cx + 1, qx = cx + 2;
         addObj({ type: 'register', x: rx, y: ry, lane: i2 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: i2 });
         W.lanes.push({ i: i2, cash: [cx, ry], reg: [rx, ry], pay: [qx, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [qx, ry - k]), staff: null, progress: 0 });
+        W.spots.drone = [80, 16]; // the hot sauce drone flies over Grocery, like the map shows
       }
       break;
     }
@@ -266,7 +296,7 @@ function renderGround() {
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     if (!W.wall[idx(x, y)]) continue; const px = x * T, py = y * T; const below = inb(x, y + 1) && !W.wall[idx(x, y + 1)];
     if (x >= SW) { const st = ROOMWALL[W.wallStyle && W.wallStyle.get(idx(x, y))]; if (!st) P(g, px, py, 16, 16, '#07070c'); else if (below) st.face(g, px, py, x, y); else P(g, px, py, 16, 16, st.top); continue; } // walk-in rooms
-    const stock = (x >= 25 && x <= 42 && y <= 20 && y >= 12) && !(inb(x, y + 1) && W.outdoor[idx(x, y + 1)]);
+    const S = W.stockRect, stock = (x >= S[0] - 1 && x <= S[2] + 1 && y >= S[1] - 1 && y <= S[3] + 1) && !(inb(x, y + 1) && W.outdoor[idx(x, y + 1)]);
     if (below) {
       if (W.outdoor[idx(x, y + 1)]) { // storefront
         P(g, px, py, 16, 16, '#ead9a8'); P(g, px, py, 16, 3, '#2e7d3b'); P(g, px, py + 3, 16, 1, '#f2c81c'); P(g, px, py + 14, 16, 2, '#8a7a5a');
@@ -279,7 +309,7 @@ function renderGround() {
       }
     } else { P(g, px, py, 16, 16, stock ? '#4a4a52' : '#24402a'); P(g, px, py, 16, 1, stock ? '#5a5a62' : '#2e5236'); }
   }
-  P(g, 58 * T, 46 * T, 4 * T, 3, '#f2c81c'); P(g, 44 * T, 46 * T, 4 * T, 3, '#f2c81c');
+  (W.doors || []).forEach(([x, y, k]) => { if (k === 'mat') P(g, x * T, y * T, T, 3, '#f2c81c'); });
   // shadows under walls on floor
   for (let y = 0; y < MH - 1; y++) for (let x = 0; x < MW; x++) if (W.wall[idx(x, y)] && !W.wall[idx(x, y + 1)] && !W.outdoor[idx(x, y + 1)]) { g.globalAlpha = 0.18; P(g, x * T, (y + 1) * T, 16, 3, '#000'); g.globalAlpha = 1; }
 }

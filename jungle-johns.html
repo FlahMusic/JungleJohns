@@ -59,6 +59,9 @@ h2.big { font-size: 22px; color: var(--money); text-shadow: 3px 3px 0 var(--ink)
 .toast { background: rgba(22,58,34,.92); box-shadow: 0 0 0 3px var(--ink); padding: 4px 10px; font-size: 19px; line-height: 1.1; }
 .toast.warn { background: rgba(120,40,20,.92); } .toast.good { background: rgba(30,90,120,.92); }
 #dialog { display: none; position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(760px, 92vw); min-height: 120px; z-index: 5; cursor: pointer; }
+#dl-wrap { display: flex; gap: 14px; align-items: flex-start; } #dl-body { flex: 1; min-width: 0; }
+#dl-face { display: none; flex: none; width: 96px; height: 96px; image-rendering: pixelated; background: #1d3a26; border: 3px solid var(--gold); border-radius: 4px; }
+@media (max-width: 600px) { #dl-face { width: 64px; height: 64px; } }
 #dl-name { font-family: 'Press Start 2P', monospace; font-size: 12px; color: var(--gold); margin-bottom: 8px; }
 #dl-text { font-size: 25px; line-height: 1.15; min-height: 58px; }
 .dsub { margin-top: 8px; color: var(--money); font-size: 21px; }
@@ -127,7 +130,7 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
   <div id="prompt"></div>
   <div id="toolbar"><div id="tools"></div><button id="qbtn">Quests <span class="kk">J</span><span id="qbadge"></span></button><div id="h-tool"></div></div>
 </div>
-<div id="dialog" class="px"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div><div id="dl-more">▼</div></div>
+<div id="dialog" class="px"><div id="dl-wrap"><img id="dl-face" alt=""><div id="dl-body"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div></div></div><div id="dl-more">▼</div></div>
 <div id="menu" class="menu"><div id="menu-box"></div></div>
 <div id="touch"><div id="t-pad"><div id="t-knob"></div></div><div id="t-a">A</div><div id="t-tool">TOOL</div><div id="t-skate">WALK</div><div id="t-menu">II</div></div>
 <script>
@@ -139,8 +142,8 @@ const CONFIG = {
 };
 
 const T = 16;            // tile size in art pixels
-const MW = 112, MH = 66; // map size in tiles (x >= SW: walk-in rooms, walled off; see fun.js)
-const SW = 78;           // the store + parking lot width
+const MW = 150, MH = 80; // map size in tiles (x >= SW: walk-in rooms, walled off; see fun.js)
+const SW = 112;          // the store + parking lot width
 const OPEN_MIN = 8 * 60, CLOSE_MIN = 22 * 60; // 8am - 10pm
 const DAY_START = 6 * 60;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -164,94 +167,89 @@ const CRATES = {
   health:    { name: 'Health & Beauty', units: 20, color: '#8a6ad8' },
   hotsauce:  { name: 'Hot Sauce',   units: 22, color: '#e23a1e' },
   housewares:{ name: 'Cookware & Pets', units: 18, color: '#6b7a8a' },
-  toys:      { name: 'Toys',        units: 18, color: '#f08030', lock: 'toys' },
+  toys:      { name: 'Toys',        units: 18, color: '#f08030' },
   capsules:  { name: 'Gacha Capsules', units: 30, color: '#ff6fb0', lock: 'gacha' },
-  cards:     { name: 'Card Packs',  units: 24, color: '#4a5ad8', lock: 'cards' },
+  cards:     { name: 'Card Packs',  units: 24, color: '#4a5ad8' },
   viral:     { name: 'Viral Stuff', units: 20, color: '#25f4ee', lock: 'tiktok' },
 };
 
-// departments. kind decides layout + art. price = avg item price.
-// labels: aisle sign text per shelf row segment.
-// layout follows the Fairfield floor plan, with a few Eastgate-only spots added (deals / scratch & dent, honey hive)
+// departments. layout decides what gets built, art the shelf look. price = avg item price.
+// labels: aisle sign text per shelf row segment. props: extra displays [type, dx, dy, w, h, extra] relative to the dept.
+// layout follows the Eastgate (Cincinnati) floor plan (official store map, Dec 2023): wine wing west, the fresh-food
+// loop in the middle, International + Hot Sauce east, Sushi / Card shop / Customer Service by the Foodie Entrance,
+// the shop row along the front (here: a food court). Fairfield's displays (Elvis, Robin Hood, Corn & Butter, the soup
+// can swing, the S.S. Minnow, the porta-potty restrooms, the jungle scene) are placed in spots that had room.
 const DEPTS = [
-  // north-west: the original international block
-  { id: 'europe', sign: 'Europe', name: 'International: Europe', x: 7, y: 11, w: 8, h: 8, floor: 'terra2', layout: 'rows', art: 'europe', price: 7, crate: 'intl', pop: 0.9, max: 30,
-    labels: [['Ireland'], ['Great Britain']], items: ['irish butter', 'beans for toast', 'proper tea', 'digestive biscuits'], sub: 'Sherwood Forest' },
-  { id: 'asia', sign: 'Asia', name: 'International: Asia', x: 15, y: 11, w: 5, h: 8, floor: 'terra', layout: 'rows', art: 'asia', price: 6, crate: 'intl', pop: 1.0, max: 30,
-    labels: [['Ramen World'], ['China']], items: ['ramen', 'gochujang', 'rice crackers', 'fish sauce', 'basmati rice'] },
-  { id: 'deck', sign: 'Deck', name: 'Observation Deck', x: 20, y: 11, w: 3, h: 4, floor: 'wood', layout: 'deck', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'livefish', sign: 'Live Fish', name: 'Live Fish Harvest', x: 20, y: 15, w: 3, h: 4, floor: 'bluetile', layout: 'tanks', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'intlproduce', sign: 'Intl Produce', signY: 9, name: 'Intl Produce', x: 23, y: 11, w: 2, h: 12, floor: 'wood', layout: 'binscol', art: 'produce', price: 3, crate: 'produce', pop: 0.6, max: 30,
-    items: ['plantains', 'bitter melon', 'fresh lemongrass'] },
-  { id: 'americas', sign: 'Americas', name: 'International: Americas', x: 2, y: 16, w: 5, h: 17, floor: 'orange', layout: 'rows', art: 'americas', price: 5, crate: 'intl', pop: 1.0, max: 40,
-    labels: [['Nepal'], ['Hispanic'], ['South America'], ['Canada & Caribbean'], ['Africa & Kosher']], items: ['masa', 'yerba mate', 'ketchup chips', 'jerk seasoning', 'fufu flour', 'matzo'] },
-  { id: 'gigante', name: 'Mercado Grande', x: 7, y: 19, w: 5, h: 5, floor: 'orange', layout: 'rows', art: 'americas', price: 5, crate: 'intl', pop: 0.7, max: 20,
-    items: ['dried chiles', 'mexican coke', 'queso fresco'] },
-  { id: 'hotsauce', name: 'Hot Sauce', x: 12, y: 19, w: 11, h: 5, floor: 'redcheck', layout: 'hot', art: 'hotsauce', price: 8, crate: 'hotsauce', pop: 0.9, max: 40,
-    labels: [['Vietnam / Cajun / Philippines / Japan']], items: ['the hottest sauce you got', 'ghost pepper sauce', 'a sauce that won\'t kill me'] },
-  { id: 'intl', name: 'International', x: 7, y: 24, w: 11, h: 9, floor: 'sand', layout: 'rows', art: 'mideast', price: 6, crate: 'intl', pop: 1.0, max: 40,
-    labels: [['East Europe', 'Coffee'], ['Germany', 'Specialty Soda'], ['Middle East', 'Turkey']], items: ['pierogi', 'german mustard', 'tahini', 'turkish delight', 'weird soda'], sub: '70,000 products from 75 countries' },
-  { id: 'seafood', name: 'Seafood', x: 18, y: 24, w: 7, h: 6, floor: 'bluetile', layout: 'seafood', art: 'fish', price: 14, crate: 'seafood', pop: 0.8, max: 30,
-    items: ['salmon', 'shrimp', 'a whole weird fish', 'crab legs'] },
-  { id: 'honey', name: 'Honey & Maple Syrup', x: 18, y: 30, w: 7, h: 3, floor: 'sage', layout: 'rows', art: 'natural', price: 9, crate: 'natural', pop: 0.5, max: 20,
-    items: ['raw honey', 'maple syrup'] },
-  // middle
-  { id: 'produce', name: 'Produce', x: 25, y: 22, w: 11, h: 8, floor: 'wood', layout: 'bins', art: 'produce', price: 3, crate: 'produce', pop: 1.4, max: 60,
-    items: ['dragon fruit', 'the spiky fruit', 'fresh basil', 'bananas', 'a decent avocado'], sub: 'Over an acre of produce' },
-  { id: 'natural', name: 'Natural Foods', x: 25, y: 30, w: 11, h: 3, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.7, max: 30,
-    items: ['protein powder', 'oat milk', 'kombucha'] },
-  { id: 'bakery', name: 'Bakery', x: 36, y: 21, w: 7, h: 4, floor: 'warm', layout: 'counter', art: 'bakery', price: 6, crate: 'bakery', pop: 0.9, max: 30,
-    items: ['sourdough', 'a birthday cake', 'croissants'], sub: 'We still bake from scratch' },
-  { id: 'meat', name: 'Meat', x: 36, y: 25, w: 7, h: 8, floor: 'redtile', layout: 'counter', art: 'meat', price: 15, crate: 'meat', pop: 0.9, max: 30,
-    labels: [['Exotic Meats']], items: ['ribeye', 'ground beef', 'alligator meat', 'kangaroo steak'], sub: 'Prime steaks & exotic meats' },
-  // the wing: wine, liquor, beer, candy
-  { id: 'wine', name: 'Wine', x: 43, y: 3, w: 8, h: 6, floor: 'darkwood', layout: 'rows', art: 'wine', price: 18, crate: 'wine', pop: 0.9, max: 40,
-    labels: [['Reds / Whites'], ['Bubbly / Imports']], items: ['a dry red', 'some cheap bubbly', 'ohio wine', 'a pinot'], sub: 'Over 15,000 wines' },
-  { id: 'liquor', name: 'State Liquor', x: 51, y: 3, w: 5, h: 4, floor: 'darkwood', layout: 'rows', art: 'liquor', price: 26, crate: 'liquor', pop: 0.45, max: 20,
-    items: ['bourbon', 'tequila', 'the good vodka'] },
-  { id: 'cigars', name: 'Cigars', x: 51, y: 7, w: 5, h: 4, floor: 'darkwood', layout: 'rows', art: 'cigars', price: 12, crate: 'liquor', pop: 0.3, max: 15,
-    items: ['a cigar'], sub: 'World class humidor' },
-  { id: 'tasting', name: 'Tasting Bar', x: 43, y: 9, w: 8, h: 3, floor: 'wood', layout: 'bar', art: 'bar', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'beer', name: 'Beer', x: 43, y: 12, w: 8, h: 7, floor: 'coolblue', layout: 'rows', art: 'beer', price: 11, crate: 'beer', pop: 1.0, max: 40,
-    labels: [['Beer Cave'], ['Craft']], items: ['an ipa', 'german lager', 'a sour beer', 'cheap beer'], sub: 'Over 4,000 beers' },
-  { id: 'candy', name: 'Candy', x: 43, y: 19, w: 9, h: 5, floor: 'pink', layout: 'candy', art: 'candy', price: 4, crate: 'candy', pop: 1.1, max: 40,
-    items: ['sour belts', 'british chocolate', 'circus peanuts', 'gummy worms'], sub: 'See Elvis, the singing lion' },
-  { id: 'grocery', name: 'Grocery', x: 43, y: 24, w: 13, h: 9, floor: 'lino', layout: 'rows', art: 'grocery', price: 4, crate: 'grocery', pop: 1.5, max: 60,
-    labels: [['Cereal', 'Snacks'], ['Canned', 'Pasta'], ['Cleaning', 'Paper']], items: ['laundry detergent', 'cereal', 'paper towels', 'canned soup', 'chips'], sub: 'Your local favorites' },
-  { id: 'toys', name: 'Toys', x: 43, y: 33, w: 6, h: 3, floor: 'kids', layout: 'rows', art: 'toys', price: 14, crate: 'toys', pop: 0.7, max: 20, lock: 'toys',
-    items: ['a plush thing', 'a yo-yo'] },
-  { id: 'health', name: 'Health & Beauty', x: 49, y: 33, w: 7, h: 3, floor: 'lino2', layout: 'rows', art: 'health', price: 7, crate: 'health', pop: 0.8, max: 30,
-    items: ['shampoo', 'toothpaste', 'ibuprofen'] },
-  // east side
-  { id: 'cheese', name: 'Cheese Shop', x: 52, y: 13, w: 7, h: 8, floor: 'cheesecheck', layout: 'cheese', art: 'cheesecase', price: 9, crate: 'cheese', pop: 1.0, max: 40,
-    items: ['gouda', 'a stinky french one', 'aged cheddar', 'brie'], sub: '1,400 meats & cheeses from 32 countries' },
-  { id: 'tenants', name: 'Coffee Bar', x: 59, y: 13, w: 4, h: 6, floor: 'darkwood', layout: 'tenant', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'deli', name: 'Deli', x: 53, y: 21, w: 9, h: 3, floor: 'cheesecheck', layout: 'counter', art: 'deli', price: 8, crate: 'deli', pop: 1.0, max: 40,
-    items: ['sliced turkey', 'mortadella', 'olives', 'a sub'], sub: 'A slice above the rest' },
-  { id: 'sushi', name: 'Sushi', x: 56, y: 25, w: 4, h: 6, floor: 'tatami', layout: 'counter', art: 'sushi', price: 12, crate: 'seafood', pop: 0.8, max: 25, lock: 'sushi',
-    items: ['a spicy tuna roll', 'sushi'] },
-  { id: 'deals', name: 'Deals', x: 60, y: 25, w: 3, h: 6, floor: 'lino', layout: 'vcol', art: 'grocery', price: 3, crate: 'grocery', pop: 0.6, max: 20,
-    items: ['dented cans', 'cheap cereal'], sub: 'Scratch & dent' },
-  { id: 'pets', name: 'Pets', x: 63, y: 25, w: 8, h: 6, floor: 'lino', layout: 'rows', art: 'pets', price: 9, crate: 'housewares', pop: 0.6, max: 30,
-    items: ['dog food', 'a squeaky toy', 'cat litter'], sub: 'Amazing pet toy selection' },
-  { id: 'cookware', name: 'Cookware', x: 56, y: 31, w: 15, h: 5, floor: 'lino', layout: 'rows', art: 'cookware', price: 16, crate: 'housewares', pop: 0.5, max: 30,
-    items: ['a wok', 'a cast iron pan', 'a garlic press'], sub: 'Inspire your inner chef' },
-  // south-west
-  { id: 'eurosouth', sign: 'Mediterranean', name: 'International: Mediterranean', x: 2, y: 33, w: 9, h: 6, floor: 'terra', layout: 'rows', art: 'europe', price: 7, crate: 'intl', pop: 0.9, max: 30,
-    labels: [['Greece / France'], ['Italy / Spain']], items: ['feta', 'imported pasta', 'olive oil', 'french butter cookies'] },
-  { id: 'tiktok', name: 'TikTok Shop', x: 11, y: 33, w: 4, h: 6, floor: 'neon', layout: 'rows', art: 'viral', price: 15, crate: 'viral', pop: 0.9, max: 20, lock: 'tiktok',
-    items: ['that viral tumbler', 'the led thing from my feed'] },
-  { id: 'herb', name: 'Herb \'N Jungle', x: 15, y: 33, w: 6, h: 6, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.6, max: 30,
-    labels: [['Supplements'], ['Gluten Free']], items: ['turmeric pills', 'gluten free bread', 'elderberry gummies'] },
-  { id: 'frozen', name: 'Frozen & Dairy', x: 21, y: 33, w: 9, h: 13, floor: 'ice', layout: 'freezers', art: 'frozen', price: 5, crate: 'dairy', pop: 1.2, max: 50,
-    items: ['milk', 'eggs', 'craft ice cream', 'frozen pizza', 'butter'], sub: 'Craft ice cream & pizzas galore' },
-  { id: 'registers', name: 'Registers', x: 30, y: 36, w: 15, h: 10, floor: 'lino', layout: 'registers', art: 'reg', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'custserv', name: 'Customer Service', x: 34, y: 42, w: 5, h: 3, floor: 'lino', layout: 'desk', art: 'desk', price: 0, crate: null, pop: 0, max: 0 },
-  // toys & collectibles corner (upgrades)
-  { id: 'cards', name: 'Card Shop', x: 62, y: 40, w: 4, h: 6, floor: 'bluecarpet', layout: 'cards', art: 'cards', price: 10, crate: 'cards', pop: 0.6, max: 25, lock: 'cards',
-    items: ['booster packs', 'card sleeves'] },
-  { id: 'gacha', name: 'Gachapon', x: 66, y: 40, w: 5, h: 6, floor: 'kids2', layout: 'gacha', art: 'gacha', price: 3, crate: 'capsules', pop: 0.8, max: 40, lock: 'gacha',
-    items: ['capsule toys'] },
+  // ---- the wine wing (west) ----
+  { id: 'cigars', name: 'Cigars', x: 9, y: 32, w: 6, h: 4, floor: 'darkwood', layout: 'rows', art: 'cigars', price: 12, crate: 'liquor', pop: 0.3, max: 15, items: ['a cigar', 'a humidor thing'], sub: 'World class humidor' },
+  { id: 'wine', name: 'Wine', x: 9, y: 36, w: 13, h: 8, floor: 'darkwood', layout: 'rows', art: 'wine', price: 18, crate: 'wine', pop: 0.9, max: 40,
+    labels: [['Reds', 'Whites'], ['Ohio', 'Bubbly']], items: ['a dry red', 'some cheap bubbly', 'ohio wine', 'a pinot'], sub: 'Over 15,000 wines' },
+  { id: 'tasting', name: 'Tasting Bar', x: 22, y: 36, w: 6, h: 3, floor: 'wood', layout: 'bar', art: 'bar', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'liquor', name: 'State Liquor', x: 1, y: 45, w: 9, h: 6, floor: 'darkwood', layout: 'rows', art: 'liquor', price: 26, crate: 'liquor', pop: 0.45, max: 25, items: ['bourbon', 'tequila', 'the good vodka'] },
+  { id: 'jxc', sign: 'Event Center', name: 'Experience Center', x: 20, y: 45, w: 7, h: 4, floor: 'bluecarpet', layout: 'jxc', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'tiktok', name: 'TikTok Shop', x: 13, y: 46, w: 5, h: 4, floor: 'neon', layout: 'rows', art: 'viral', price: 15, crate: 'viral', pop: 0.9, max: 20, lock: 'tiktok', items: ['that viral tumbler', 'the led thing from my feed'] },
+  // ---- the back wall ----
+  { id: 'dairy', sign: 'Dairy', signY: 8, name: 'Dairy', x: 28, y: 20, w: 3, h: 10, floor: 'ice', layout: 'coolwall', art: 'dairy', price: 4, crate: 'dairy', pop: 0.8, max: 30, items: ['milk', 'eggs', 'butter', 'yogurt'] },
+  { id: 'intlproduce', sign: 'International Produce', name: 'Intl Produce', x: 31, y: 15, w: 20, h: 5, floor: 'wood', layout: 'bins', art: 'produce', price: 3, crate: 'produce', pop: 0.7, max: 40, items: ['plantains', 'bitter melon', 'fresh lemongrass', 'a weird root'] },
+  { id: 'scratch', sign: 'Scratch & Dent', name: 'Scratch & Dent', x: 51, y: 15, w: 5, h: 5, floor: 'lino', layout: 'rows', art: 'grocery', price: 3, crate: 'grocery', pop: 0.5, max: 20, items: ['dented cans', 'cheap cereal'] },
+  { id: 'meat', name: 'Meat', x: 56, y: 15, w: 7, h: 6, floor: 'redtile', layout: 'counter', art: 'meat', price: 15, crate: 'meat', pop: 0.9, max: 30,
+    labels: [['Exotic Meats']], items: ['ribeye', 'ground beef', 'alligator meat', 'kangaroo steak'], sub: 'Prime steaks & premium cuts' },
+  { id: 'seafood', name: 'Seafood', x: 63, y: 15, w: 8, h: 6, floor: 'bluetile', layout: 'seafood', art: 'fish', price: 14, crate: 'seafood', pop: 0.8, max: 30,
+    items: ['salmon', 'shrimp', 'a whole weird fish', 'crab legs'], sub: 'One of America\'s largest' },
+  { id: 'grocery', name: 'Grocery', x: 73, y: 15, w: 14, h: 9, floor: 'lino', layout: 'rows', art: 'grocery', price: 4, crate: 'grocery', pop: 1.5, max: 60,
+    labels: [['Cereal', 'Coffee'], ['Canned', 'Pasta'], ['Cleaning', 'Paper']], items: ['laundry detergent', 'cereal', 'paper towels', 'canned soup', 'coffee'], sub: 'Your local favorites',
+    props: [['anim:swing', 7, 1]] },
+  // ---- east: world foods, hot sauce, international ----
+  { id: 'intl', sign: 'World Foods', name: 'International', x: 87, y: 11, w: 14, h: 12, floor: 'sand', layout: 'rows', art: 'mideast', price: 6, crate: 'intl', pop: 1.0, max: 40,
+    labels: [['Specialty Soda', 'Africa'], ['Italy', 'Cajun'], ['Pasta', 'Olive Oil'], ['Specialty Soda']], items: ['weird soda', 'fufu flour', 'imported pasta', 'cajun seasoning', 'olive oil'],
+    props: [['ship', 5, 5, 3, 2]] },
+  { id: 'hotsauce', name: 'Hot Sauce', x: 101, y: 11, w: 8, h: 12, floor: 'redcheck', layout: 'hot', art: 'hotsauce', price: 8, crate: 'hotsauce', pop: 0.9, max: 40,
+    labels: [['Hot Sauce']], items: ['the hottest sauce you got', 'ghost pepper sauce', 'a sauce that won\'t kill me'], sub: '& fiery foods' },
+  { id: 'europe', sign: 'Europe', name: 'International: Europe', x: 88, y: 24, w: 11, h: 10, floor: 'terra2', layout: 'rows', art: 'europe', price: 7, crate: 'intl', pop: 0.9, max: 40,
+    labels: [['Germany', 'Great Britain'], ['Kosher', 'Russia'], ['Ireland', 'Dutch']], items: ['irish butter', 'beans for toast', 'proper tea', 'german mustard', 'matzo', 'pierogi'],
+    props: [['anim:robin', 5, 2, 2, 1]] },
+  { id: 'americas', sign: 'Americas', name: 'International: Americas', x: 99, y: 24, w: 10, h: 10, floor: 'orange', layout: 'rows', art: 'americas', price: 5, crate: 'intl', pop: 1.0, max: 40,
+    labels: [['Hispanic'], ['South America'], ['Caribbean']], items: ['masa', 'yerba mate', 'dried chiles', 'jerk seasoning', 'mexican coke'] },
+  { id: 'asia', sign: 'Asia', name: 'International: Asia', x: 95, y: 34, w: 14, h: 6, floor: 'terra', layout: 'rows', art: 'asia', price: 6, crate: 'intl', pop: 1.0, max: 30,
+    labels: [['Japan', 'Tea'], ['China', 'Thailand']], items: ['ramen', 'gochujang', 'rice crackers', 'fish sauce', 'a 25 lb bag of rice'], sub: 'Intl wall of rice' },
+  { id: 'india', sign: 'India & Middle East', name: 'International: India', x: 95, y: 40, w: 14, h: 5, floor: 'sand', layout: 'rows', art: 'mideast', price: 6, crate: 'intl', pop: 0.8, max: 25,
+    labels: [['India', 'Middle Eastern']], items: ['basmati rice', 'tahini', 'ghee', 'turkish delight', 'garam masala'], props: [['tuktuk', 1, 1, 2, 1]] },
+  { id: 'theater', sign: 'The Story', name: 'The Jungle John\'s Story', x: 88, y: 39, w: 6, h: 5, floor: 'bluecarpet', layout: 'theater', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'cards', name: 'Card Shop', x: 87, y: 45, w: 8, h: 4, floor: 'bluecarpet', layout: 'cards', art: 'cards', price: 10, crate: 'cards', pop: 0.7, max: 25, items: ['booster packs', 'card sleeves', 'that one rare card'], sub: 'Card games & tournaments' },
+  { id: 'deals', name: 'Deals', x: 87, y: 49, w: 8, h: 3, floor: 'lino', layout: 'rows', art: 'grocery', price: 3, crate: 'grocery', pop: 0.6, max: 20, items: ['dented cans', 'cheap cereal', 'mystery bundle'], sub: 'Scratch & dent' },
+  // ---- the fresh-food loop (middle) ----
+  { id: 'frozen', name: 'Frozen & Dairy', x: 34, y: 21, w: 9, h: 8, floor: 'ice', layout: 'freezers', art: 'frozen', price: 5, crate: 'dairy', pop: 1.2, max: 50,
+    items: ['craft ice cream', 'frozen pizza', 'frozen peas', 'popsicles'], sub: 'Craft ice cream & pizzas galore' },
+  { id: 'produce', name: 'Produce', x: 43, y: 21, w: 11, h: 8, floor: 'wood', layout: 'bins', art: 'produce', price: 3, crate: 'produce', pop: 1.4, max: 60,
+    items: ['dragon fruit', 'the spiky fruit', 'fresh basil', 'bananas', 'a decent avocado'], sub: 'Over an acre of produce', props: [['anim:corn', 9, 0, 2, 1]] },
+  { id: 'bulk', name: 'Bulk Foods', x: 46, y: 29, w: 8, h: 3, floor: 'wood', layout: 'binsrow', art: 'produce', price: 4, crate: 'natural', pop: 0.6, max: 25, items: ['trail mix', 'dried mango', 'pistachios', 'gummy bears by the pound'] },
+  { id: 'beer', name: 'Beer', x: 34, y: 29, w: 11, h: 8, floor: 'coolblue', layout: 'rows', art: 'beer', price: 11, crate: 'beer', pop: 1.0, max: 40,
+    labels: [['Beer Cave'], ['Craft', 'Imports']], items: ['an ipa', 'german lager', 'a sour beer', 'cheap beer'], sub: 'Over 4,000 beers', props: [['hangcar', 2, 2, 2, 1], ['hangcar', 7, 5, 2, 1, { frame: 1 }]] },
+  { id: 'cheese', name: 'Cheese Shop', x: 34, y: 37, w: 11, h: 6, floor: 'cheesecheck', layout: 'cheese', art: 'cheesecase', price: 9, crate: 'cheese', pop: 1.0, max: 40,
+    items: ['gouda', 'a stinky french one', 'aged cheddar', 'brie'], sub: '1,400 meats & cheeses' },
+  { id: 'olive', sign: 'Olive Bar', name: 'Olive Bar & Fresh Meals', x: 47, y: 32, w: 8, h: 4, floor: 'cheesecheck', layout: 'olive', art: 'olive', price: 8, crate: 'deli', pop: 0.7, max: 25, items: ['olives', 'a hot meal to go', 'stuffed peppers'] },
+  { id: 'deli', name: 'Deli', x: 47, y: 36, w: 8, h: 7, floor: 'cheesecheck', layout: 'counter', art: 'deli', price: 8, crate: 'deli', pop: 1.0, max: 40, items: ['sliced turkey', 'mortadella', 'a sub'], sub: 'A slice above the rest' },
+  { id: 'bakery', name: 'Bakery', x: 56, y: 27, w: 10, h: 8, floor: 'warm', layout: 'counter', art: 'bakery', price: 6, crate: 'bakery', pop: 0.9, max: 30, items: ['sourdough', 'a birthday cake', 'croissants'], sub: 'We still bake from scratch' },
+  { id: 'jerky', name: 'Jerky', x: 56, y: 35, w: 7, h: 2, floor: 'darkwood', layout: 'hrow', art: 'americas', price: 9, crate: 'meat', pop: 0.5, max: 15, items: ['beef jerky', 'alligator jerky', 'jerky of unclear origin'] },
+  { id: 'candy', name: 'Candy', x: 55, y: 38, w: 9, h: 5, floor: 'pink', layout: 'candy', art: 'candy', price: 4, crate: 'candy', pop: 1.1, max: 40, items: ['sour belts', 'british chocolate', 'circus peanuts', 'gummy worms'], sub: 'The Candy Castle' },
+  { id: 'honey', name: 'Honey & Maple Syrup', x: 66, y: 24, w: 5, h: 6, floor: 'sage', layout: 'rows', art: 'natural', price: 9, crate: 'natural', pop: 0.5, max: 20, items: ['raw honey', 'maple syrup', 'a honeycomb'] },
+  { id: 'snacks', name: 'Snacks', x: 71, y: 24, w: 14, h: 3, floor: 'lino', layout: 'rows', art: 'grocery', price: 4, crate: 'grocery', pop: 1.0, max: 30, labels: [['Chips', 'Cookies']], items: ['chips', 'cookies', 'pretzels'] },
+  { id: 'gluten', sign: 'Gluten Free', name: 'Gluten Free', x: 67, y: 30, w: 7, h: 3, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.5, max: 20, items: ['gluten free bread', 'almond flour'] },
+  { id: 'natural', name: 'Natural Foods', x: 75, y: 27, w: 10, h: 7, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.7, max: 30,
+    labels: [['Protein', 'Plant Milk'], ['Kombucha']], items: ['protein powder', 'oat milk', 'kombucha'], props: [['vwbus', 6, 4, 3, 2]] },
+  { id: 'tiki', sign: 'Tiki Bar', name: 'Tiki Bar', x: 69, y: 34, w: 6, h: 3, floor: 'wood', layout: 'bar', art: 'tiki', price: 0, crate: null, pop: 0, max: 0, props: [['tikihead', 5, 0]] },
+  { id: 'herb', name: 'Herb \'N Jungle', x: 64, y: 38, w: 11, h: 5, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.6, max: 30,
+    labels: [['Supplements', 'Vitamins']], items: ['turmeric pills', 'elderberry gummies', 'a tincture'] },
+  { id: 'toys', name: 'Toys & Collectibles', x: 76, y: 37, w: 9, h: 7, floor: 'kids', layout: 'rows', art: 'toys', price: 14, crate: 'toys', pop: 0.8, max: 25, items: ['a plush thing', 'a yo-yo', 'a mystery figure'] },
+  // ---- the front: shops, registers, entrance ----
+  { id: 'cookware', name: 'Cookware', x: 28, y: 46, w: 16, h: 6, floor: 'lino', layout: 'rows', art: 'cookware', price: 16, crate: 'housewares', pop: 0.5, max: 30, items: ['a wok', 'a cast iron pan', 'a garlic press'], sub: 'Inspire your inner chef' },
+  { id: 'pets', name: 'Pets', x: 44, y: 46, w: 10, h: 6, floor: 'lino', layout: 'rows', art: 'pets', price: 9, crate: 'housewares', pop: 0.6, max: 30, items: ['dog food', 'a squeaky toy', 'cat litter'], sub: 'Amazing pet toy selection' },
+  { id: 'gacha', name: 'Gachapon', x: 54, y: 46, w: 8, h: 6, floor: 'kids2', layout: 'gacha', art: 'gacha', price: 3, crate: 'capsules', pop: 0.8, max: 40, lock: 'gacha', items: ['capsule toys'] },
+  { id: 'health', name: 'Health & Beauty', x: 62, y: 46, w: 4, h: 6, floor: 'lino2', layout: 'rows', art: 'health', price: 7, crate: 'health', pop: 0.8, max: 30, items: ['shampoo', 'toothpaste', 'ibuprofen'] },
+  { id: 'registers', name: 'Registers', x: 66, y: 44, w: 15, h: 7, floor: 'lino', layout: 'registers', art: 'reg', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'sushi', name: 'Sushi', x: 81, y: 45, w: 6, h: 4, floor: 'tatami', layout: 'counter', art: 'sushi', price: 12, crate: 'seafood', pop: 0.8, max: 25, items: ['a spicy tuna roll', 'sushi'] },
+  { id: 'custserv', name: 'Customer Service', x: 76, y: 53, w: 4, h: 3, floor: 'lino', layout: 'desk', art: 'desk', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'foodcourt', name: 'Food Court', x: 28, y: 52, w: 34, h: 7, floor: 'foodtile', layout: 'foodcourt', price: 0, crate: null, pop: 0, max: 0 },
 ];
 const DEPT = {}; DEPTS.forEach(d => DEPT[d.id] = d);
 
@@ -268,20 +266,17 @@ const ANIMS = {
 
 // upgrades: cat = area | staff | gear | promo
 const UPGRADES = [
-  { id: 'toys', cat: 'area', name: 'Toy Aisle', cost: 3500, desc: 'Toys next to grocery. Kids drag parents in.', stars: 1 },
   { id: 'gacha', cat: 'area', name: 'Gachapon Corner', cost: 4500, desc: 'Capsule machines. Refill them with capsule crates.', stars: 2 },
   { id: 'tiktok', cat: 'area', name: 'TikTok Shop', cost: 5000, desc: 'Viral junk. Film a video once a day for a crowd boost.', stars: 2 },
-  { id: 'cards', cat: 'area', name: 'Card Shop', cost: 6000, desc: 'Card packs. Run a tournament every Saturday.', stars: 2 },
-  { id: 'sushi', cat: 'area', name: 'Sushi Bar', cost: 7500, desc: 'Sushi counter next to the deli. Uses seafood crates.', stars: 3 },
   { id: 'drone', cat: 'promo', name: 'Hot Sauce Drone', cost: 2500, desc: 'A drone flies a giant hot sauce bottle over the aisle. Rep up.', stars: 1 },
-  { id: 'monorail', cat: 'promo', name: 'Fix the Monorail', cost: 12000, desc: 'Rides on weekends and fest days. Money and rep.', stars: 3 },
+  { id: 'monorail', cat: 'promo', name: 'Fix the Monorail', cost: 12000, desc: 'The monorail out front runs again: rides on Fridays and fest days. Money and rep.', stars: 3 },
   { id: 'cellar', cat: 'promo', name: 'Reserve Cellar', cost: 8000, desc: 'Fancy wine room. Wine sells for 30% more.', stars: 3 },
   { id: 'billboard', cat: 'promo', name: 'Dixie Hwy Billboard', cost: 3000, desc: '+20% customers.', stars: 1 },
   { id: 'parking', cat: 'promo', name: 'Bigger Parking Lot', cost: 6000, desc: '+15% customers.', stars: 2 },
   { id: 'cashier1', cat: 'staff', name: 'Hire Cashier: Marcus', cost: 800, wage: 110, desc: 'Opens register 3.', stars: 1 },
   { id: 'cashier2', cat: 'staff', name: 'Hire Cashier: Bev', cost: 1200, wage: 110, desc: 'Opens register 4.', stars: 2, req: 'cashier1' },
   { id: 'cashier3', cat: 'staff', name: 'Hire Cashier: Tyler', cost: 1800, wage: 120, desc: 'Opens register 5.', stars: 3, req: 'cashier2' },
-  { id: 'cashierQ', cat: 'staff', name: 'Hire Cashier: Earl', cost: 900, wage: 100, desc: 'Opens the Quick Trips register by the Rhino door. 5 items or less, and he means it.', stars: 1 },
+  { id: 'cashierQ', cat: 'staff', name: 'Hire Cashier: Earl', cost: 900, wage: 100, desc: 'Opens the Quick Trips register by the wine entrance. 5 items or less, and he means it.', stars: 1 },
   { id: 'stocker', cat: 'staff', name: 'Hire Stocker: Ray', cost: 1500, wage: 150, desc: 'Restocks the emptiest aisle on his own. Pays wholesale.', stars: 1 },
   { id: 'stocker2', cat: 'staff', name: 'Hire Stocker: Nina', cost: 3000, wage: 160, desc: 'A second stocker.', stars: 3, req: 'stocker' },
   { id: 'janitor', cat: 'staff', name: 'Hire Janitor: Big Lou', cost: 1000, wage: 100, desc: 'Mops spills on his own.', stars: 1 },
@@ -482,14 +477,14 @@ const WEEK_GOALS = [2000, 2600, 3300, 4100, 5000]; // week 2+ asks 30% more each
 
 // quest givers, one per main area. counter clerks already stand behind their cases; the rest stand at `at`
 const GIVERS = [
-  { id: 'gus', name: 'Gus', dept: 'cheese', at: [53, 13], shirt: '#f4f4f4', apron: '#e8c23a' },
+  { id: 'gus', name: 'Gus', dept: 'cheese', at: [37, 41], shirt: '#f4f4f4', apron: '#e8c23a' },
   { id: 'rosa', name: 'Rosa', dept: 'bakery' },
   { id: 'sal', name: 'Sal', dept: 'deli' },
   { id: 'marlene', name: 'Marlene', dept: 'seafood' },
-  { id: 'philippe', name: 'Philippe', dept: 'tasting', at: [47, 9], shirt: '#1e1e24', apron: '#5a1626' },
-  { id: 'hank', name: 'Hank', dept: 'produce', at: [34, 24], shirt: '#2e7d3b', apron: '#6a4a2a' },
-  { id: 'trixie', name: 'Trixie', dept: 'candy', at: [50, 22], shirt: '#ff8fc0', apron: '#6fc6e8' },
-  { id: 'dave', name: 'Diablo Dave', dept: 'hotsauce', at: [22, 19], shirt: '#1e1e24', apron: '#d42a1a' },
+  { id: 'philippe', name: 'Philippe', dept: 'tasting', at: [25, 36], shirt: '#1e1e24', apron: '#5a1626' },
+  { id: 'hank', name: 'Hank', dept: 'produce', at: [53, 27], shirt: '#2e7d3b', apron: '#6a4a2a' },
+  { id: 'trixie', name: 'Trixie', dept: 'candy', at: [63, 41], shirt: '#ff8fc0', apron: '#6fc6e8' },
+  { id: 'dave', name: 'Diablo Dave', dept: 'hotsauce', at: [101, 13], shirt: '#1e1e24', apron: '#d42a1a' },
   { id: 'deb', name: 'Deb', dept: 'custserv' },
 ];
 // one quest per giver per weekday (Mon..Fri). types: sample/talk (hand out to customers in `zones`), stock (restock `dept`),
@@ -527,7 +522,7 @@ const QUESTS = {
   ],
   marlene: [
     { type: 'feed', n: 1, reward: 220, title: 'Feed the live tanks', ask: "honey, the lobsters are staring at me like i owe them money. feed the tanks. fish food is tool 4.", nag: "they're still staring.", done: "look at them. happy as clams. which, legally, they are not." },
-    { type: 'sample', n: 8, item: 'shrimp cocktail', lines: 'shrimp', zones: ['seafood', 'livefish', 'honey', 'intl'], buy: 'seafood', reward: 300, title: 'Hand out shrimp near Seafood',
+    { type: 'sample', n: 8, item: 'shrimp cocktail', lines: 'shrimp', zones: ['seafood', 'grocery', 'honey', 'meat'], buy: 'seafood', reward: 300, title: 'Hand out shrimp near Seafood',
       ask: "shrimp cocktail samples. eight of 'em. seafood or nearby. keep them cold and keep them moving.", nag: "warm shrimp is a lawsuit, hon.", done: "eight people, zero lawsuits. that's a great day in seafood." },
     { type: 'stock', n: 2, dept: 'seafood', reward: 300, title: 'Restock Seafood twice', ask: "the fish case is looking thin. two seafood crates. the ice is melting into my shoes.", nag: "my shoes are full of ice water. hurry.", done: "beautiful. the case looks like a postcard again." },
     { type: 'mop', n: 3, reward: 340, title: 'Mop 3 spills', ask: "the ice machine leaked and now it's a slip-and-slide. three spills. mop. go.", nag: "somebody's gonna eat it. hard.", done: "dry floors! nobody broke a hip! today is a good day." },
@@ -551,22 +546,22 @@ const QUESTS = {
       ask: "dragon fruit friday. twelve samples. it looks like a pokemon and tastes like a pear that went to college.", nag: "the dragons await.", done: "twelve! the dragons are proud. so am i, chief." },
   ],
   trixie: [
-    { type: 'sample', n: 5, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery'], kids: true, buy: 'candy', reward: 260, title: 'Give lollipops to 5 kids near Candy',
+    { type: 'sample', n: 5, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'herb', 'bakery'], kids: true, buy: 'candy', reward: 260, title: 'Give lollipops to 5 kids near Candy',
       ask: "omg hi!! give lollipops to five kids around candy. kids only. adults will ask. adults cannot have one. it's the law. my law.", nag: "the kids are vibrating. find them.", done: "five sugar-blasted children!! their parents hate us. perfect." },
     { type: 'elvis', n: 3, reward: 280, title: 'Make Elvis sing 3 times', ask: "the kids want elvis. make him sing three times. he's the lion. don't ask. nobody knows.", nag: "elvis has left the building. please bring him back.", done: "three songs!! one kid cried. happy tears. probably." },
     { type: 'stock', n: 2, dept: 'candy', reward: 300, title: 'Restock Candy twice', ask: "we're OUT of the sour stuff and a kid bit a display. two candy crates. please. for safety.", nag: "the kid is eyeing another display.", done: "restocked!! the biting has stopped. for now." },
-    { type: 'sample', n: 6, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery', 'health'], kids: true, buy: 'candy', reward: 380, title: 'Give lollipops to 6 kids near Candy',
+    { type: 'sample', n: 6, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'herb', 'bakery', 'jerky'], kids: true, buy: 'candy', reward: 380, title: 'Give lollipops to 6 kids near Candy',
       ask: "lollipop day part two!! six kids. it's the sour apple ones. they make your face do a thing.", nag: "six faces must do the thing.", done: "six faces did the thing!! you're my favorite boss. you're my only boss but still." },
     { type: 'elvis', n: 5, reward: 460, title: 'Make Elvis sing 5 times', ask: "friday concert!! five elvis songs. he gets a little hoarse but he's a professional.", nag: "the crowd wants more!!", done: "five!! elvis needs a nap. so do i. so do you, honestly." },
   ],
   dave: [
-    { type: 'sample', n: 8, item: 'mild hot sauce', lines: 'mild', zones: ['hotsauce', 'americas', 'gigante', 'intl'], buy: 'hotsauce', reward: 280, title: 'Hand out mild hot sauce near Hot Sauce',
+    { type: 'sample', n: 8, item: 'mild hot sauce', lines: 'mild', zones: ['hotsauce', 'americas', 'intl'], buy: 'hotsauce', reward: 280, title: 'Hand out mild hot sauce near Hot Sauce',
       ask: "my friend. today we start gentle. 'mild'. eight samples. hot sauce, americas, mercado. watch their faces. 'mild' is a lie i tell for fun.", nag: "they're waiting to suffer. go.", done: "eight people. four said 'that's not mild'. correct. it's not." },
-    { type: 'sample', n: 10, item: 'ghost pepper sauce', lines: 'ghost', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia'], buy: 'hotsauce', reward: 380, title: 'Hand out ghost pepper sauce near Hot Sauce',
+    { type: 'sample', n: 10, item: 'ghost pepper sauce', lines: 'ghost', zones: ['hotsauce', 'americas', 'intl', 'asia'], buy: 'hotsauce', reward: 380, title: 'Hand out ghost pepper sauce near Hot Sauce',
       ask: "ghost pepper. ten brave people. hot sauce or the international aisles. have milk nearby. i don't. you should.", nag: "the ghosts are restless.", done: "ten souls touched by the ghost. one guy saw his ancestors. good reviews." },
     { type: 'stock', n: 2, dept: 'hotsauce', reward: 300, title: 'Restock Hot Sauce twice', ask: "my wall of fire is down to embers. two hot sauce crates, my friend.", nag: "embers. only embers.", done: "the wall burns again. you are a true friend of the pepper." },
     { type: 'help', n: 3, reward: 420, title: 'Walk 3 lost customers to their aisle', ask: "three people wandered in here looking for 'normal ketchup' and now they're scared. help three lost people find their way.", nag: "they keep coming. they keep being lost.", done: "three saved. they will never come back to my aisle. that's fine." },
-    { type: 'sample', n: 12, item: 'the reaper', lines: 'reaper', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia', 'seafood'], buy: 'hotsauce', reward: 560, title: 'Hand out The Reaper near Hot Sauce + Intl',
+    { type: 'sample', n: 12, item: 'the reaper', lines: 'reaper', zones: ['hotsauce', 'americas', 'intl', 'asia', 'seafood'], buy: 'hotsauce', reward: 560, title: 'Hand out The Reaper near Hot Sauce + Intl',
       ask: "friday. the reaper. twelve people. i've signed nothing and neither have you. hand it out and walk away fast.", nag: "the reaper is patient. the customers are not.", done: "twelve. three of them are still sweating in the parking lot. legends." },
   ],
   deb: [
@@ -858,6 +853,7 @@ function caseSprite(art, seed, fill) {
         case 'fish': P(g, x, y + 1, 3, 2, '#a8b8c8'); P(g, x + 3, y, 1, 1, '#8898a8'); P(g, x + 3, y + 3, 1, 1, '#8898a8'); P(g, x, y + 1, 1, 1, '#222'); if (r() < 0.3) { P(g, x, y + 1, 3, 2, '#f08a6a'); } break;
         case 'cheesecase': if (r() < 0.5) { P(g, x, y + 1, 4, 2, '#f6d040'); P(g, x + 1, y, 3, 1, '#f6d040'); P(g, x + 2, y + 1, 1, 1, '#d8a820'); } else { oval(g, x + 1.5, y + 1.5, 2, 1.5, '#e8a030'); P(g, x, y + 1, 4, 1, '#f6d070'); } break;
         case 'sushi': disc(g, x + 1.5, y + 1.5, 1.6, '#1a1a1a'); P(g, x + 1, y + 1, 1, 1, '#ffffff'); P(g, x + 2, y + 1, 1, 1, '#f06a5a'); break;
+        case 'olive': for (let k = 0; k < 4; k++) disc(g, x + (k % 2) * 2 + 0.5, y + Math.floor(k / 2) * 2 + 0.5, 0.9, r() < 0.5 ? '#3a5a1a' : '#2a1a2a'); P(g, x, y + 3, 4, 1, '#d8c890'); break;
       } });
     // curved front glass: a tint, a bright curve along the top, two glare streaks, a mullion between panes
     g.globalAlpha = 0.12; P(g, 0, 2, 16, 13, '#bfe8ff'); g.globalAlpha = 0.5; P(g, 0, 2, 16, 1, '#ffffff'); g.globalAlpha = 0.9; P(g, 2, 3, 6, 1, '#ffffff'); P(g, 1, 4, 1, 2, '#ffffff');
@@ -1267,7 +1263,7 @@ function tankSprite(kind, frame, hungry) {
 // spills
 function spillSprite(kind) {
   return spr('spill_' + kind, 16, 16, g => {
-    const c = { milk: '#f6f6f0', salsa: '#c8301e', pickle: '#7aa83a', grape: '#7a2a8a', water: '#9ad0f0' }[kind];
+    const c = { milk: '#f6f6f0', salsa: '#c8301e', pickle: '#7aa83a', grape: '#7a2a8a', water: '#9ad0f0', pizza: '#e8a030', noodles: '#f2d880', froyo: '#ffc0e0', soda: '#6a3a1a' }[kind] || '#c8a070';
     oval(g, 8, 9, 6.5, 4, c); oval(g, 4, 11, 2.5, 2, c); oval(g, 12, 7, 2.5, 2, c); P(g, 6, 7, 3, 1, shade(c, 0.5));
     if (kind === 'salsa') { P(g, 7, 9, 1, 1, '#2a8a2a'); P(g, 10, 10, 1, 1, '#f2e0a0'); }
     if (kind === 'pickle') { P(g, 5, 8, 2, 1, '#e8f4f8'); P(g, 11, 10, 1, 2, '#e8f4f8'); P(g, 8, 10, 3, 1, '#4a7a2a'); }
@@ -1384,6 +1380,59 @@ function bossSprite(dir, pose, carry, wheelF, shoes, outfit) {
   }, true);
 }
 
+// ===== art for the Eastgate layout: displays, food court, theater (same pixel rules: lit from the top left, 1px ink outline) =====
+FLOOR.foodtile = (g, x, y, r, tx, ty) => { checker(g, x, y, (tx + ty) % 2 ? '#e9dcc0' : '#f3ead6', (tx + ty) % 2 ? '#d9c9a8' : '#e7dcc2', 8); if (r() < 0.06) P(g, x + 5, y + 9, 2, 1, '#c8b890'); };
+CASE_STYLE.olive = '#4a6a34';
+const barBase = PROPS.bar[2], carBase = PROPS.racecar[2];
+Object.assign(PROPS, {
+  // the tasting bar's 4th look: bamboo front + coconut drinks with umbrellas (the Tiki Bar)
+  bar: [16, 24, (g, f, c) => { if (f !== 3) return barBase(g, f, c);
+    P(g, 0, 8, 16, 4, '#c8a050'); P(g, 0, 8, 16, 1, '#f0d080'); P(g, 0, 11, 16, 1, '#7a5a20'); P(g, 0, 12, 16, 10, '#a8803a');
+    for (let x = 1; x < 16; x += 3) { P(g, x, 12, 2, 10, '#c8a050'); P(g, x, 12, 1, 10, '#e0c070'); P(g, x, 16, 2, 1, '#7a5a20'); }
+    P(g, 0, 22, 16, 2, '#5a3a14'); disc(g, 5, 5, 2.5, '#7a4a22'); P(g, 4, 3, 2, 1, '#f4ead0'); P(g, 6, 0, 1, 4, '#3aa83a'); P(g, 4, 0, 5, 1, '#ff6fb0');
+    disc(g, 11, 5, 2.5, '#7a4a22'); P(g, 10, 3, 2, 1, '#f4ead0'); P(g, 12, 1, 1, 3, '#ffd23f'); P(g, 10, 1, 4, 1, '#3ac0ff'); }, true],
+  racecar: [34, 18, (g, f, c) => { carBase(g, f, c); if (f === 1) { const d = g.getImageData(0, 0, 34, 18), a = d.data; for (let i = 0; i < a.length; i += 4) if (a[i] === 0x2e && a[i + 1] === 0x5f && a[i + 2] === 0xd8) { a[i] = 0xf2; a[i + 1] = 0xc2; a[i + 2] = 0x1c; } else if (a[i] === 0x6a && a[i + 1] === 0x9a && a[i + 2] === 0xff) { a[i] = 0xff; a[i + 1] = 0xe6; a[i + 2] = 0x7a; } g.putImageData(d, 0, 0); } }, true],
+  tower: [16, 40, (g) => { // a candy castle tower: striped wall, a pointy red roof, a pennant
+    P(g, 2, 16, 12, 24, '#f4f0f6'); for (let y = 18; y < 38; y += 4) P(g, 2, y, 12, 2, '#3a6ad8'); P(g, 2, 16, 12, 1, '#ffffff'); P(g, 12, 16, 2, 24, '#c8c0d0');
+    for (let x = 2; x < 14; x += 3) P(g, x, 13, 2, 3, '#f4f0f6'); P(g, 6, 26, 4, 5, '#2a1d22'); P(g, 7, 27, 2, 4, '#5a3a62');
+    for (let y = 0; y < 13; y++) { const w = Math.max(1, Math.round(y * 0.9)); P(g, 8 - w, y + 1, w * 2, 1, y % 3 === 0 ? '#ff6a5a' : '#d8342a'); } P(g, 8, -1, 1, 3, '#6a6f78'); P(g, 9, -1, 4, 2, '#ffd23f'); }, true],
+  pickles: [16, 22, (g, f, c) => { // a wooden barrel of big pickles in brine
+    P(g, 2, 6, 12, 15, '#9a6a30'); P(g, 2, 6, 2, 15, '#b8843e'); P(g, 12, 6, 2, 15, '#7a4e20'); for (const y of [8, 13, 18]) P(g, 2, y, 12, 1, '#5a5f68');
+    oval(g, 8, 6, 6, 2.5, '#6a8a3a'); oval(g, 8, 6, 5, 1.8, '#8ab048'); for (const [x, y] of [[5, 3], [9, 2], [7, 4], [11, 4]]) { P(g, x, y, 2, 4, '#4a7a2a'); P(g, x, y, 1, 3, '#7aa848'); } }, true],
+  screen: [64, 24, (g) => { // the little theater: curtains, a lit screen with a palm tree on it
+    P(g, 0, 0, 64, 22, '#5a1626'); P(g, 6, 2, 52, 18, '#e8f0f8'); P(g, 7, 3, 50, 16, '#bfe0ec'); P(g, 30, 8, 2, 10, '#7a5a3a'); for (let a = 0; a < 5; a++) { const ang = -2.6 + a * 0.55; for (let k = 0; k < 8; k++) P(g, 31 + Math.cos(ang) * k, 8 + Math.sin(ang) * k * 0.6, 2, 1, '#3aa848'); }
+    P(g, 7, 15, 50, 4, '#f2c230'); for (let x = 0; x < 6; x += 2) { P(g, x, 0, 2, 22, '#7a2036'); P(g, 58 + x, 0, 2, 22, '#7a2036'); } P(g, 0, 0, 64, 2, '#c8a030'); P(g, 0, 22, 64, 2, '#3a0e18'); }, true],
+  seat: [16, 16, (g) => { P(g, 3, 4, 10, 6, '#a8202e'); P(g, 3, 4, 10, 1, '#d8384a'); P(g, 3, 10, 10, 3, '#8a1826'); P(g, 3, 13, 2, 2, '#3a3a42'); P(g, 11, 13, 2, 2, '#3a3a42'); }, true],
+  stage: [80, 18, (g) => { P(g, 0, 6, 80, 12, '#5a3a1a'); P(g, 0, 6, 80, 2, '#8a6a3a'); for (let x = 4; x < 80; x += 10) disc(g, x, 4, 1.5, '#fff6a0'); P(g, 34, 0, 12, 6, '#2e3a8a'); P(g, 36, 1, 8, 3, '#ffd23f'); }, true],
+  chair: [16, 16, (g) => { P(g, 4, 3, 8, 3, '#e8e0d0'); P(g, 4, 3, 8, 1, '#ffffff'); P(g, 4, 7, 8, 3, '#d8d0c0'); P(g, 4, 10, 1, 4, '#8a8f98'); P(g, 11, 10, 1, 4, '#8a8f98'); }, true],
+  table: [32, 18, (g) => { P(g, 1, 4, 30, 7, '#c8ccd2'); P(g, 1, 4, 30, 1, '#eef2f6'); P(g, 1, 10, 30, 1, '#8a929e'); P(g, 14, 11, 4, 6, '#6a6f78'); P(g, 9, 16, 14, 1, '#4a4f58'); P(g, 6, 6, 3, 2, '#ffffff'); P(g, 22, 6, 4, 2, '#e23a2e'); }, true],
+  foodstall: [48, 34, (g, f) => { // a food court stand: a striped awning in its own colours, a sign, a counter
+    const [c1, c2, food] = [['#e23a2e', '#ffd23f', '#f2a020'], ['#2fa84f', '#f4f4f0', '#d8342a'], ['#2a2a32', '#e23a2e', '#f6e0a0'], ['#ff8fc0', '#9ff0ff', '#ffffff'], ['#8a5a2a', '#f2c230', '#c8803a'], ['#f07a22', '#2e7d3b', '#e8a030']][f % 6];
+    P(g, 0, 0, 48, 8, c1); for (let x = 0; x < 48; x += 8) P(g, x, 0, 4, 8, c2); P(g, 0, 8, 48, 2, shade(c1, -0.35)); for (let x = 2; x < 48; x += 4) P(g, x, 10, 2, 2, c1);
+    P(g, 2, 12, 2, 10, '#8a8f98'); P(g, 44, 12, 2, 10, '#8a8f98'); P(g, 0, 22, 48, 12, '#c8b890'); P(g, 0, 22, 48, 2, '#ece0c0'); P(g, 0, 32, 48, 2, '#8a7a5a');
+    for (let i = 0; i < 4; i++) { const x = 6 + i * 10; disc(g, x + 2, 20, 2.5, '#f4f4f0'); oval(g, x + 2, 19, 2, 1.2, food); } P(g, 6, 26, 36, 4, shade(c1, 0.2)); P(g, 6, 26, 36, 1, shade(c1, 0.5)); }, true],
+  ship: [50, 42, (g) => { // a pirate ship display over the Cajun aisle
+    g.translate(1, 1); P(g, 23, 2, 2, 26, '#6a4422'); P(g, 11, 6, 2, 22, '#6a4422'); P(g, 34, 8, 2, 20, '#6a4422');
+    for (const [x, y, w, h] of [[14, 4, 20, 9], [16, 14, 16, 8], [4, 8, 14, 8], [4, 18, 12, 6], [27, 10, 14, 8], [29, 19, 11, 6]]) { P(g, x, y, w, h, '#f4ead0'); P(g, x, y, w, 1, '#ffffff'); P(g, x + w - 1, y, 1, h, '#d8ccb0'); }
+    P(g, 22, 0, 6, 3, '#1a1a1a'); P(g, 24, 1, 2, 1, '#f4f4f4'); g.fillStyle = '#8a5a2a'; for (let y = 27; y < 38; y++) { const inset = Math.floor((y - 27) * 0.7); g.fillRect(inset + (y < 30 ? 0 : 2), y, 48 - inset * 2 - (y < 30 ? 0 : 4), 1); }
+    P(g, 0, 27, 48, 2, '#b07a44'); P(g, 0, 31, 48, 1, '#5a3a14'); for (let x = 8; x < 40; x += 7) disc(g, x, 33, 1.3, '#1a1a1a'); }, true],
+  vwbus: [50, 36, (g) => { // a hippie van: Natural Foods
+    g.translate(1, 1); P(g, 2, 4, 44, 22, '#f4f0e6'); P(g, 2, 16, 44, 10, '#3ac0b0'); P(g, 2, 4, 44, 2, '#ffffff'); P(g, 0, 8, 3, 16, '#e8e0d0');
+    for (let x = 6; x < 40; x += 9) P(g, x, 7, 7, 6, '#7ab8d8'); P(g, 41, 7, 4, 6, '#7ab8d8'); disc(g, 8, 18, 3, '#ffffff'); disc(g, 8, 18, 1.8, '#ff6fb0');
+    for (const [x, c] of [[16, '#ffd23f'], [24, '#ff6a5a'], [32, '#b070ff']]) { disc(g, x, 21, 2.5, c); P(g, x - 1, 20, 2, 1, '#ffffff'); }
+    disc(g, 10, 28, 4, '#2a2a2a'); disc(g, 38, 28, 4, '#2a2a2a'); disc(g, 10, 28, 1.6, '#c8c8d0'); disc(g, 38, 28, 1.6, '#c8c8d0'); }, true],
+  tuktuk: [34, 28, (g) => { // a yellow auto-rickshaw: India
+    g.translate(1, 1); P(g, 4, 2, 24, 4, '#2a2a2a'); P(g, 4, 6, 2, 12, '#2a2a2a'); P(g, 26, 6, 2, 12, '#2a2a2a'); P(g, 6, 8, 20, 10, '#f2c81c'); P(g, 6, 8, 20, 2, '#fff07a');
+    P(g, 8, 10, 7, 6, '#3a3a42'); P(g, 17, 10, 7, 6, '#3a3a42'); P(g, 0, 14, 6, 6, '#f2c81c'); P(g, 0, 18, 32, 3, '#2e7d3b'); disc(g, 4, 22, 3, '#1a1a1a'); disc(g, 26, 22, 3, '#1a1a1a'); disc(g, 4, 22, 1.2, '#aaa'); disc(g, 26, 22, 1.2, '#aaa'); }, true],
+  tikihead: [16, 32, (g) => { // a carved tiki head with a grin
+    P(g, 2, 2, 12, 28, '#8a5a2a'); P(g, 2, 2, 2, 28, '#a8743e'); P(g, 12, 2, 2, 28, '#6a4018'); for (let x = 2; x < 14; x += 3) P(g, x, 0, 2, 3, ['#3aa83a', '#ff6a5a', '#ffd23f', '#3ac0ff'][x % 4]);
+    P(g, 4, 8, 3, 3, '#ffffff'); P(g, 9, 8, 3, 3, '#ffffff'); P(g, 5, 9, 1, 1, '#1a1a1a'); P(g, 10, 9, 1, 1, '#1a1a1a'); P(g, 7, 12, 2, 4, '#6a4018');
+    P(g, 4, 18, 8, 4, '#2a1a10'); for (let x = 5; x < 12; x += 2) P(g, x, 18, 1, 2, '#ffffff'); P(g, 3, 26, 10, 2, '#6a4018'); }, true],
+  tray: [10, 8, (g) => { P(g, 0, 3, 10, 4, '#c8302a'); P(g, 0, 3, 10, 1, '#e85a4a'); disc(g, 3, 3, 2, '#f2d880'); P(g, 6, 0, 2, 4, '#f4f4f4'); P(g, 6, 0, 2, 1, '#e23a2e'); }, true],
+  mstairs: [16, 30, (g) => { // the stairs up to the monorail platform
+    P(g, 2, 0, 2, 30, '#6a6f78'); P(g, 12, 0, 2, 30, '#6a6f78'); for (let y = 4; y < 30; y += 4) { P(g, 3, y, 10, 2, '#9aa3ad'); P(g, 3, y, 10, 1, '#c8ccd2'); } P(g, 0, 0, 16, 2, '#f2c81c'); }, true],
+});
+
 // ===== world: tiles, objects, pathfinding =====
 const W = {
   ground: [], solid: new Uint8Array(MW * MH), cost: new Uint8Array(MW * MH), zone: new Int16Array(MW * MH), wall: new Uint8Array(MW * MH),
@@ -1402,72 +1451,84 @@ function addObj(o) { // o: {type, x, y, w=1, h=1, solid=true, ...}
 }
 function deptUnlocked(d, ups) { return !d.lock || ups[d.lock]; }
 
-// building footprint, traced from the Fairfield map (tiles, inclusive)
-const FOOT = [[7, 11, 24, 15], [2, 16, 24, 38], [21, 33, 29, 45], [25, 21, 43, 45], [26, 13, 41, 19], [43, 3, 55, 45], [56, 13, 70, 45]];
-const STOCK = [26, 13, 41, 19];
+// building footprint, traced from the Eastgate map (tiles, inclusive): main hall, the east block (world foods, hot sauce,
+// international), the card-shop strip, the wine wing, State Liquor, the food court along the front, the Foodie Entrance
+// vestibule, and the stock room out back.
+const FOOT = [[28, 15, 86, 51], [87, 11, 108, 44], [87, 45, 94, 51], [8, 31, 27, 51], [1, 45, 7, 51], [28, 52, 61, 58], [76, 52, 86, 57], [34, 8, 50, 13]];
+const STOCK = [34, 8, 50, 13];
 function buildWorld(ups) {
   W.ground = new Array(MW * MH).fill('grass'); W.solid.fill(0); W.cost.fill(1); W.zone.fill(-1); W.wall.fill(0); W.outdoor.fill(1);
   W.objs = []; W.objAt = new Map(); W.fronts = {}; W.lanes = []; W.stools = []; W.pallets = []; W.parking = []; W.signs = []; W.labels = []; W.tanks = []; W.anims = {}; W.spots = {}; W.stockRect = STOCK;
+  W.chairs = []; W.stalls = []; W.doors = []; W.corrals = [];
   const G = (x, y, k) => { if (inb(x, y)) W.ground[idx(x, y)] = k; };
   const rect = (x0, y0, x1, y1, k) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) G(x, y, k); };
   const wall = (x, y) => { if (!inb(x, y)) return; W.wall[idx(x, y)] = 1; W.solid[idx(x, y)] = 1; W.outdoor[idx(x, y)] = 0; G(x, y, 'wall'); };
-  // outdoors
-  rect(0, 62, SW - 1, 64, 'road'); rect(0, 47, SW - 1, 48, 'sidewalk'); rect(2, 49, 75, 61, 'asphalt');
-  rect(56, 2, 77, 10, 'asphalt'); rect(56, 11, 72, 11, 'sidewalk'); rect(72, 11, 73, 46, 'sidewalk');
+  // outdoors: the back dock, the wine-entrance lot (north-west), the plaza + main lot out front, the road
+  rect(30, 1, 56, 6, 'asphalt'); rect(1, 19, 26, 28, 'asphalt'); rect(1, 29, 27, 29, 'sidewalk');
+  rect(1, 60, SW - 2, 61, 'sidewalk'); rect(62, 59, 98, 59, 'sidewalk'); rect(1, 62, SW - 2, 74, 'asphalt'); rect(0, 75, SW - 1, 75, 'sidewalk'); rect(0, 76, SW - 1, 78, 'road');
+  rect(109, 10, 110, 61, 'sidewalk');
   // building: interior = union of FOOT, walls = the ring around it
   const inside = new Uint8Array(MW * MH); FOOT.forEach(([a, b, c, d]) => { for (let y = b; y <= d; y++) for (let x = a; x <= c; x++) inside[idx(x, y)] = 1; });
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { if (inside[idx(x, y)]) { G(x, y, 'lino'); W.outdoor[idx(x, y)] = 0; continue; } let near = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inb(x + dx, y + dy) && inside[idx(x + dx, y + dy)]) near = true; if (near) wall(x, y); }
-  // stock room walls (it touches the store on two sides)
-  for (let y = 12; y <= 20; y++) { wall(25, y); wall(42, y); } for (let x = 25; x <= 42; x++) wall(x, 20);
-  const door = (x, y, k = 'mat') => { W.wall[idx(x, y)] = 0; W.solid[idx(x, y)] = 0; G(x, y, k); };
-  door(59, 46); door(60, 46); door(45, 46); door(46, 46); door(57, 12); door(58, 12); door(33, 20, 'concrete'); door(34, 20, 'concrete');
-  W.spots.mainDoorIn = [59.9, 45]; W.spots.exitIn = [45.9, 45]; W.spots.sideDoorIn = [57.9, 13.2]; W.spots.stockDoor = [33.5, 21.6];
-  // dept floors + layouts
+  for (let y = 0; y < MH; y++) for (let x = 0; x < SW; x++) { if (inside[idx(x, y)]) { G(x, y, 'lino'); W.outdoor[idx(x, y)] = 0; continue; } let near = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inb(x + dx, y + dy) && inside[idx(x + dx, y + dy)]) near = true; if (near) wall(x, y); }
+  const door = (x, y, k = 'mat') => { W.wall[idx(x, y)] = 0; W.solid[idx(x, y)] = 0; G(x, y, k); W.doors.push([x, y, k]); };
+  door(82, 58); door(83, 58); door(72, 52); door(73, 52); door(16, 30); door(17, 30); door(42, 14, 'concrete'); door(43, 14, 'concrete');
+  W.spots.mainDoorIn = [82.9, 57]; W.spots.exitIn = [72.9, 51]; W.spots.sideDoorIn = [16.9, 31.2]; W.spots.stockDoor = [42.5, 15.6];
+  W.spots.skate = [38, 44.6]; W.spots.cartBay = [84.5, 56.7]; // where carts come back in, by the Foodie Entrance // a long clear straight (the walkway along the front shops), for the skate test
+  // dept floors + layouts + displays
   DEPTS.forEach((d, i) => {
     const open = deptUnlocked(d, ups);
     for (let y = d.y; y < d.y + d.h; y++) for (let x = d.x; x < d.x + d.w; x++) { if (W.wall[idx(x, y)]) continue; G(x, y, open ? d.floor : 'plywood'); W.zone[idx(x, y)] = i; }
     if (!open) { W.signs.push({ text: 'Soon: ' + d.name, x: d.x + d.w / 2, y: d.y + d.h / 2, small: true, locked: true }); return; }
-    layoutDept(d, i);
+    layoutDept(d, i); placeProps(d);
     if (d.id !== 'registers' && d.id !== 'custserv') W.signs.push({ text: d.sign || d.name, x: d.x + d.w / 2, y: d.y + (d.signY || 0.2) });
   });
-  W.signs.push({ text: 'Registers', x: 37.5, y: 36.1 }); W.signs.push({ text: 'Customer Service', x: 36.5, y: 44.6, small: true });
-  // quick trips: one express register just inside the Rhino (side) door. 5 items or less, out the side door after.
-  { const ry = 19, rx = 65; addObj({ type: 'register', x: rx, y: ry, lane: 5 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: 5 });
-    W.lanes.push({ i: 5, quick: true, cash: [rx - 1, ry], reg: [rx, ry], pay: [rx + 1, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [rx + 1, ry - k]), staff: null, progress: 0 });
-    W.signs.push({ text: 'Quick Trips', x: rx + 0.5, y: 13.6 }); W.labels.push({ text: '5 items or less', x: rx + 0.5, y: ry + 2.1 }); }
-  // stock room
-  rect(26, 13, 41, 19, 'concrete');
+  W.signs.push({ text: 'Registers', x: 73.5, y: 43.4 }); W.signs.push({ text: 'Customer Service', x: 78, y: 52.6, small: true });
+  // quick trips: the express register by the wine entrance. 5 items or less, out the wine door after.
+  { const ry = 32, rx = 19; addObj({ type: 'register', x: rx, y: ry, lane: 5 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: 5 });
+    W.lanes.push({ i: 5, quick: true, cash: [rx - 1, ry], reg: [rx, ry], pay: [rx + 1, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [rx + 1, ry + k]), staff: null, progress: 0 });
+    W.signs.push({ text: 'Quick Trips', x: rx + 0.5, y: 31.3, small: true }); W.labels.push({ text: '5 items or less', x: rx + 0.5, y: ry + 2.1 }); }
+  // stock room out back
+  rect(STOCK[0], STOCK[1], STOCK[2], STOCK[3], 'concrete');
   const crateOrder = Object.keys(CRATES).filter(k => !CRATES[k].lock || ups[CRATES[k].lock]);
-  const pslots = []; for (let x = 27; x <= 40; x++) if (x !== 33 && x !== 34) pslots.push([x, 14]); for (let x = 27; x <= 32; x++) pslots.push([x, 17]); for (let x = 35; x <= 37; x++) pslots.push([x, 17]);
+  const pslots = []; for (let x = 35; x <= 49; x++) pslots.push([x, 9]); for (let x = 35; x <= 40; x++) pslots.push([x, 11]);
   crateOrder.forEach((k, i) => { const [x, y] = pslots[i]; W.pallets.push(addObj({ type: 'pallet', crate: k, x, y })); });
-  addObj({ type: 'fridge', x: 38, y: 17 }); addObj({ type: 'plant', x: 39, y: 17 }); addObj({ type: 'desk', x: 40, y: 17 }); addObj({ type: 'couch', x: 39, y: 19, w: 2 });
-  W.spots.bed = [39.9, 18.5]; W.spots.start = [37.5, 18.6];
-  W.signs.push({ text: 'Stock Room', x: 33.5, y: 12.4, dark: true });
-  // the famous restrooms: porta-potty doors, nice inside
-  addObj({ type: 'restroom', x: 30, y: 44 }); addObj({ type: 'restroom', x: 31, y: 44 }); addObj({ type: 'restroom', x: 2, y: 37 }); addObj({ type: 'restroom', x: 3, y: 37 });
-  W.labels.push({ text: 'Restrooms', x: 31, y: 45.3 });
-  [[2, 16], [7, 11], [24, 33], [55, 3], [70, 13], [56, 45], [57, 45], [61, 36], [70, 36], [42, 33]].forEach(([x, y]) => { if (!W.solid[idx(x, y)] && !W.objAt.get(idx(x, y))) addObj({ type: 'plant', x, y }); });
-  [[29, 33], [62, 45], [51, 12]].forEach(([x, y]) => { if (!W.solid[idx(x, y)]) addObj({ type: 'trash', x, y }); });
-  addObj({ type: 'penguin', x: 21, y: 45 }); addObj({ type: 'penguin', x: 29, y: 45 });
-  // jungle scene by the exit
-  addObj({ type: 'pond', x: 49, y: 38, w: 5, h: 3, anim: 'jungle' }); W.anims.jungle = true; W.signs.push({ text: 'Jungle Scene', x: 51.5, y: 37.3, small: true });
-  W.labels.push({ text: 'Entrance', x: 60, y: 47.4 }); W.labels.push({ text: 'Exit', x: 46, y: 47.4 }); W.labels.push({ text: 'Quick trips', x: 58, y: 11.4 });
-  // parking
-  for (const ry of [50, 54, 58]) for (let x = 4; x <= 73; x++) { if ((x >= 44 && x <= 47) || (x >= 58 && x <= 61)) continue; W.parking.push({ x, y: ry, car: null }); }
-  for (let x = 58; x <= 76; x += 2) W.parking.push({ x, y: 4, car: null, side: true });
-  if (ups.parking) for (let x = 59; x <= 75; x += 2) W.parking.push({ x, y: 7, car: null, side: true });
-  for (let y = 49; y <= 61; y++) for (const x of [44, 45, 46, 47, 58, 59, 60, 61]) G(x, y, 'cross');
-  [[2, 52], [2, 57], [76, 52], [76, 57], [20, 61], [52, 61], [0, 47], [77, 47], [77, 20], [77, 34], [5, 41], [14, 42]].forEach(([x, y]) => { if (inb(x, y) && !W.solid[idx(x, y)]) addObj({ type: y >= 49 && y <= 61 ? 'lamp' : 'tree', x, y }); });
-  for (let x = 2; x < 55; x += 8) addObj({ type: 'tree', x, y: x < 25 ? 3 : 2, solid: false });
-  addObj({ type: 'tree', x: 3, y: 9, solid: false }); addObj({ type: 'tree', x: 30, y: 7, solid: false }); addObj({ type: 'tree', x: 37, y: 9, solid: false });
-  addObj({ type: 'giraffe', x: 62, y: 47, solid: false }); addObj({ type: 'elephant', x: 64, y: 47 });
-  addObj({ type: 'rhino', x: 59, y: 9, solid: false }); W.labels.push({ text: 'Event Center', x: 47, y: 2.6 });
-  if (ups.billboard) addObj({ type: 'billboard', x: 60, y: 63, solid: false });
-  addObj({ type: 'corral', x: 40, y: 52 }); addObj({ type: 'corral', x: 50, y: 56 });
+  addObj({ type: 'fridge', x: 45, y: 12 }); addObj({ type: 'plant', x: 46, y: 12 }); addObj({ type: 'desk', x: 47, y: 12 }); addObj({ type: 'couch', x: 48, y: 13, w: 2 });
+  W.spots.bed = [48.9, 12.5]; W.spots.start = [44.5, 12.6];
+  W.signs.push({ text: 'Stock Room', x: 42, y: 7.4, dark: true });
+  // the famous restrooms: porta-potty doors, nice inside (north by Seafood, east by the theater, west by the wine)
+  for (const [x, y] of [[71, 15], [72, 15], [89, 35], [90, 35], [11, 44], [12, 44]]) addObj({ type: 'restroom', x, y });
+  W.labels.push({ text: 'Restrooms', x: 72, y: 16.3 }); W.labels.push({ text: 'Restrooms', x: 90, y: 36.3 }); W.labels.push({ text: 'Restrooms', x: 12, y: 45.3 });
+  const freeAt = (x, y) => inb(x, y) && !W.solid[idx(x, y)] && !W.objAt.get(idx(x, y));
+  [[29, 15], [56, 21], [86, 15], [76, 56], [86, 53], [8, 31], [27, 31], [87, 23], [33, 44], [65, 43], [75, 37], [45, 43]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'plant', x, y }); });
+  [[28, 53], [61, 53], [45, 52], [86, 52], [21, 44], [60, 44], [94, 34], [32, 20]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'trash', x, y }); });
+  for (const [x, y] of [[34, 24], [42, 24]]) if (freeAt(x, y)) addObj({ type: 'penguin', x, y });
+  // out front: the parked monorail on its platform, the jungle scene with the hippo, giraffe and elephant
+  addObj({ type: 'mstairs', x: 63, y: 59 }); W.spots.monorail = [61, 77, 60.6];
+  addObj({ type: 'pond', x: 88, y: 54, w: 5, h: 3, anim: 'jungle' }); W.anims.jungle = true; W.signs.push({ text: 'Jungle Scene', x: 90.5, y: 53.3, small: true });
+  addObj({ type: 'giraffe', x: 94, y: 54, solid: false }); addObj({ type: 'elephant', x: 93, y: 57 });
+  addObj({ type: 'rhino', x: 20, y: 27, solid: false });
+  W.labels.push({ text: 'Foodie Entrance', x: 83, y: 59.4 }); W.labels.push({ text: 'Exit', x: 73, y: 53.4 }); W.labels.push({ text: 'Wine Entrance', x: 17, y: 29.4 });
+  // parking: the main lot out front (crosswalks to the doors), the wine lot round the side
+  for (const ry of [63, 67, 71]) for (let x = 2; x <= 109; x++) { if ((x >= 71 && x <= 74) || (x >= 81 && x <= 84)) continue; W.parking.push({ x, y: ry, car: null }); }
+  if (ups.parking) for (let x = 2; x <= 109; x += 1) { if ((x >= 71 && x <= 74) || (x >= 81 && x <= 84)) continue; W.parking.push({ x, y: 73, car: null }); }
+  for (const ry of [20, 24]) for (let x = 3; x <= 25; x += 2) W.parking.push({ x, y: ry, car: null, side: true });
+  for (let y = 62; y <= 74; y++) for (const x of [72, 73, 82, 83]) G(x, y, 'cross');
+  [[1, 66], [1, 70], [110, 66], [110, 70], [30, 74], [60, 74], [95, 74], [20, 62], [50, 62], [100, 62]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'lamp', x, y }); });
+  [[2, 2], [10, 3], [18, 2], [26, 4], [60, 2], [68, 4], [76, 2], [84, 3], [94, 4], [104, 3], [2, 14], [10, 12], [20, 9], [3, 36], [2, 56], [110, 4], [100, 58]].forEach(([x, y]) => { if (freeAt(x, y)) addObj({ type: 'tree', x, y, solid: false }); });
+  if (ups.billboard) addObj({ type: 'billboard', x: 30, y: 76, solid: false });
+  for (const [x, y] of [[40, 66], [96, 70], [6, 22]]) { W.corrals.push(addObj({ type: 'corral', x, y })); }
   W.lanes.forEach(l => { W.cost[idx(l.cash[0], l.cash[1])] = 30; });
   W.stools.forEach(s => { W.cost[idx(s.x, s.y)] = 12; });
   buildFun(); placeGivers();
   computeFronts(); renderGround();
+}
+// extra displays on a department: [type, dx, dy, w, h, extra]. 'anim:NAME' is an animatronic that can break.
+function placeProps(d) {
+  for (const [type, dx, dy, w = 1, h = 1, extra] of d.props || []) {
+    const x = d.x + dx, y = d.y + dy; for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) removeAt(xx, yy);
+    if (type.startsWith('anim:')) { const name = type.slice(5); addObj({ type: 'anim', name, anim: name, x, y, w, h, dept: d.id }); W.anims[name] = true; }
+    else addObj(Object.assign({ type, x, y, w, h }, type === 'hangcar' ? { solid: false } : {}, extra || {}));
+  }
 }
 
 function shelfRows(d, i, art, kind) {
@@ -1485,28 +1546,25 @@ function layoutDept(d, i) {
   switch (d.layout) {
     case 'rows': {
       if (d.art === 'beer') shelfRows(d, i, 'beer', 'cooler'); else shelfRows(d, i, d.art);
-      if (d.id === 'grocery') anim('swing', 48, 26);
-      if (d.id === 'pets') { removeAt(x1 - 1, y0); removeAt(x1, y0); addObj({ type: 'racecar', x: x1 - 1, y: y0, w: 2 }); }
-      if (d.id === 'health') anim('corn', x1 - 1, y0, 2);
-      if (d.id === 'europe') anim('robin', x0 + 1, y0 + 4, 2, 1);
       if (d.id === 'honey') { removeAt(x1, y0); addObj({ type: 'hive', x: x1, y: y0 }); }
       if (d.id === 'tiktok') { removeAt(x0, y0); addObj({ type: 'ringlight', x: x0, y: y0, dept: d.id }); W.spots.ringlight = [x0, y0]; }
       break;
     }
-    case 'hot': {
+    case 'hot': { // a wall of fire, the fire truck parked in the middle, more sauce rows under it
       for (let x = x0; x <= x1; x++) addObj({ type: 'shelf', art: 'hotsauce', dept: d.id, x, y: y0, seed: x * 3 });
-      const cx = Math.floor(d.x + d.w / 2) - 1; anim('firetruck', cx, y0 + 2, 2); W.spots.drone = [cx + 1, y0 + 0.5];
-      for (let x = x0; x <= x0 + 2; x++) addObj({ type: 'shelf', art: 'asia', dept: d.id, x, y: y0 + 2, seed: x * 11 });
-      for (let x = x1 - 2; x <= x1; x++) addObj({ type: 'shelf', art: 'americas', dept: d.id, x, y: y0 + 2, seed: x * 13 });
+      const cx = Math.floor(d.x + d.w / 2) - 1; anim('firetruck', cx, y0 + 3, 2);
+      for (let ty = y0 + 6; ty <= y1; ty += 3) for (let x = x0; x <= x1; x++) if (x !== cx && x !== cx + 1) addObj({ type: 'shelf', art: ty % 2 ? 'hotsauce' : 'americas', dept: d.id, x, y: ty, seed: x * 11 + ty });
+      if (d.labels) W.labels.push({ text: d.labels[0][0], x: (x0 + x1 + 1) / 2, y: y0 + 1.05 });
       break;
     }
     case 'candy': {
       for (let x = x0; x <= x1; x++) addObj({ type: 'candy', dept: d.id, x, y: y0, seed: x });
       const cx = Math.floor(d.x + d.w / 2) - 1; removeAt(cx, y0); removeAt(cx + 1, y0); addObj({ type: 'anim', name: 'elvis', anim: 'elvis', x: cx, y: y0, w: 2, h: 2, dept: d.id }); W.anims.elvis = true; W.spots.elvis = [cx + 1, y0 + 2.6];
+      for (const tx of [cx - 1, cx + 2]) { removeAt(tx, y0); addObj({ type: 'tower', x: tx, y: y0 }); } // the candy castle's towers either side of the stage
       break;
     }
     case 'bar': {
-      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: x % 3 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
+      for (let x = d.x + 2; x <= d.x + d.w - 3; x++) { addObj({ type: 'bar', x, y: y0, frame: d.art === 'tiki' ? 3 : x % 3 }); const s = { x, y: y0 + 1, cust: null }; W.stools.push(s); addObj({ type: 'stool', x, y: y0 + 1, solid: false, stool: s }); }
       break;
     }
     case 'cheese': {
@@ -1514,13 +1572,16 @@ function layoutDept(d, i) {
       for (let x = x0; x <= x1; x++) if (x < cx || x > cx + 1) addObj({ type: 'case', art: 'cheesecase', dept: d.id, x, y: y0, seed: x });
       for (let x = x0; x <= x1; x++) addObj({ type: 'shelf', art: 'europe', dept: d.id, x, y: y0 + 4, seed: x * 5 });
       W.labels.push({ text: 'Butter Bar', x: x0 + 0.5, y: y0 + 1.05 });
+      for (const px of [x0, x0 + 1, x1 - 1, x1]) addObj({ type: 'pickles', x: px, y: y0 + 2, seed: px }); // the big pickle barrels on the way to the Big Cheese
+      W.labels.push({ text: 'Pickles', x: x0 + 1, y: y0 + 3.05 });
       break;
     }
     case 'counter': {
       for (let x = x0; x <= x1; x++) addObj({ type: 'case', art: d.art, dept: d.id, x, y: y0, seed: x });
       for (let x = x0; x <= x1; x++) W.solid[idx(x, d.y)] = 1;
       addObj({ type: 'staff', x: Math.floor((x0 + x1) / 2), y: d.y, solid: true, look: staffLook(d.id) });
-      if (y0 + 3 <= y1) { if (d.id === 'meat') for (let x = x0; x <= x1; x++) addObj({ type: 'freezer', dept: d.id, x, y: y0 + 3, seed: x }); }
+      if (y0 + 3 <= y1) { if (d.id === 'meat') for (let x = x0; x <= x1; x++) addObj({ type: 'freezer', dept: d.id, x, y: y0 + 3, seed: x });
+        else if (d.id === 'bakery' || d.id === 'deli') for (let x = x0 + 1; x <= x1 - 1; x++) addObj({ type: 'case', art: d.art, dept: d.id, x, y: y0 + 3, seed: x + 7 }); } // a second island of cases
       if (d.labels) W.labels.push({ text: d.labels[0][0], x: (x0 + x1 + 1) / 2, y: y0 + 4.05 });
       break;
     }
@@ -1529,13 +1590,30 @@ function layoutDept(d, i) {
       for (let x = x0; x <= x1; x++) W.solid[idx(x, d.y)] = 1;
       addObj({ type: 'staff', x: x0 + 2, y: d.y, solid: true, look: staffLook('seafood') });
       addObj({ type: 'anim', name: 'minnow', anim: 'minnow', x: x0 + 1, y: y0 + 3, w: 2, dept: d.id }); W.anims.minnow = true;
+      for (let x = x1 - 2; x <= x1; x++) { const t = addObj({ type: 'tank', kind: x % 2 ? 'lobster' : 'fish', x, y: y0 + 3, dept: d.id }); W.tanks.push(t); } // the live tanks
       break;
     }
     case 'tanks': {
       for (let x = d.x; x < d.x + d.w; x++) { const t = addObj({ type: 'tank', kind: x % 2 ? 'lobster' : 'fish', x, y: y0, dept: d.id }); W.tanks.push(t); }
       break;
     }
-    case 'deck': { addObj({ type: 'deck', x: d.x, y: d.y, w: 3, h: 3 }); break; }
+    case 'coolwall': { for (let y = d.y; y < d.y + d.h; y++) addObj({ type: 'cooler', art: 'dairy', dept: d.id, x: d.x, y, seed: y * 5 }); break; } // a wall of coolers
+    case 'hrow': { for (let x = d.x; x < d.x + d.w; x++) addObj({ type: 'shelf', art: d.art, dept: d.id, x, y: d.y, seed: x * 9 }); break; }
+    case 'binsrow': { for (let x = x0; x <= x1; x++) addObj({ type: 'bin', dept: d.id, x, y: d.y + 1, seed: x * 7 + 3 }); break; }
+    case 'olive': { // hot meals case along the top, the olive bar island below
+      for (let x = x0; x <= x1; x++) addObj({ type: 'case', art: 'deli', dept: d.id, x, y: y0, seed: x + 3 });
+      for (let x = x0 + 1; x <= x1 - 1; x++) addObj({ type: 'case', art: 'olive', dept: d.id, x, y: y0 + 2, seed: x }); break; }
+    case 'theater': { // The Jungle John's Story: a screen and two rows of seats with an aisle
+      addObj({ type: 'screen', x: x0, y: d.y, w: d.w - 2, h: 1 }); const aisle = Math.floor((x0 + x1) / 2) + 1;
+      for (const ty of [y0 + 1, y0 + 2]) for (let x = x0; x <= x1; x++) if (x !== aisle) addObj({ type: 'seat', x, y: ty, solid: false }); break; }
+    case 'jxc': { addObj({ type: 'stage', x: x0, y: d.y, w: d.w - 2, h: 1 }); for (let x = x0; x <= x1; x += 2) addObj({ type: 'chair', x, y: y0 + 1, solid: false }); break; }
+    case 'foodcourt': { // stalls along the back wall (a cook behind each), tables with chairs in the middle
+      const kinds = [['tacos', 'Taqueria'], ['pizza', 'Pizzeria'], ['noodles', 'Noodle Bar'], ['froyo', 'Froyo'], ['pretzels', 'Pretzel Haus'], ['tikka', 'Tikka Stand']];
+      kinds.forEach(([kind, name], k) => { const sx = d.x + 1 + k * 5, sy = d.y + d.h - 2; addObj({ type: 'foodstall', kind, frame: k, x: sx, y: sy, w: 3, h: 1 }); for (let x = sx; x < sx + 3; x++) W.solid[idx(x, sy + 1)] = 1;
+        const cook = addObj({ type: 'staff', x: sx + 1, y: sy + 1, solid: true, look: staffLook('stall_' + kind) }); cook.cook = kind;
+        W.stalls.push({ kind, name, x: sx, y: sy, front: [sx + 1, sy - 1], cook }); W.labels.push({ text: name, x: sx + 1.5, y: sy - 1.45 }); });
+      for (let x = d.x + 2; x + 1 < d.x + d.w - 1; x += 4) { addObj({ type: 'table', x, y: d.y + 2, w: 2, h: 1 }); for (const cx of [x - 1, x + 2]) { const c = { x: cx, y: d.y + 2, cust: null }; W.chairs.push(c); addObj({ type: 'chair', x: cx, y: d.y + 2, solid: false, chair: c }); } }
+      break; }
     case 'tenant': { addObj({ type: 'counter', x: x0, y: y0 }); addObj({ type: 'counter', x: x0 + 1, y: y0 }); addObj({ type: 'staff', x: x0, y: d.y, solid: true, look: staffLook('coffee') }); W.labels.push({ text: 'Sub Counter', x: x0 + 1, y: y0 + 3 }); addObj({ type: 'counter', x: x0, y: y0 + 3 }); addObj({ type: 'counter', x: x0 + 1, y: y0 + 3 }); break; }
     case 'binscol': { for (let y = d.y + 1; y <= d.y + d.h - 2; y++) if (y !== d.y + 4 && y !== d.y + 8) addObj({ type: 'bin', dept: d.id, x: d.x, y, seed: y * 3 + 1 }); break; }
     case 'vcol': { for (let y = y0; y <= y1; y++) addObj({ type: 'shelf', art: d.art, dept: d.id, x: x0, y, seed: y * 17 }); break; }
@@ -1559,6 +1637,7 @@ function layoutDept(d, i) {
         const cx = d.x + i2 * 3, rx = cx + 1, qx = cx + 2;
         addObj({ type: 'register', x: rx, y: ry, lane: i2 }); addObj({ type: 'belt', x: rx, y: ry + 1, lane: i2 });
         W.lanes.push({ i: i2, cash: [cx, ry], reg: [rx, ry], pay: [qx, ry], queue: [], q: [0, 1, 2, 3, 4].map(k => [qx, ry - k]), staff: null, progress: 0 });
+        W.spots.drone = [80, 16]; // the hot sauce drone flies over Grocery, like the map shows
       }
       break;
     }
@@ -1652,7 +1731,7 @@ function renderGround() {
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     if (!W.wall[idx(x, y)]) continue; const px = x * T, py = y * T; const below = inb(x, y + 1) && !W.wall[idx(x, y + 1)];
     if (x >= SW) { const st = ROOMWALL[W.wallStyle && W.wallStyle.get(idx(x, y))]; if (!st) P(g, px, py, 16, 16, '#07070c'); else if (below) st.face(g, px, py, x, y); else P(g, px, py, 16, 16, st.top); continue; } // walk-in rooms
-    const stock = (x >= 25 && x <= 42 && y <= 20 && y >= 12) && !(inb(x, y + 1) && W.outdoor[idx(x, y + 1)]);
+    const S = W.stockRect, stock = (x >= S[0] - 1 && x <= S[2] + 1 && y >= S[1] - 1 && y <= S[3] + 1) && !(inb(x, y + 1) && W.outdoor[idx(x, y + 1)]);
     if (below) {
       if (W.outdoor[idx(x, y + 1)]) { // storefront
         P(g, px, py, 16, 16, '#ead9a8'); P(g, px, py, 16, 3, '#2e7d3b'); P(g, px, py + 3, 16, 1, '#f2c81c'); P(g, px, py + 14, 16, 2, '#8a7a5a');
@@ -1665,7 +1744,7 @@ function renderGround() {
       }
     } else { P(g, px, py, 16, 16, stock ? '#4a4a52' : '#24402a'); P(g, px, py, 16, 1, stock ? '#5a5a62' : '#2e5236'); }
   }
-  P(g, 58 * T, 46 * T, 4 * T, 3, '#f2c81c'); P(g, 44 * T, 46 * T, 4 * T, 3, '#f2c81c');
+  (W.doors || []).forEach(([x, y, k]) => { if (k === 'mat') P(g, x * T, y * T, T, 3, '#f2c81c'); });
   // shadows under walls on floor
   for (let y = 0; y < MH - 1; y++) for (let x = 0; x < MW; x++) if (W.wall[idx(x, y)] && !W.wall[idx(x, y + 1)] && !W.outdoor[idx(x, y + 1)]) { g.globalAlpha = 0.18; P(g, x * T, (y + 1) * T, 16, 3, '#000'); g.globalAlpha = 1; }
 }
@@ -1747,6 +1826,8 @@ const MUSIC = (() => {
     lounge:   S({ kit: 'jazz', bpm: 100, key: 7, scale: 'dorian', lead: 'flute', bassV: 'pluck', dens: 2, x: 0.3, drums: 0.45, pad: 0.7, swing: 0.85 }),
     bistro:   S({ kit: 'bossa', bpm: 108, key: 5, scale: 'major', lead: 'accordion', dens: 2.5, pad: 0.6, swing: 0.15 }),
     beerhall: S({ kit: 'polka', bpm: 120, key: 0, scale: 'mixolydian', lead: 'accordion', dens: 3.5, x: 0.3, comp: 2 }),
+    tiki:     S({ kit: 'bossa', bpm: 96, key: 9, scale: 'minor', lead: 'bell', bassV: 'pluck', dens: 2.5, x: 0.25, drums: 0.35, comp: 0, pad: 0.8, swing: 0.3 }), // exotica at the Tiki Bar
+    foodcourt: S({ kit: 'pop', bpm: 126, key: 7, scale: 'mixolydian', lead: 'square', dens: 3.5, x: 0.4, comp: 2, pad: 0.5 }), // the food court: busy, bright
     sushi:    S({ kit: 'conga', bpm: 106, key: 2, scale: 'minor', lead: 'bell', bassV: 'pluck', dens: 3, x: 0.32, drums: 0.38, comp: 0, pad: 0.85, pent: true }),
     // rooms you walk into (the restroom, the cheese cave, the lion's dressing room): their own place, so they cut in
     spa:       S({ place: 'room', kit: 'bossa', bpm: 88, key: 5, scale: 'lydian', lead: 'tine', bassV: 'pluck', dens: 2, x: 0.2, drums: 0.3, comp: 0, pad: 0.9, swing: 0.1 }),
@@ -2019,7 +2100,7 @@ const MUSIC = (() => {
     scheduleUntil(now + 0.15);
   }
   return {
-    SONGS, MOOD, SCALES, M,
+    SONGS, MOOD, SCALES, M, pivotChord,
     init, scheduleUntil, reset,
     start() { if (!M.ctx || M.running) return; M.running = true; M.step = 0; M.next = M.ctx.currentTime + 0.1; M.timer = setInterval(tick, 25); },
     stop() { M.running = false; clearInterval(M.timer); },
@@ -2076,12 +2157,13 @@ function musicStart() {
 }
 // which song each department plays (music.js SONGS); anything not listed plays 'market'.
 // three key families: middle = C, west international wing = G, north-east wine/cheese wing = F (when the day is in C).
-// tests/mzone.py checks every pair of departments you can walk between is at most one note apart.
-const ZONE_SONG = {
-  produce: 'fresh', natural: 'fresh', bakery: 'counter', meat: 'counter', frozen: 'frozen', candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy',
-  europe: 'europe', eurosouth: 'med', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'mercado',
-  hotsauce: 'hot', intl: 'souk', seafood: 'harbor', honey: 'herb', herb: 'herb', tiktok: 'viral',
-  wine: 'lounge', liquor: 'lounge', cigars: 'lounge', tasting: 'lounge', cheese: 'bistro', tenants: 'bistro', deli: 'bistro', beer: 'beerhall', sushi: 'sushi',
+// tests/mzone.py checks every pair of departments you can walk between shares a chord to hand over on.
+const ZONE_SONG = { // three key families: wine wing (west) = F, the middle = C, international (east) = G, when the day is in C
+  cigars: 'lounge', wine: 'lounge', tasting: 'lounge', liquor: 'lounge', jxc: 'lounge', tiktok: 'viral',
+  cheese: 'bistro', olive: 'bistro', deli: 'bistro', beer: 'beerhall',
+  produce: 'fresh', bulk: 'fresh', intlproduce: 'fresh', dairy: 'frozen', frozen: 'frozen', bakery: 'counter', meat: 'counter', jerky: 'counter',
+  candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy', honey: 'herb', herb: 'herb', gluten: 'herb', natural: 'herb', tiki: 'tiki', foodcourt: 'foodcourt',
+  seafood: 'harbor', sushi: 'sushi', intl: 'souk', hotsauce: 'hot', europe: 'europe', americas: 'americas', asia: 'asia', india: 'souk',
 };
 const zoneSong = id => ZONE_SONG[id] || 'market';
 function musicTick() { // pick the song from where you are; music.js gets there on the beat
@@ -2124,7 +2206,7 @@ function newState() {
     tut: 0, weather: 'sunny', cheeseTemp: 36, tanks: [0, 0, 0, 0], anims: {},
   });
   DEPTS.forEach(d => { if (d.max) ST.stock[d.id] = Math.round(d.max * 0.85); });
-  ST.stock.toys = ST.stock.gacha = ST.stock.cards = ST.stock.tiktok = ST.stock.sushi = 0;
+  ST.stock.gacha = ST.stock.tiktok = 0; // locked areas start empty
 }
 function fmtMoney(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
 function stars() { return Math.max(1, Math.min(5, Math.ceil(ST.rep / 20))); }
@@ -2178,6 +2260,7 @@ function setupStaff() {
   if (ST.ups.stocker2) walker('stocker', 'Nina', '#3d6fd1', 1);
   if (ST.ups.janitor) walker('janitor', 'Big Lou', '#6a8a3a', 0);
   if (ST.ups.tech) walker('tech', 'the tech', '#f07a22', 0);
+  crewSetup(); // Kayla and Dustin are always on
 }
 
 // ---------- customers ----------
@@ -2192,7 +2275,7 @@ function spawnCustomer(forced, withKid) {
   const sp = spots[Math.floor(Math.random() * spots.length)];
   const rr = Math.random(); const type = forced || (rr < 0.17 ? 'old' : 'adult'); const family = withKid || (type === 'adult' && Math.random() < 0.3);
   const car = { x: sp.x * T + 8, y: sp.y * T + 13, col: pick(Math.random, CAR_COLS), slot: sp, t: 0, leaving: false, enter: 1 }; sp.car = car; RT.cars.push(car);
-  const c = mkCust(type, car, sp.side ? 'side' : 'main'); c.list = pickList(type, family);
+  const c = mkCust(type, car, sp.side ? 'side' : 'main'); c.list = pickList(type, family); c.cart = cartFor(c);
   if (family) { const k = mkCust('kid', car, c.door); k.parent = c; k.state = 'tag'; c.kid = k; k.x = c.x - 6; }
   return c;
 }
@@ -2203,7 +2286,7 @@ function spawnInside() { // a shopper already in the store: parked car outside, 
 }
 function mkCust(type, car, door) {
   const look = randomLook(Math.random, type, true); const c = { id: RT.nextId++, type, look, x: car.x, y: car.y + 10, dir: 'down', frame: 0, anim: 0, state: 'toStore', path: null, pi: 0, mood: 62 + Math.random() * 10, items: 0, spend: 0, list: [], car, door, bubble: null, lostDone: false, wait: 0, timer: 0, speed: type === 'old' ? 36 : type === 'kid' ? 56 : 46 + Math.random() * 10, seen: {}, hist: [] };
-  RT.custs.push(c); const tgt = door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; goTo(c, tgt[0], tgt[1]); return c;
+  RT.custs.push(c); makePersona(c); const tgt = door === 'side' ? W.spots.sideDoorIn : W.spots.mainDoorIn; goTo(c, tgt[0], tgt[1]); return c;
 }
 function goTo(e, tx, ty) { const p = findPath(e.x / T, e.y / T - 0.2, tx, ty); e.path = p; e.pi = 1; e.goal = [tx, ty]; if (!p) { e.path = [[Math.floor(tx), Math.floor(ty)]]; e.pi = 0; } return !!p; }
 function stepPath(e, dt, spd) {
@@ -2230,6 +2313,7 @@ function nextTask(c) {
     if (!c.wandered && Math.random() < 0.18) { c.wandered = true; c.list.unshift(id); if (goLoiter(c, [id])) return; c.list.shift(); }
     const f = fr[Math.floor(Math.random() * fr.length)]; c.state = 'walk'; c.then = 'browse'; c.front = f; goTo(c, f[0] + 0.5, f[1] + 0.75); return;
   }
+  if (!c.ate && c.type !== 'kid' && isOpen() && Math.random() < 0.22 && goEat(c)) return; // a bite at the food court first
   if (c.items > 0) { c.state = 'toLane'; joinLane(c); return; }
   leaveStore(c);
 }
@@ -2253,18 +2337,20 @@ function leaveStore(c) {
 function finishCust(c) {
   const m = c.mood; RT.day.moods.push(m); addRep((m - 55) / 100 * 0.55);
   const i1 = RT.custs.indexOf(c); if (i1 >= 0) RT.custs.splice(i1, 1); if (c.kid) { const i2 = RT.custs.indexOf(c.kid); if (i2 >= 0) RT.custs.splice(i2, 1); }
-  c.car.leaving = true; c.car.t = 0;
+  abandonCart(c); c.car.leaving = true; c.car.t = 0;
 }
 function moodHit(c, n, why) { c.mood = Math.max(0, Math.min(100, c.mood + n)); if (c.kid) c.kid.mood = c.mood; }
 
 function updateCust(c, dt) {
   if (c.bubble) { c.bubble.t -= dt; if (c.bubble.t <= 0) c.bubble = null; }
+  if (c.state === 'run') { c.runT -= dt; if (stepPath(c, dt, 72) || c.runT <= 0) c.state = 'tag'; if (c.parent && c.parent.state === 'gone') c.state = 'gone'; return; } // a kid who bolted
   if (c.state === 'tag') { // kid follows parent
     const p = c.parent; if (!p) return; const h = p.hist; const tgt = h.length > 10 ? h[h.length - 10] : [p.x - 8, p.y];
     const dx = tgt[0] - c.x, dy = tgt[1] - c.y, d = Math.hypot(dx, dy); if (d > 1) { const s = Math.min(d, Math.max(30, d * 3) * dt); c.x += dx / d * s; c.y += dy / d * s; c.anim += s; c.frame = Math.floor(c.anim / 4) % 4; c.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'); } else c.frame = 0;
     if (p.state === 'gone') c.state = 'gone'; return;
   }
   c.hist.push([c.x, c.y]); if (c.hist.length > 30) c.hist.shift();
+  if ((c.state === 'order' || c.state === 'eat') && updateFood(c, dt)) return;
   const spd = c.speed * (c.state === 'follow' ? 1.6 : 1);
   switch (c.state) {
     case 'toStore': if (stepPath(c, dt, spd)) nextTask(c); break;
@@ -2307,6 +2393,7 @@ function updateCust(c, dt) {
   if (inb(tx, ty)) { const zi = W.zone[idx(tx, ty)]; if (zi >= 0) { const did = DEPTS[zi].id; for (const k in ANIMS) if (ANIMS[k].dept === did && ST.anims[k] && ST.anims[k].broken && !c.seen['a' + k]) { c.seen['a' + k] = 1; moodHit(c, -4); if (Math.random() < 0.35) bubble(c, line('broken').replace('{anim}', ANIMS[k].name), 3, 'mad'); } if (did === 'cheese' && ST.cheeseTemp > 45 && !c.seen.hot) { c.seen.hot = 1; moodHit(c, -5); if (Math.random() < 0.5) bubble(c, 'is the big cheese... sweating?', 3, 'mad'); } } }
 }
 function arrive(c) {
+  if (arriveFood(c)) return;
   const t = c.then;
   if (t === 'browse') { c.state = 'browse'; c.timer = 1.8 + Math.random() * 2.2; if (c.front) { const o = c.front[2]; c.dir = o.y < c.front[1] ? 'up' : o.y > c.front[1] ? 'down' : o.x > c.front[0] ? 'right' : 'left'; } }
   else if (t === 'sit') { c.state = 'sit'; c.timer = 32; c.poured = false; bubble(c, Math.random() < 0.4 ? line('tasting') : '', 999, 'wine'); }
@@ -2372,7 +2459,7 @@ function updateDay(dt) {
 function storeTick() { // every 40 s: things break, rain drips in, Elvis sings, monorail riders pay
   for (const k in ANIMS) { if (!W.anims[k]) continue; const a = ST.anims[k]; if (!a.broken && Math.random() < 0.045) { a.broken = true; a.fix = 0; toast(`${ANIMS[k].name[0].toUpperCase() + ANIMS[k].name.slice(1)} broke down. Bring the wrench.`, 'warn'); sfx('alarm'); hint('broken'); } }
   if (!ST.anims.elvis.broken && W.anims.elvis) startElvis(false);
-  if (ST.weather === 'rain' && Math.random() < 0.6) { const x = 58 + Math.floor(Math.random() * 4), y = 44 + Math.floor(Math.random() * 2); if (!RT.spills.find(s => s.x === x && s.y === y) && !W.solid[idx(x, y)]) RT.spills.push({ id: RT.nextId++, x, y, kind: 'water', hp: 2 }); }
+  if (ST.weather === 'rain' && Math.random() < 0.6) { const x = Math.floor(W.spots.mainDoorIn[0]) - 2 + Math.floor(Math.random() * 4), y = Math.floor(W.spots.mainDoorIn[1]) - 1 + Math.floor(Math.random() * 2); if (!RT.spills.find(s => s.x === x && s.y === y) && !W.solid[idx(x, y)]) RT.spills.push({ id: RT.nextId++, x, y, kind: 'water', hp: 2 }); }
   if (ST.ups.monorail && !ST.monorailBroken && (weekday() === 'Fri' || eventToday())) { const riders = 8 + Math.floor(Math.random() * 10); RT.day.extra += riders * 3; ST.money += riders * 3; addRep(0.4); }
 }
 function startElvis(byPlayer) {
@@ -2384,6 +2471,7 @@ function startElvis(byPlayer) {
 function updateStaff(dt) {
   RT.staff.forEach(s => {
     if (s.kind === 'cashier') { s.anim = (s.anim || 0) + dt; s.dir = 'right'; s.frame = 0; return; }
+    if (updateCrew(s, dt)) return;
     if (s.state === 'walk') { if (stepPath(s, dt, 46)) s.onArrive && s.onArrive(); return; }
     if (s.state === 'work') { s.timer -= dt; s.frame = 0; if (s.timer <= 0) { s.state = 'idle'; s.timer = 1; s.done && s.done(); } return; }
     s.timer -= dt * minPerSec(); s.frame = 0; if (s.timer > 0) return;
@@ -2470,12 +2558,14 @@ function targetInfo() {
   const spill = RT.spills.find(s => (s.x === f.tx && s.y === f.ty) || (s.x === Math.floor(PL.x / T) && s.y === Math.floor((PL.y - 3) / T)));
   if (PL.onCash && tool === 'hands') { const c = PL.onCash.queue[0]; return { act: 'scan', label: c && c.qi === 0 ? `Space: scan item (${c.scanned}/${c.items})` : 'Waiting for a customer' }; }
   if (tool === 'mop' && spill) return { act: 'mop', spill, label: 'Space: mop the spill' };
+  if (tool === 'hands' && !PL.carry.length) { const k = looseCartNear(f.px, f.py + 4, 14); if (k && (PL.carts || 0) < 4) return { act: 'cart', k, label: `Space: grab the cart (${(PL.carts || 0) + 1} of 4 max). Bring them to the cart bay by the Foodie Entrance.` };
+    const b = cartBay(); if (PL.carts && Math.hypot(PL.x / T - b[0], PL.y / T - b[1]) < 1.8) return { act: 'cartbay', label: `Space: push ${PL.carts} cart${PL.carts > 1 ? 's' : ''} into the bay` }; }
   if (best && best.kind) return { act: 'talkStaff', s: best, label: `Space: talk to ${best.name}` };
   if (best && (tool === 'hands' || best.state === 'lost')) {
     if (best.state === 'lost') return { act: 'help', c: best, label: 'Space: help this lost customer' };
     if (best.state === 'sit' && !best.poured) return { act: 'pour', c: best, label: 'Space: pour a tasting ($5)' };
     const sq = tool === 'hands' && sampleQuestFor(best); if (sq) return { act: 'sample', c: best, q: sq, label: sq.def.type === 'talk' ? `Space: ask about sandwiches (${sq.got}/${sq.n})` : `Space: give a ${sq.def.item} (${sq.got}/${sq.n})` };
-    return { act: 'talk', c: best, label: 'Space: talk' };
+    return { act: 'talk', c: best, label: `Space: talk to ${personaName(best)}` + (best.p && best.p.cold ? ' (they are done with you)' : '') };
   }
   if (best && best.kind) return { act: 'talkStaff', s: best, label: `Space: talk to ${best.name}` };
   if (!o) return spill && tool !== 'mop' ? { label: 'Spill here. Switch to the mop (2).' } : null;
@@ -2525,9 +2615,11 @@ function doAction() {
     case 'elvis': { if (!startElvis(true)) flash('He\'s catching his breath'); break; }
     case 'help': { const c = t.c; c.state = 'follow'; c.timer = 60; c.path = null; c.repath = 0; c.bubble = null; PL.escort = c; sfx('talk'); showDialog('Customer', line('lost').replace('{item}', c.lostItem), null, `They want ${c.lostItem}. Lead them to ${DEPT[c.cur].name}.`); break; }
     case 'pour': { const c = t.c; c.poured = true; c.timer = 5; c.bubble = null; moodHit(c, 12); addMoney(5, c.x, c.y - 28); RT.day.extra += 5; sfx('pour'); cost(0.5); bubble(c, line('poured'), 3); questEvent('pour'); if (Math.random() < 0.6) c.list.unshift(Math.random() < 0.6 ? 'wine' : 'beer'); break; }
-    case 'talk': { const c = t.c; sfx('talk'); const cos = c.look && c.look.costume; if (cos) { bubble(c, funPick(COSTUME_LINES[cos]), 4); if (cos === 'banana') foundSecret('banana'); break; } const cat = c.type === 'kid' ? 'kid' : c.type === 'old' ? 'old' : 'adult'; bubble(c, line(cat), 4); if (!c.talked) { c.talked = true; moodHit(c, 3); } break; }
+    case 'talk': { talkCustomer(t.c); break; }
     case 'talkStaff': { sfx('talk'); showDialog(t.s.name, staffLine(t.s)); break; }
     case 'giver': talkGiver(t.g); break;
+    case 'cart': { const i = RT.carts.indexOf(t.k); if (i >= 0) RT.carts.splice(i, 1); PL.carts = (PL.carts || 0) + 1; sfx('pick'); cost(0.5); break; }
+    case 'cartbay': { const n = PL.carts; PL.carts = 0; addMoney(n, PL.x, PL.y - 30); RT.day.extra += n; addRep(0.1 * n); sfx('stock'); const d = RT.staff.find(s => s.kind === 'carts'); if (d) sayStaff(d, n >= 3 ? 'boss! a ' + n + '-cart train! you\'re one of us now.' : 'appreciate you, boss.'); break; }
     case 'fun': funAct(t); break;
     case 'sample': giveSample(t.c, t.q); cost(0.5); break;
     case 'computer': openMenu('catalog'); break;
@@ -2542,6 +2634,8 @@ function staffLine(s) {
     cashier: ['lines are getting long, boss. hop on a register if you want. stand on the left side.', 'someone tried to pay in canadian money again.', 'i\'ve been at this register since the fruit stand days. don\'t ask.'],
     stocker: ['i grab whatever aisle\'s emptiest. you pay for the crates though.', 'produce goes fast. like, weirdly fast.'],
     janitor: ['you spill it, i mop it. that\'s the circle of life.', 'pickle jars. always pickle jars.'],
+    busser: ['food court\'s a war zone, boss. a delicious war zone.', 'somebody left a whole pretzel. untouched. who DOES that.', 'i\'ve seen a man eat tikka masala with a spoon from the froyo place. respect.'],
+    carts: ['the carts talk to me, boss. not out loud. but they talk.', 'people leave carts EVERYWHERE. one was on a car once. ON it.', 'nine-cart train today. personal best.'],
     tech: ['that lion\'s older than both of us. he\'s fine. mostly.', 'if the swing breaks again i\'m quitting. kidding.'],
   };
   return pick(Math.random, L[s.kind] || ['hey boss.']);
@@ -2607,7 +2701,7 @@ function update(dt) {
   if (RT.dialog || (RT.menu && RT.menu !== 'map')) { updateUI(dt); return; }
   const sub = 1;
   for (let i = 0; i < sub; i++) {
-    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt); updateFun(dt);
+    updateDay(dt); if (RT.menu === 'report') break; updatePlayer(dt); updateFun(dt); updatePeople(dt); updateLater(dt); updateStaffTalk(dt);
     for (let k = RT.custs.length - 1; k >= 0; k--) { const c = RT.custs[k]; if (c) updateCust(c, dt); }
     updateLanes(dt); updateStaff(dt); updateCars(dt);
     if (RT.elvisT > 0) { RT.elvisT -= dt; if (Math.random() < dt * 4) RT.parts.push({ x: W.spots.elvis[0] * T + (Math.random() - 0.5) * 20, y: (W.spots.elvis[1] - 3) * T, vx: (Math.random() - 0.5) * 20, vy: -25, t: 1.4, note: true, c: pick(Math.random, ['#ffe14d', '#ff8fc0', '#9ff0ff']) }); }
@@ -2673,11 +2767,12 @@ function questGoalText(q) { // plain words for the log
 // the giver in reach of where the player is facing (counter clerks stand one tile behind their case)
 function giverNear(f) { let best = null, bd = 26; for (const g of W.givers || []) { const d = Math.hypot(g.px - f.px, g.py - 6 - f.py); if (d < bd) { bd = d; best = g; } } return best; }
 function talkGiver(g) {
-  const q = questOf(g); sfx('talk'); if (!q) return showDialog(g.gv.name, pick(Math.random, GIVER_IDLE));
+  const q = questOf(g); sfx('talk'); const idle = () => pick(Math.random, MOOD_IDLE[workerMood(g.gv.name)]); // a different mood every day
+  if (!q) return showDialog(g.gv.name, idle());
   if (q.state === 'offer') showDialog(g.gv.name, q.def.ask, null, `${questGoalText(q)} Reward ${fmtMoney(q.reward)}.`, [['Accept', () => acceptQuest(q)], ['Not now', () => { }]]);
   else if (q.state === 'active') showDialog(g.gv.name, q.def.nag, null, `${questGoalText(q)} ${q.got}/${q.n}.`);
   else if (q.state === 'ready') turnIn(q);
-  else showDialog(g.gv.name, pick(Math.random, GIVER_IDLE));
+  else showDialog(g.gv.name, idle());
 }
 function acceptQuest(q) {
   q.state = 'active'; sfx('pick'); hint('quest'); toast(`New job from ${q.g.gv.name}: ${questGoalText(q)}`, 'good');
@@ -2810,9 +2905,9 @@ function questLogHTML() {
 // rooms live past the store's east edge (x >= SW), walled off from it. you get in through doors (Space), the camera
 // stays inside the room, the store keeps running while you're in there.
 const ROOMS = {
-  throne:    { name: 'The Throne Room', x0: 81, y0: 3, x1: 92, y1: 10, floor: 'marble', wall: 'marble', song: 'spa' },
-  cave:      { name: 'The Cheese Cave', x0: 96, y0: 3, x1: 108, y1: 11, floor: 'stone', wall: 'cave', song: 'cave', exitTo: 'bigcheese' },
-  backstage: { name: 'Elvis\'s Dressing Room', x0: 81, y0: 15, x1: 92, y1: 22, floor: 'redcarpet', wall: 'backstage', song: 'backstage', exitTo: 'stagedoor' },
+  throne:    { name: 'The Throne Room', x0: 115, y0: 3, x1: 126, y1: 10, floor: 'marble', wall: 'marble', song: 'spa' },
+  cave:      { name: 'The Cheese Cave', x0: 130, y0: 3, x1: 142, y1: 11, floor: 'stone', wall: 'cave', song: 'cave', exitTo: 'bigcheese' },
+  backstage: { name: 'Elvis\'s Dressing Room', x0: 115, y0: 15, x1: 126, y1: 22, floor: 'redcarpet', wall: 'backstage', song: 'backstage', exitTo: 'stagedoor' },
 };
 const roomDoorX = r => Math.floor((r.x0 + r.x1) / 2);
 
@@ -2833,7 +2928,7 @@ const SECRETS = [
   { id: 'bloom', name: 'Green Thumb', hint: 'The plants are plastic. Water one anyway. A lot.', reward: 200 },
   { id: 'hippo', name: 'The Hippo Speaks', hint: 'Toss coins in the jungle scene pond.', reward: 300 },
   { id: 'banana', name: 'Banana Guy', hint: 'Talk to the person in the banana suit.', reward: 150 },
-  { id: 'capsules', name: 'Capsule Collector', hint: 'Collect all 12 capsule toys from the machine by the entrance.', reward: 1000 },
+  { id: 'capsules', name: 'Capsule Collector', hint: 'Collect all 12 capsule toys from the machine by the Foodie Entrance.', reward: 1000 },
 ];
 const CAPSULES = ['tiny Big Cheese', 'Elvis keychain', 'rubber durian', 'pocket penguin', 'glow-in-the-dark lobster', 'mini soup can on a swing', 'a single sock', 'monorail ticket stub', 'teeny hot sauce', 'Gerald figure', 'a capsule with a smaller capsule inside', 'golden skate'];
 const PENGUINS = ['frozen1', 'frozen2', 'deck', 'beer', 'throne', 'cave', 'backstage'];
@@ -2861,28 +2956,29 @@ function buildFun() {
   }
   const free = (x, y) => inb(x, y) && !W.solid[idx(x, y)] && !W.objAt.get(idx(x, y));
   const put = (o) => free(o.x, o.y) ? addObj(o) : null;
+  const addObjR = o => addObj(Object.assign(o, { x: o.x + 34 })); // room furniture is laid out from x=81; rooms sit 34 further east now
   // the throne room: the award-winning restroom behind the porta-potty doors
-  for (const x of [82, 84]) { addObj({ type: 'mirror', x, y: 2 }); addObj({ type: 'sink', x, y: 3 }); }
-  addObj({ type: 'dryer', x: 86, y: 2 }); addObj({ type: 'plaque', x: 88, y: 2 });
-  [90, 91, 92].forEach((x, n) => addObj({ type: 'stall', x, y: 3, n, frame: n === 2 ? (F().found.stall ? 3 : 2) : 0 }));
-  addObj({ type: 'staff', npc: 'reginald', x: 88, y: 6, solid: true, look: npcLook('reginald') });
-  addObj({ type: 'plungercase', x: 81, y: 9, frame: F().found.plunger ? 1 : 0 }); addObj({ type: 'plant', x: 81, y: 10 }); addObj({ type: 'plant', x: 81, y: 3 });
-  addObj({ type: 'penguin', pid: 'throne', x: 92, y: 10 });
+  for (const x of [82, 84]) { addObjR({ type: 'mirror', x, y: 2 }); addObjR({ type: 'sink', x, y: 3 }); }
+  addObjR({ type: 'dryer', x: 86, y: 2 }); addObjR({ type: 'plaque', x: 88, y: 2 });
+  [90, 91, 92].forEach((x, n) => addObjR({ type: 'stall', x, y: 3, n, frame: n === 2 ? (F().found.stall ? 3 : 2) : 0 }));
+  addObjR({ type: 'staff', npc: 'reginald', x: 88, y: 6, solid: true, look: npcLook('reginald') });
+  addObjR({ type: 'plungercase', x: 81, y: 9, frame: F().found.plunger ? 1 : 0 }); addObjR({ type: 'plant', x: 81, y: 10 }); addObjR({ type: 'plant', x: 81, y: 3 });
+  addObjR({ type: 'penguin', pid: 'throne', x: 92, y: 10 });
   // the cheese cave
-  for (let x = 96; x <= 108; x++) if (x !== 102) addObj({ type: 'cheeserack', x, y: 3, seed: x });
-  for (const x of [98, 99, 100, 104, 105, 106]) addObj({ type: 'cheeserack', x, y: 6, seed: x * 3 });
-  addObj({ type: 'bigwheel', x: 97, y: 9, w: 2, h: 2 }); addObj({ type: 'candle', x: 96, y: 11 }); addObj({ type: 'candle', x: 108, y: 11 }); addObj({ type: 'candle', x: 101, y: 9 }); addObj({ type: 'candle', x: 103, y: 9 });
-  addObj({ type: 'staff', npc: 'gouda', x: 102, y: 8, solid: true, look: npcLook('gouda') });
-  addObj({ type: 'penguin', pid: 'cave', x: 107, y: 10 });
+  for (let x = 96; x <= 108; x++) if (x !== 102) addObjR({ type: 'cheeserack', x, y: 3, seed: x });
+  for (const x of [98, 99, 100, 104, 105, 106]) addObjR({ type: 'cheeserack', x, y: 6, seed: x * 3 });
+  addObjR({ type: 'bigwheel', x: 97, y: 9, w: 2, h: 2 }); addObjR({ type: 'candle', x: 96, y: 11 }); addObjR({ type: 'candle', x: 108, y: 11 }); addObjR({ type: 'candle', x: 101, y: 9 }); addObjR({ type: 'candle', x: 103, y: 9 });
+  addObjR({ type: 'staff', npc: 'gouda', x: 102, y: 8, solid: true, look: npcLook('gouda') });
+  addObjR({ type: 'penguin', pid: 'cave', x: 107, y: 10 });
   // elvis's dressing room
-  addObj({ type: 'vanity', x: 82, y: 15, w: 2 }); addObj({ type: 'jumprack', x: 86, y: 15, w: 2, frame: PL.outfit ? 1 : 0 });
-  for (const x of [89, 90, 91]) addObj({ type: 'goldrec', x, y: 14, seed: x });
-  addObj({ type: 'sofa', x: 90, y: 21, w: 2 }); addObj({ type: 'rider', x: 83, y: 20 }); addObj({ type: 'cutout', x: 92, y: 17 });
-  addObj({ type: 'penguin', pid: 'backstage', x: 81, y: 22 }); addObj({ type: 'plant', x: 81, y: 15 });
+  addObjR({ type: 'vanity', x: 82, y: 15, w: 2 }); addObjR({ type: 'jumprack', x: 86, y: 15, w: 2, frame: PL.outfit ? 1 : 0 });
+  for (const x of [89, 90, 91]) addObjR({ type: 'goldrec', x, y: 14, seed: x });
+  addObjR({ type: 'sofa', x: 90, y: 21, w: 2 }); addObjR({ type: 'rider', x: 83, y: 20 }); addObjR({ type: 'cutout', x: 92, y: 17 });
+  addObjR({ type: 'penguin', pid: 'backstage', x: 81, y: 22 }); addObjR({ type: 'plant', x: 81, y: 15 });
   // in the store: name the penguins, two more of them hiding, a capsule machine, a PA mic, the stage door
   W.objs.filter(o => o.type === 'penguin' && !o.pid).forEach((o, i) => o.pid = 'frozen' + (i + 1));
-  put({ type: 'penguin', pid: 'deck', x: 22, y: 14 }); put({ type: 'penguin', pid: 'beer', x: 43, y: 15 });
-  put({ type: 'capsule', x: 55, y: 45 }); put({ type: 'pa', x: 38, y: 43 });
+  put({ type: 'penguin', pid: 'deck', x: 76, y: 59 }); put({ type: 'penguin', pid: 'beer', x: 34, y: 31 }); // one by the monorail, one in the beer cave
+  put({ type: 'capsule', x: 85, y: 53 }); put({ type: 'pa', x: 80, y: 54 });
   const candy = DEPT.candy; if (candy) { const sx = candy.x + 1, sy = candy.y + 1; removeAt(sx, sy); addObj({ type: 'stagedoor', x: sx, y: sy }); W.spots.stagedoor = [sx + 0.5, sy + 1.75]; }
   if (W.spots.bigcheese) W.spots.cheeseFront = [W.spots.bigcheese[0], W.spots.bigcheese[1] - 0.1];
   W.objs.forEach(o => { if (o.type === 'trash' || o.type === 'plant') o.key = o.type + o.x + '_' + o.y; if (o.type === 'plant' && F().bloom[o.key]) o.frame = 1; });
@@ -2948,7 +3044,7 @@ function funInfo(o, tool) { // label + act for anything fun in front of you, or 
     case 'corral': return A('Space: push a cart');
     case 'giraffe': case 'elephant': case 'rhino': return A(`Space: pat the ${o.type}`);
     case 'tree': return A('Space: shake the tree');
-    case 'deck': return A('Space: climb up and look around');
+    case 'mstairs': return A('Space: climb the monorail platform and look around');
     case 'capsule': return A(`Space: capsule machine ($1) · ${Object.keys(f.caps).length}/${CAPSULES.length} collected`);
     case 'gacha': return PL.carry.length ? null : A(`Space: try a capsule ($1) · ${Object.keys(f.caps).length}/${CAPSULES.length} collected`, 'capsule');
     case 'pa': return A(RT.dayT - RT.fun.paT < 45 ? 'The PA mic needs a minute' : 'Space: make an announcement');
@@ -3000,7 +3096,7 @@ function funAct(t) {
     case 'rhino': say1('the rhino has seen ten thousand shoppers. it has opinions about all of them.'); break;
     case 'tree': { const k = o.x + '_' + o.y; if (RT.fun.tree[k]) { say1('you shake it again. nothing. the tree is done with you.'); break; } RT.fun.tree[k] = 1; const r = Math.random();
       if (r < 0.3) { addMoney(1, PL.x, PL.y - 30); RT.day.extra += 1; say1('a dollar falls out of the tree. that\'s how money works now.'); } else say1(funPick(['a frisbee from 2004 falls out.', 'a very surprised squirrel.', 'one leaf. the leaf is judging you.', 'a kite. no string. no explanation.'])); break; }
-    case 'deck': RT.zoomT = 6; say1('you climb the deck. you can see the whole store from up here.'); sfx('pick'); break;
+    case 'mstairs': RT.zoomT = 6; say1('you climb the monorail platform. you can see the whole lot from up here. somebody parked across three spots.'); sfx('pick'); break;
     case 'capsule': pullCapsule(); break;
     case 'pa': paAnnounce(); break;
     case 'stagedoor': if (stageOpen()) enterRoom('backstage'); else { sfx('clank'); say1('stage door. AUTHORIZED LIONS ONLY. (sounds like he\'s warming up. maybe after a few songs.)'); } break;
@@ -3109,7 +3205,7 @@ function updateFun(dt) {
   if (RT.fadeT > 0) RT.fadeT -= dt; if (RT.zoomT > 0) RT.zoomT -= dt; if (RT.swingT > 0) RT.swingT -= dt; if (RT.sirenT > 0) RT.sirenT -= dt;
   if (RT.beesT > 0) { RT.beesT -= dt; for (let i = 0; i < 2; i++) { const a = Math.random() * 6.283, r = 10 + Math.random() * 10; RT.parts.push({ x: PL.x + Math.cos(a) * r, y: PL.y - 12 + Math.sin(a) * r * 0.6, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 40, t: 0.25, c: Math.random() < 0.5 ? '#ffd23f' : '#2a2a2a' }); }
     if (RT.beesT <= 0) { flash('the bees lost interest. you survived.'); foundSecret('bees'); } }
-  if (PL.spinT > 0) { PL.spinT -= dt; PL.dir = ['down', 'left', 'up', 'right'][Math.floor(PL.spinT * 12) % 4]; }
+  if (PL.spinT > 0) { PL.spinT = Math.max(0, PL.spinT - dt); PL.dir = ['down', 'left', 'up', 'right'][Math.floor(PL.spinT * 12) % 4]; }
   // laps around the jungle scene: the angle around the pond adds up while you stay near it and keep moving
   const pond = W.objs.find(o => o.type === 'pond');
   if (pond && !RT.room && !PL.walk) { const cx = (pond.x + pond.w / 2) * T, cy = (pond.y + pond.h / 2) * T, d = Math.hypot(PL.x - cx, PL.y - cy), a = Math.atan2(PL.y - cy, PL.x - cx);
@@ -3168,6 +3264,371 @@ Object.assign(PROPS, {
   stagedoor: [16, 24, (g) => { P(g, 0, 0, 16, 24, '#3a2440'); P(g, 2, 2, 12, 22, '#5a3a62'); P(g, 2, 2, 12, 1, '#7a5a82'); P(g, 11, 13, 2, 2, '#f2c230'); P(g, 7, 5, 2, 5, '#f2c230'); P(g, 5, 6, 6, 2, '#f2c230'); P(g, 6, 10, 1, 1, '#f2c230'); P(g, 9, 10, 1, 1, '#f2c230'); P(g, 0, 22, 16, 2, '#1e1222'); }, true],
   todd: [10, 7, (g) => { P(g, 2, 3, 6, 2, '#c8302a'); P(g, 1, 2, 2, 2, '#e8402a'); P(g, 7, 2, 2, 2, '#e8402a'); P(g, 6, 3, 1, 1, '#1a1a1a'); P(g, 3, 1, 1, 2, '#c8302a'); P(g, 5, 5, 1, 1, '#c8302a'); P(g, 3, 0, 4, 1, '#2a3a8a'); }, true],
 });
+
+// ===== people: everyone in the store is somebody =====
+// every shopper gets a persona (name, attitude, how much patience they have, what they'll overshare). regulars come back
+// on different days in different clothes and their lives move on between visits. talk to someone too much and they get
+// irritated, then storm off or shove you. shoppers talk, bicker and bump carts with each other.
+
+// ---------- portraits (32x32, drawn from the same look as the walking sprite) ----------
+function portraitSprite(o, expr) {
+  return spr(`face_${o.key}_${expr || 'n'}`, 32, 32, g => {
+    const sk = o.skin, sd = shade(sk, -0.18), hair = o.hair, shirt = o.shirt;
+    // shoulders + shirt
+    P(g, 3, 25, 26, 7, shirt); P(g, 3, 25, 26, 1, shade(shirt, 0.25)); P(g, 25, 26, 4, 6, shade(shirt, -0.2));
+    if (o.pattern === 'stripe') { P(g, 3, 27, 26, 1, o.pc); P(g, 3, 30, 26, 1, o.pc); }
+    if (o.pattern === 'logo') { P(g, 19, 28, 3, 3, o.pc); }
+    if (o.pattern === 'flowers') for (const [x, y] of [[6, 27], [22, 29], [11, 30]]) { P(g, x, y, 1, 1, '#ff8fc0'); P(g, x + 1, y, 1, 1, '#fff6a0'); }
+    if (o.apron) P(g, 9, 26, 14, 6, o.apron);
+    P(g, 13, 22, 6, 4, sd); P(g, 13, 23, 6, 2, sk);
+    // head
+    [[4, 8], [2, 12], [1, 14], [1, 14], [0, 16], [0, 16], [0, 16], [0, 16], [0, 16], [0, 16], [0, 16], [1, 14], [1, 14], [2, 12], [3, 10], [5, 6]].forEach(([ox, w], i) => P(g, 8 + ox, 6 + i, w, 1, sk));
+    P(g, 22, 9, 2, 10, sd); P(g, 7, 12, 1, 4, sk); P(g, 24, 12, 1, 4, sd); // ears
+    const mad = expr === 'mad' || expr === 'fume', happy = expr === 'happy';
+    // brows + eyes
+    const bc = o.old ? '#d0d0d8' : shade(hair, -0.1);
+    if (mad) { P(g, 10, 11, 4, 1, bc); P(g, 12, 10, 2, 1, bc); P(g, 18, 11, 4, 1, bc); P(g, 18, 10, 2, 1, bc); } else { P(g, 10, 10, 4, 1, bc); P(g, 18, 10, 4, 1, bc); }
+    if (happy) { P(g, 11, 13, 3, 1, '#2a1b1b'); P(g, 18, 13, 3, 1, '#2a1b1b'); } else { P(g, 11, 12, 3, 3, '#2a1b1b'); P(g, 18, 12, 3, 3, '#2a1b1b'); P(g, 11, 12, 1, 1, '#ffffff'); P(g, 18, 12, 1, 1, '#ffffff'); }
+    P(g, 15, 15, 2, 2, sd); P(g, 9, 16, 2, 1, '#f0a0a0'); P(g, 21, 16, 2, 1, '#f0a0a0');
+    if (o.old) { P(g, 9, 15, 2, 1, sd); P(g, 21, 15, 2, 1, sd); }
+    // mouth
+    if (happy) { P(g, 13, 18, 6, 1, '#8a3a2a'); P(g, 12, 17, 1, 1, '#8a3a2a'); P(g, 19, 17, 1, 1, '#8a3a2a'); P(g, 14, 19, 4, 1, '#c85a4a'); }
+    else if (mad) { P(g, 13, 19, 6, 1, '#8a3a2a'); P(g, 12, 20, 1, 1, '#8a3a2a'); P(g, 19, 20, 1, 1, '#8a3a2a'); if (expr === 'fume') { P(g, 25, 4, 2, 2, '#ffffff'); P(g, 27, 2, 2, 2, '#e8e8f0'); P(g, 9, 16, 3, 1, '#ff6a5a'); P(g, 20, 16, 3, 1, '#ff6a5a'); } }
+    else P(g, 13, 18, 6, 1, '#8a3a2a');
+    // beard
+    if (o.beard) { const b = shade(hair, -0.05); P(g, 8, 15, 2, 4, b); P(g, 22, 15, 2, 4, b); P(g, 9, 18, 14, 2, b); P(g, 10, 20, 12, 2, b); P(g, 12, 22, 8, 1, b); P(g, 13, 18, 6, 1, happy ? '#c85a4a' : '#6a3a3a'); }
+    // hair / hats
+    const st = o.style, hl = shade(hair, 0.3);
+    const top = () => { P(g, 9, 3, 14, 3, hair); P(g, 7, 5, 18, 3, hair); P(g, 11, 3, 6, 1, hl); };
+    if (st === 'cap') { const c = o.hat; P(g, 8, 3, 16, 5, c); P(g, 6, 7, 20, 2, shade(c, -0.3)); P(g, 10, 3, 5, 1, shade(c, 0.35)); P(g, 7, 9, 2, 4, hair); P(g, 23, 9, 2, 4, hair); }
+    else if (st === 'beanie') { const c = o.hat; P(g, 7, 2, 18, 7, c); P(g, 7, 8, 18, 2, shade(c, -0.3)); for (let x = 9; x < 24; x += 3) P(g, x, 4, 1, 4, shade(c, -0.15)); disc(g, 16, 1, 2, '#f4f4f0'); }
+    else if (st === 'propeller') { P(g, 7, 3, 9, 6, '#e23a2e'); P(g, 16, 3, 9, 6, '#2e7de2'); P(g, 15, 0, 2, 3, '#6a6f78'); P(g, 9, 0, 14, 1, '#f2c230'); }
+    else if (st === 'sunhat') { P(g, 9, 0, 14, 5, '#f0e2b0'); P(g, 9, 4, 14, 1, '#d8342a'); P(g, 2, 6, 28, 3, '#e8d8a0'); P(g, 2, 6, 28, 1, '#f8ecc0'); }
+    else if (st === 'bald') { P(g, 7, 9, 2, 5, hair); P(g, 23, 9, 2, 5, hair); P(g, 12, 6, 4, 1, shade(sk, 0.3)); }
+    else { top(); P(g, 7, 8, 2, 6, hair); P(g, 23, 8, 2, 6, hair);
+      if (st === 'long') { P(g, 5, 8, 4, 16, hair); P(g, 23, 8, 4, 16, hair); }
+      if (st === 'bun') disc(g, 16, 1, 3, hair);
+      if (st === 'pony') { P(g, 25, 7, 3, 9, hair); }
+      if (st === 'curly') { for (let x = 7; x < 26; x += 3) disc(g, x, 4, 2, hair); P(g, 5, 7, 3, 8, hair); P(g, 24, 7, 3, 8, hair); } }
+    if (o.glasses) { const f = o.glasses, sun = f === '#1a1a24'; P(g, 9, 11, 6, 1, f); P(g, 17, 11, 6, 1, f); P(g, 9, 11, 1, 5, f); P(g, 14, 11, 1, 5, f); P(g, 17, 11, 1, 5, f); P(g, 22, 11, 1, 5, f); P(g, 9, 15, 6, 1, f); P(g, 17, 15, 6, 1, f); P(g, 15, 12, 2, 1, f);
+      if (sun) { P(g, 10, 12, 4, 3, '#1a1a24'); P(g, 18, 12, 4, 3, '#1a1a24'); P(g, 10, 12, 1, 1, '#6a8aff'); } }
+    if (o.costume === 'jogger') P(g, 7, 7, 18, 2, '#e23a2e');
+    if (o.costume === 'banana') { for (let y = 0; y < 32; y++) { const w = Math.round(13 - Math.abs(y - 16) * 0.35); P(g, 16 - w - 3, y, 4, 1, '#f6d83a'); P(g, 16 + w - 1, y, 4, 1, '#dcae1c'); } P(g, 6, 0, 20, 5, '#f6d83a'); P(g, 15, -2, 2, 4, '#6a4a1a'); }
+    if (o.parrot) { P(g, 24, 18, 6, 6, '#2fa84f'); P(g, 25, 16, 4, 3, '#2fa84f'); P(g, 28, 17, 2, 2, '#f2c230'); P(g, 26, 17, 1, 1, '#1a1a1a'); P(g, 24, 22, 2, 4, '#d8342a'); }
+  }, true);
+}
+// characters that are props (Elvis, Corn, Butter, Todd...) get their sprite framed into a portrait
+function propPortrait(name, frame, sx, sy, sw, sh) {
+  return spr(`face_prop_${name}_${frame}_${sx}_${sy}`, 32, 32, g => { const s = propSprite(name, frame); if (s) { g.imageSmoothingEnabled = false; g.drawImage(s, sx, sy, sw, sh, 0, 0, 32, 32); } });
+}
+const PROP_FACES = { 'Elvis (from somewhere)': ['elvis', 0, 5, 0, 24, 24], 'Corn': ['corn', 0, 1, 1, 16, 16], 'Butter': ['corn', 0, 18, 4, 16, 16], 'Todd': ['todd', 0, 0, 0, 10, 7], 'Captain Todd': ['todd', 0, 0, 0, 10, 7], 'The Hippo': ['pond', 0, 26, 12, 22, 16] };
+
+// ---------- names, attitudes, oversharing ----------
+const FIRST_NAMES = ['Barb', 'Steve', 'Tammy', 'Doug', 'Keisha', 'Raj', 'Brenda', 'Luis', 'Megan', 'Ron', 'Jolene', 'Tyrone', 'Ashley', 'Gene', 'Mei', 'Darnell', 'Patty', 'Kyle', 'Nadia', 'Hal', 'Crystal', 'Omar', 'Debbie', 'Travis', 'Yolanda', 'Chet', 'Priscilla', 'Bo', 'Wendy', 'Marco', 'Gloria', 'Trent', 'Ingrid', 'Duane', 'Fatima', 'Lyle'];
+// patience = how many times you can talk to them before they snap. line pools per attitude: hi (first time), more (second), annoyed, snap.
+const ATTITUDES = {
+  chatty:   { patience: 6, hi: ['oh hi! okay so. funny you should ask.', 'you work here? perfect. i have to tell somebody this.', 'hiii. okay don\'t judge me but.'], more: ['anyway that\'s my whole life. what\'s yours like?', 'sorry, i talk when i\'m nervous. and when i\'m not nervous.', 'oh and ANOTHER thing.'] },
+  grumpy:   { patience: 2, hi: ['what.', 'make it quick, skates.', 'i\'m not here to make friends.'], more: ['still here?', 'i said what i said.', 'you\'re blocking the pickles.'] },
+  sweet:    { patience: 7, hi: ['oh, aren\'t you a dear.', 'hello sweetheart! you look busy.', 'well hello there, roller man.'], more: ['you remind me of my nephew. he also never sits down.', 'have you eaten today? you should eat.', 'i\'ll let you get back to it, hon. or not! i\'m fine either way.'] },
+  rushed:   { patience: 1, hi: ['can\'t talk, double parked.', 'sorry, i have nine minutes to live my life.', 'no time. love the skates. bye.'], more: ['still can\'t talk.', 'i\'m LITERALLY leaving.'] },
+  anxious:  { patience: 4, hi: ['oh! sorry. am i in the way? i\'m always in the way.', 'is it okay that i\'m here? like in general?', 'hi. sorry. hi.'], more: ['i\'ve walked past the tahini four times. i can\'t commit.', 'do you think the lion is mad at me.'] },
+  showoff:  { patience: 3, hi: ['you probably recognize me.', 'nice skates. i used to compete. regionals.', 'don\'t mind me, just carb loading.'], more: ['i could do your job. faster. backwards.', 'feel this arm. no don\'t. but you could.'] },
+  conspiracy: { patience: 6, hi: ['don\'t look at the cameras. act natural.', 'you ever notice the lion never blinks?', 'keep your voice down. they\'re listening. the produce.'], more: ['the monorail doesn\'t go anywhere. ask yourself why.', 'seventy thousand products. who counted? WHO COUNTED.', 'the big cheese is hollow. i\'m just saying what i heard.'] },
+  oblivious: { patience: 8, hi: ['oh hey. is this the bank?', 'hello! where am i.', 'nice place. i came in for a haircut.'], more: ['i think i parked in a different state.', 'do you guys sell stamps. or boats. either.'] },
+  influencer: { patience: 3, hi: ['omg can you be in my video? say "jungle vibes".', 'hold on i\'m live. say hi to 14 people.', 'okay act natural. no, more natural.'], more: ['the lighting in the cheese shop is SO good.', 'can you skate past me again but slower and sadder?'] },
+  tired:    { patience: 3, hi: ['i haven\'t slept since 2019.', 'hi. i have four kids. two of them are here. somewhere.', 'is it still tuesday?'], more: ['i\'m going to sit in the beer cave and just breathe.', 'if you see a kid in a dinosaur costume, he\'s mine. probably.'] },
+};
+const ANNOYED = ['okay...', 'is there something you need?', 'you\'re still here.', 'buddy. i\'m shopping.', 'do you talk to everybody this much?', 'i\'m gonna need you to skate along now.', 'we\'ve covered this.', 'you got a quota or something?', 'i feel like you\'re testing me.', 'personal space, skates.'];
+const FUMING = ['STOP. TALKING. TO ME.', 'i will call your manager. oh wait.', 'i swear to god, roller boy.', 'one more word and i\'m leaving a review.', 'BACK. OFF.', 'i\'m about to lose it in the produce section.'];
+const STORM = ['that\'s IT. i\'m leaving. i\'m buying my groceries at a NORMAL store.', 'forget it. FORGET IT. i\'m out.', 'i didn\'t even want this cart!', 'you\'ve ruined pickles for me. goodbye.'];
+const SHOVE = ['GET. OUT. OF MY. FACE.', 'MOVE.', 'personal SPACE!', 'shoo! SHOO!'];
+const COLD = ['no.', '...', 'we\'re done.', 'don\'t.', 'nope.'];
+// random oversharing, the stuff strangers tell grocery store employees
+const OVERSHARE = [
+  'my husband thinks i\'m at pilates. i am at the cheese shop. this is my pilates.',
+  'i just got dumped over text. so i\'m buying a cake. a whole one. for me.',
+  'i named my roomba kevin and now i feel bad when it bumps into stuff.',
+  'my mother-in-law is coming and i\'m buying ingredients to cook "from scratch". i\'m buying a rotisserie chicken and lying.',
+  'i got a tattoo of my ex\'s name. i\'m here for a lot of ice cream and a plan.',
+  'my kid told his teacher i\'m a "professional napper". i\'m an accountant. he\'s not wrong though.',
+  'i\'ve been on hold with the cable company for two hours. i\'m on hold right now. this is my life now.',
+  'my dog ate a whole stick of butter yesterday and he\'s never been happier.',
+  'my wife and i are doing a no-spending month. this is day three. don\'t tell her.',
+  'i\'m 41 and i still don\'t know what a parsnip is for.',
+  'i\'m hosting book club and nobody read the book. so the cheese has to be really good.',
+  'i accidentally replied-all to the whole company with a picture of my foot. so. personal day.',
+  'my cat has a better skincare routine than me. i\'m buying her salmon.',
+  'my neighbor has a pickleball court. the noise. the NOISE. i\'m stress shopping.',
+  'i lost a bet and have to eat the hottest sauce you sell on camera. i\'m saying goodbye to my tongue.',
+  'my grandpa\'s 90th is today and all he wants is "the weird soda from germany". so here i am.',
+  'i tried to make sourdough during the pandemic. we don\'t talk about what happened to the starter.',
+  'i\'m on a first date right now. she\'s in the wine aisle. i panicked and came over here.',
+  'my therapist says i should "do something just for me". so. i\'m smelling candles.',
+  'my car makes a noise like a duck when i turn left. so i only turn right now. took me 40 minutes to get here.',
+  'i\'m a vegetarian but the jerky guy is very persuasive.',
+  'my teenager won\'t talk to me unless i bring home those mexican cokes. it\'s the only currency.',
+  'i got married last weekend. i\'m still finding rice in places.',
+  'i\'m a dentist. i\'m buying four pounds of candy. we don\'t have to discuss it.',
+  'my goldfish is turning nine. nine. that\'s not normal. i\'m getting him the good flakes.',
+  'i quit my job this morning. i don\'t have a plan. i have a cart.',
+  'my brother owes me $40 and i saw him in produce. i\'m tailing him.',
+  'i drove two hours for a cheese i saw on tiktok. it better change my life.',
+  'my wife\'s pregnant and she wants pickles dipped in ice cream. at 2 am. so i\'m stocking up.',
+  'my bird learned to say "where\'s my money". i don\'t know who taught him.',
+];
+
+// ---------- the regulars: they come back, in different clothes, and their stories move on each day you talk ----------
+const REGULARS = [
+  { id: 'carol', name: 'Carol', type: 'old', look: { skin: '#f6d3b3', hair: '#e8e8f0', style: 'curly', glasses: '#c0392b' }, att: 'chatty', patience: 6, foe: 'linda',
+    story: ['linda next door moved her bird feeder six inches onto my property line. six inches. i measured.', 'i put up a bigger bird feeder. now we have a pigeon problem. worth it.', 'linda called the HOA on my wind chimes. so i bought more wind chimes.', 'linda\'s cat got stuck in my tree and i had to call the fire department. she brought me a pie. i don\'t trust the pie.', 'the pie was good. i hate that the pie was good.', 'we split a bag of birdseed at costco. this proves nothing.', 'linda\'s in the hospital, just a hip thing. i\'m bringing her cheese. don\'t make it a whole thing.', 'linda\'s home. we watched jeopardy. she cheats. she looks at her phone.', 'we took down both bird feeders and put up one big one. in the middle. on the line.', 'linda and i are taking a cruise. if she drowns it was an accident.'] },
+  { id: 'linda', name: 'Linda', type: 'old', look: { skin: '#e9b48a', hair: '#d8d8d8', style: 'bun' }, att: 'sweet', patience: 5, foe: 'carol',
+    story: ['carol next door is measuring my bird feeder with a tape measure. at night. with a headlamp.', 'carol bought a bird feeder the size of a car. the birds are confused.', 'six wind chimes, honey. SIX. it sounds like a haunted department store.', 'i made carol a pie to say thank you. she looked at it like it was a bomb.', 'carol said my pie was "fine". that\'s carol for "best pie of my life".', 'carol and i split birdseed. don\'t read into it.', 'i broke my hip and carol brought me cheese. cried a little. the cheese was very good.', 'carol cheats at jeopardy. she shouts answers before the question.', 'we\'re sharing a bird feeder now. we fight about the birds instead.', 'carol and i are going on a cruise. i packed a life jacket. for me.'] },
+  { id: 'mike', name: 'Big Mike', type: 'adult', look: { skin: '#d09a6c', hair: '#1a1a1a', style: 'bald', beard: true }, att: 'showoff', patience: 3,
+    story: ['i\'m training for the county hot dog eating contest. sixty-three dogs. that\'s the record. i\'m at forty.', 'i ate 52 last night. my body is a temple. a temple of hot dogs.', 'my doctor said "please stop". i said "i\'m so close".', 'my training partner quit. he said he "saw god" at dog 48. weak.', 'contest is saturday. i\'m buying buns in bulk. don\'t look at me.', 'i lost. to a 19-year-old named spoon. SPOON. he\'s 130 pounds.', 'i\'m taking a break from hot dogs. i\'m doing pickles now. competitive pickles.', 'i found out spoon trains here. in YOUR store. at the food court.', 'spoon and i got lunch. turns out he\'s a nice kid. i hate it.', 'spoon\'s my training partner now. we\'re going to the state finals. together. as brothers.'] },
+  { id: 'priya', name: 'Dr. Priya', type: 'adult', look: { skin: '#a86f45', hair: '#2a1a12', style: 'pony' }, att: 'rushed', patience: 2,
+    story: ['er doctor. hour 31 of a 36. i\'m buying coffee beans to eat. raw.', 'today a guy came in with a jar of pickles stuck on his hand. he bought the pickles here. not your fault. kind of your fault.', 'i have four minutes. i need cheese and a reason to live. cheese first.', 'a kid swallowed a gachapon toy. it\'s fine. it was a tiny penguin. he named it.', 'day off. i\'m going to sleep in the car after this. don\'t knock.', 'somebody came in with a hot sauce burn. "the reaper". tell dave i said hi.', 'i delivered a baby in a parking lot. not yours. a different parking lot.', 'i got a fish tank to relax. now i worry about the fish.', 'the fish are fine. i\'m fine. everybody\'s fine.', 'i\'m taking a vacation. a real one. i\'ll be back for the cheese.'] },
+  { id: 'kevin', name: 'Kevin', type: 'adult', look: { skin: '#f2c9a0', hair: '#b04020', style: 'cap', hat: '#2a2a2a', glasses: '#2a2a2a' }, att: 'conspiracy', patience: 6,
+    story: ['the big cheese. hollow. i heard it. there\'s something UNDER it.', 'pigeons aren\'t real. no, wait, those are real. i meant the penguins.', 'there\'s a guy in a suit walking around taking pictures of the exits. i\'m not the only one who saw it.', 'i\'ve been mapping the store. there are more restrooms than there should be.', 'the monorail moved one inch overnight. ONE INCH. who\'s driving it?', 'the suit guy. i followed him to the parking lot. he drives a car with no bumper stickers. you know what that means.', 'something\'s going on in the stock room at night. lights. noises. cheese smell. well, the cheese smell is always there.', 'i put a camera in my hat. please act normal.', 'i was right. i was RIGHT. about something. i forget what. but i was right.', 'i\'m starting a podcast about this store. episode one: the lion knows.'] },
+  { id: 'tiffani', name: 'Tiffani', type: 'adult', look: { skin: '#f6d3b3', hair: '#d8b050', style: 'long', glasses: '#1a1a24' }, att: 'influencer', patience: 3,
+    story: ['i\'m doing a "day in the life of a grocery store" series. you\'re in it. you\'re the main character now.', 'my video of the lion got 40,000 views. the comments are all "is that elvis". yes. obviously.', 'i\'m doing a cheese tier list. i put brie in C tier. i got death threats.', 'the cheese community forgave me. i moved brie to B.', 'i\'m getting sponsored by a hot sauce. it\'s dave\'s. dave doesn\'t know.', 'dave knows. dave is mad. dave wants a percentage.', 'my followers want to see you fall on your skates. please consider it.', 'my mom found my account. she\'s my top commenter now. it\'s humiliating.', 'i hit 100k followers! i\'m celebrating with sushi and a nervous breakdown.', 'i\'m taking a social media break. starting tomorrow. after this video.'] },
+  { id: 'walt', name: 'Walt', type: 'old', look: { skin: '#f0c49a', hair: '#b8b8b8', style: 'bald', beard: true }, att: 'grumpy', patience: 2,
+    story: ['prices. PRICES. in my day bread was a nickel.', 'your music\'s too loud. what is that, an accordion? ...it\'s okay. leave it.', 'my wife used to make a strudel. i\'m trying. it\'s a disaster. don\'t tell anyone.', 'the strudel was less of a disaster. the dog ate it. the dog\'s a critic.', 'she shopped here every friday for thirty years. i come on fridays now.', 'i found her recipe card in the cookbook. her handwriting. anyway. where\'s the flour.', 'i made the strudel. it was good. i cried into it a little. salt helps.', 'i brought a strudel for the bakery lady. rosa. she said it was "almost as good as mine". high praise.', 'rosa and i are trading recipes. it\'s not a date. it\'s a recipe exchange.', 'okay it\'s a date. don\'t make it a whole thing. where are the flowers.'] },
+  { id: 'brayden', name: 'Brayden', type: 'adult', look: { skin: '#e9b48a', hair: '#5a3418', style: 'short' }, att: 'showoff', patience: 4, tank: true,
+    story: ['bro. forty cans of tuna. bulking season. tuna is my brother.', 'my girlfriend says i have to eat a vegetable. i\'m looking at a carrot. it\'s looking at me.', 'i ate the carrot. bro. it was crunchy. nobody told me.', 'i\'m trying broccoli. it\'s a tree, bro. i\'m eating a TREE.', 'i made a salad. on purpose. i\'m changing as a person.', 'my gym bros found out about the salad. i told them it was protein salad. there\'s no protein in it.', 'i\'m at the farmer\'s market part of the store. produce. i know words now. "arugula".', 'my girlfriend proposed. to me. in the produce section. i said yes, bro.', 'we\'re doing a vegetable-themed wedding. the cake\'s a cabbage. i\'m crying.', 'bro. i\'m a vegetarian now. i\'m still buying the tuna for my cat.'] },
+  { id: 'agnes', name: 'Sister Agnes', type: 'old', look: { skin: '#f6d3b3', hair: '#2a2a2a', style: 'cap', hat: '#1a1a24' }, att: 'sweet', patience: 8,
+    story: ['bless you, dear. i\'m buying scratch-offs at the service desk. for the church. mostly.', 'won $50! the lord provides. the lord also takes. i bought 30 more.', 'the bishop doesn\'t need to know about the scratch-offs, dear.', 'we\'re having a bingo night. i run the bingo. i run it with an iron fist.', 'someone cheated at bingo. it was me. i was testing them.', 'i\'m buying wine for communion. and some for agnes. that\'s me.', 'i won $500. i\'m buying the convent a new roof. and a hot tub. it\'s a therapy tub.', 'the hot tub is a hit. sister margaret won\'t get out.', 'i\'m teaching a class on poker. it\'s called "faith-based probability".', 'pray for me, dear. i\'m going to vegas. for a retreat. a poker retreat.'] },
+  { id: 'dale', name: 'Dale', type: 'adult', look: { skin: '#7a4a2a', hair: '#1a1a1a', style: 'short', glasses: '#2a2a2a' }, att: 'tired', patience: 3,
+    story: ['four kids. twins are three. they bit each other in the car. i\'m buying juice boxes and a nap.', 'one of the twins learned the word "no". that\'s all he says now. to everything. including cake.', 'my oldest is doing a science fair project on whether the lion is real. i said yes. now i\'m in too deep.', 'i slept four hours last night. in a row. i\'m a new man. a new, tired man.', 'the twins drew on the dog. with sharpie. the dog loves it. he looks like a tiger now.', 'science fair\'s tomorrow. we built a lion out of a mop. it\'s terrifying.', 'we won second place. first place was a kid who built a volcano that actually erupted. on the judges.', 'my wife and i went on a date. we fell asleep at the movie. best date ever.', 'the baby said "dada". the baby also calls the vacuum "dada". i\'ll take it.', 'family photo day. everybody\'s wearing matching shirts. i look like a crayon.'] },
+  { id: 'fernando', name: 'Fernando', type: 'adult', look: { skin: '#d09a6c', hair: '#2a1a12', style: 'curly' }, att: 'chatty', patience: 5,
+    story: ['i\'m proposing to my girlfriend. at the big cheese. she loves cheese. this is going to be perfect.', 'i bought the ring. it\'s in my sock. i keep checking my sock. people are staring.', 'i need gus to help. gus said "absolutely not". gus said "fine".', 'practice run went bad. i dropped the ring in the pickle barrel. gus fished it out. he didn\'t even flinch.', 'she\'s coming friday. i\'m sweating through my shirt and it\'s tuesday.', 'SHE SAID YES. at the big cheese. gus cried. i cried. a stranger cried.', 'we\'re planning the wedding. she wants a cheese tower. i want a cheese tower. this is love.', 'her mom wants a "normal" cake. we\'re compromising. it\'s a cheesecake.', 'the wedding is in the food court. we booked all six stalls. the taqueria\'s catering.', 'i\'m a married man. i\'m buying cheese for TWO now.'] },
+  { id: 'rhonda', name: 'Rhonda', type: 'adult', look: { skin: '#f2c9a0', hair: '#8a5a2a', style: 'long', glasses: '#8a5a2a' }, att: 'grumpy', patience: 3, tote: '#2e7d3b',
+    story: ['i have 312 coupons. this is a binder. it\'s alphabetized. don\'t touch it.', 'i got $90 of groceries for $4.12. i\'m a god. a coupon god.', 'the register girl rolled her eyes at my coupons. i rolled mine back. we\'re at war.', 'i found an expired coupon in my binder. i\'ve never felt so betrayed.', 'my husband used a coupon without telling me. we\'re in counseling.', 'i\'m teaching a couponing class at the library. three people came. one was asleep.', 'i got the deals section guy to cry. in a good way. we hugged.', 'my binder\'s on its third edition. it has tabs now. COLOR tabs.', 'they\'re putting my picture up in the deals aisle. "customer of the month". finally, respect.', 'i\'m retiring from couponing. just kidding. i\'m buying a second binder.'] },
+  { id: 'zeke', name: 'Zeke', type: 'adult', look: { skin: '#a86f45', hair: '#3a2a2a', style: 'beanie', hat: '#f2b51c', beard: true }, att: 'oblivious', patience: 8,
+    story: ['just got back from six months on a crab boat. what year is it. don\'t answer that.', 'land is weird, man. it doesn\'t move. i keep leaning.', 'i tried to pay with crab. the register said no.', 'i\'m looking for an apartment. do you guys rent apartments? the restroom\'s really nice.', 'i got a job! i\'m a cart guy. here. working with dustin. he talks to the carts.', 'dustin taught me the cart train. you link them. it\'s like a snake. a metal snake.', 'i fell asleep in the cart corral. somebody pushed me to the entrance. that\'s on me.', 'i bought a goldfish. his name is captain. he\'s seen more of the world than me now.', 'i\'m going back to the boat next month. i\'m gonna miss the carts.', 'i stayed. the carts need me, man.'] },
+  { id: 'pam', name: 'Pam', type: 'old', look: { skin: '#e9b48a', hair: '#f0f0f0', style: 'short', parrot: true }, att: 'sweet', patience: 6,
+    story: ['this is gerald. no, a different gerald. he\'s a parrot. he says rude things. i\'m so sorry in advance.', 'gerald said "nice skates, loser". he likes you. he says that to people he likes.', 'gerald learned the store jingle. he sings it at 4 am. i live alone. i hear it in my dreams.', 'gerald bit the cheese man. gus forgave him. gerald did not forgive gus.', 'gerald has a girlfriend. she\'s a mirror. i don\'t have the heart to tell him.', 'gerald said "help, they\'re holding me hostage" in the deli. sal called the police. a whole thing.', 'gerald and the raccoon in your dumpster are friends now. they just stare at each other.', 'gerald is 41. he\'s going to outlive me. he\'s getting the house.', 'gerald learned "thank you very much" from the lion. now he does an elvis bit. it\'s good.', 'gerald and i are doing a talent show. he sings. i hold him. it\'s a partnership.'] },
+];
+const REG = {}; REGULARS.forEach(r => REG[r.id] = r);
+// small talk between two shoppers that pass each other. [first person, second person]
+const CONVOS = [
+  ['excuse me, is that the last tahini?', 'it is. and i\'m not giving it up.'], ['love your bag.', 'thanks, it was a free bag. i\'ve had it for nine years.'], ['do you know where the honey is?', 'follow the bees.'],
+  ['is your kid okay? he\'s licking the freezer.', 'he\'s fine. he does that.'], ['sorry, my cart has a mind of its own.', 'mine too. it keeps going to the wine.'], ['have you tried the durian?', 'once. never again. i can still taste it.'],
+  ['i think we went to high school together.', 'oh no. oh no, we did.'], ['nice sweater.', 'it was my dad\'s. he\'s alive, i just took it.'], ['you look like you know about wine.', 'i know nothing. i pick by the label animal.'],
+  ['is the lion supposed to be wearing sunglasses?', 'he\'s a professional.'], ['did you see a guy in a banana suit?', 'every time i come here, yes.'], ['which line is fastest?', 'whichever one you\'re not in.'],
+  ['how do you pick a melon?', 'i knock and wait for one to answer.'], ['excuse me, that\'s my cart.', 'oh. mine has the same wobbly wheel. they all do.'], ['i\'m so lost.', 'me too. let\'s be lost together.'],
+  ['this place is huge.', 'i came in for milk in 2019. i\'m still looking.'], ['are those good?', 'no idea. i buy everything with a cartoon on it.'], ['can i squeeze past?', 'only if you compliment my cheese choices.'],
+];
+const ARGUE = [['you took my parking spot.', 'there were forty spots!'], ['that\'s MY cart.', 'yours has a sticker? show me the sticker.'], ['you cut the line.', 'i was here in spirit.'],
+  ['you hit my ankle with your cart.', 'your ankle was in my lane.'], ['were you going to buy that last cake?', 'i am now.'], ['stop following me.', 'we\'re going the same way! it\'s one aisle!']];
+const KID_RUN = ['WEEEEE', 'CANDY CANDY CANDY', 'you can\'t catch me!', 'i\'m a dinosaur!', 'look, a penguin!'];
+const PARENT_CALL = ['GET BACK HERE.', 'i\'m counting to three!', 'we talked about running!', 'that is NOT the way to the car.', 'please. i\'m begging.'];
+
+// ---------- giving people a persona ----------
+function regularsToday() { // which regulars come in today: about half, different each day, rolled once per day
+  if (RT.regDay === ST.day) return RT.regToday; const r = mkRng(ST.day * 977 + 3); RT.regDay = ST.day;
+  RT.regToday = REGULARS.filter(() => r() < 0.55).map(x => x.id); RT.regUsed = {}; return RT.regToday;
+}
+function makePersona(c) {
+  const today = regularsToday();
+  if (c.type !== 'kid' && Math.random() < 0.3) { // a regular walks in (each at most once a day)
+    const avail = today.filter(id => !RT.regUsed[id] && REG[id].type === c.type); if (avail.length) { const id = pick(Math.random, avail); RT.regUsed[id] = 1; dressRegular(c, REG[id]); return; }
+  }
+  const att = c.type === 'kid' ? 'chatty' : pick(Math.random, Object.keys(ATTITUDES)), A = ATTITUDES[att];
+  c.p = { name: c.type === 'kid' ? pick(Math.random, ['Tyler', 'Ava', 'Jayden', 'Mia', 'Noah', 'Zoe', 'Liam', 'Ellie']) : pick(Math.random, FIRST_NAMES), att, patience: A.patience + Math.floor(Math.random() * 2), talks: 0, irk: 0, topic: pick(Math.random, OVERSHARE) };
+}
+function dressRegular(c, R) { // same face, different clothes every day
+  const r = mkRng(R.id.length * 131 + ST.day * 7919), L = randomLook(r, R.type);
+  Object.assign(L, { skin: R.look.skin, hair: R.look.hair, style: R.look.style, hat: R.look.hat || L.hat, glasses: R.look.glasses || null, beard: !!R.look.beard, parrot: !!R.look.parrot, costume: null, key: 'reg_' + R.id + '_' + ST.day });
+  if (R.tote) L.tote = R.tote; c.look = L; c.p = { name: R.name, reg: R.id, att: R.att, patience: R.patience, talks: 0, irk: 0 };
+}
+function personaName(c) { return c.p ? c.p.name : 'Shopper'; }
+function faceOf(c, expr) { return { look: c.look, expr }; }
+
+// ---------- talking to a shopper: a real exchange, then patience runs out ----------
+function talkCustomer(c) {
+  if (!c.p) makePersona(c); const p = c.p, A = ATTITUDES[p.att] || ATTITUDES.chatty; sfx('talk');
+  if (p.cold > 0) { bubble(c, pick(Math.random, COLD), 2.5, 'mad'); return; }
+  p.talks++; p.irk += 1; const n = p.talks, name = personaName(c) + (p.reg ? ' · regular' : '');
+  if (c.type === 'kid' && n <= 2) return showDialog(personaName(c), line('kid'), null, null, null, faceOf(c, 'happy'));
+  if (c.look.costume) { if (c.look.costume === 'banana') foundSecret('banana'); return showDialog(name, pick(Math.random, COSTUME_LINES[c.look.costume]), null, null, null, faceOf(c, 'happy')); }
+  if (n === 1) { // the first thing they tell you: a regular's story so far, or whatever's on a stranger's mind
+    if (p.reg) { const f = F(); f.met = f.met || {}; const R = REG[p.reg], seen = f.met[p.reg] || { n: 0, day: 0 }; if (seen.day !== ST.day) { seen.n++; seen.day = ST.day; f.met[p.reg] = seen; }
+      moodHit(c, 4); return showDialog(name, R.story[Math.min(R.story.length - 1, seen.n - 1)], null, seen.n === 1 ? 'A regular. Talk to them on other days to hear how it goes.' : null, null, faceOf(c, 'happy')); }
+    moodHit(c, 3); return showDialog(name, pick(Math.random, A.hi) + ' ' + p.topic, null, null, null, faceOf(c, 'happy'));
+  }
+  if (p.irk <= Math.ceil(p.patience * 0.5)) return showDialog(name, pick(Math.random, A.more), null, null, null, faceOf(c, 'n'));
+  if (p.irk <= p.patience) { moodHit(c, -4); bubble(c, pick(Math.random, ANNOYED), 3, 'mad'); return; }
+  if (p.irk === p.patience + 1) { moodHit(c, -8); bubble(c, pick(Math.random, FUMING), 3, 'mad'); showDialog(name, pick(Math.random, FUMING), null, 'They\'re about to snap. Maybe give them some space.', null, faceOf(c, 'fume')); return; }
+  // they snap: a shove, or they storm out
+  p.cold = 30; RT.day.snaps = (RT.day.snaps || 0) + 1; addRep(-0.4);
+  if (Math.random() < 0.5 && c.type !== 'old') { const dx = PL.x - c.x, dy = PL.y - c.y, d = Math.hypot(dx, dy) || 1; PL.vx = dx / d * 190; PL.vy = dy / d * 190; PL.spinT = 0.4; sfx('bump'); bubble(c, pick(Math.random, SHOVE), 3, 'mad'); floatText(PL.x, PL.y - 34, 'SHOVED', '#ff6a5a'); RT.custs.forEach(o => { if (o !== c && !o.bubble && Math.hypot(o.x - c.x, o.y - c.y) < 4 * T && Math.random() < 0.5) bubble(o, pick(Math.random, ['oh snap', 'WORLDSTAR', 'did he just', 'yikes', 'not in the cheese shop!']), 2.5); }); }
+  else { bubble(c, pick(Math.random, STORM), 3.5, 'mad'); moodHit(c, -40); c.list = []; c.hold = null; if (c.lane) { const l = c.lane; l.queue.splice(l.queue.indexOf(c), 1); queueMove(l); c.lane = null; } c.items = 0; leaveStore(c); c.stormed = true; }
+}
+function updatePeople(dt) { // patience comes back slowly; cold shoulders wear off
+  RT.peopleT = (RT.peopleT || 0) - dt; if (RT.peopleT > 0) return; RT.peopleT = 1;
+  for (const c of RT.custs) { if (!c.p) continue; if (c.p.cold > 0) c.p.cold--; if ((c.p.calm = (c.p.calm || 0) + 1) >= 20) { c.p.calm = 0; if (c.p.irk > 0 && !c.p.cold) c.p.irk--; } }
+  shopperMeet(); kidsRunOff();
+}
+// ---------- shoppers with each other ----------
+const freeish = c => ['walk', 'browse', 'loiter'].includes(c.state) && c.then !== 'exit' && !c.bubble && c.type !== 'kid';
+function shopperMeet() {
+  if ((RT.meetT = (RT.meetT || 0) - 1) > 0) return; RT.meetT = 2 + Math.floor(Math.random() * 3);
+  const cs = RT.custs.filter(c => freeish(c) && !custOutside(c));
+  for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+    const a = cs[i], b = cs[j]; if (Math.hypot(a.x - b.x, a.y - b.y) > 22 || (a.metId === b.id)) continue;
+    a.metId = b.id; b.metId = a.id; if (!a.p) makePersona(a); if (!b.p) makePersona(b);
+    const ra = a.p.reg && REG[a.p.reg], rb = b.p.reg && REG[b.p.reg];
+    let pair;
+    if (ra && rb && (ra.foe === rb.id)) pair = [`${rb.name}.`, `${ra.name}.`]; // carol and linda
+    else if (ra && rb) pair = [`${rb.name}! how\'s it going?`, `${ra.name}! don\'t ask.`];
+    else if ((a.p.att === 'grumpy' || b.p.att === 'grumpy' || a.p.att === 'rushed') && Math.random() < 0.6) { pair = pick(Math.random, ARGUE); moodHit(a, -3); moodHit(b, -3);
+      if (Math.random() < 0.25) { makeSpill(a, pick(Math.random, ['milk', 'salsa', 'pickle', 'grape'])); a.y -= 3; b.y += 3; } }
+    else pair = pick(Math.random, CONVOS);
+    bubble(a, pair[0], 3.2); RT.later = RT.later || []; RT.later.push({ t: 1.6, c: b, text: pair[1] }); return;
+  }
+}
+function kidsRunOff() { // now and then a kid bolts for candy and a parent yells
+  if (Math.random() > 0.04) return; const k = pick(Math.random, RT.custs.filter(c => c.type === 'kid' && c.state === 'tag' && c.parent && !custOutside(c.parent))); if (!k) return;
+  const t = randomZoneTile(['candy', 'toys', 'gacha', 'frozen']); if (!t) return;
+  k.state = 'run'; k.runT = 6 + Math.random() * 4; goTo(k, t[0] + 0.5, t[1] + 0.7); bubble(k, pick(Math.random, KID_RUN), 2.5); RT.later = RT.later || []; RT.later.push({ t: 1.2, c: k.parent, text: pick(Math.random, PARENT_CALL), kind: 'mad' });
+}
+function updateLater(dt) { // lines that come a beat after another
+  if (!RT.later) return; for (const l of RT.later) { l.t -= dt; if (l.t <= 0 && RT.custs.includes(l.c)) bubble(l.c, l.text, 3.2, l.kind || 'say'); } RT.later = RT.later.filter(l => l.t > 0);
+}
+
+// ===== life: the store going about its day without you =====
+// the food court (order, sit, eat, leave a mess), shopping carts (taken at the door, abandoned in the lot, wrangled back
+// by Dustin), the always-on crew (Kayla buses the food court, Dustin does carts), and workers chatting with each other.
+
+// ---------- the food court ----------
+const STALL_FOOD = { tacos: ['tacos', 7], pizza: ['a slice', 5], noodles: ['noodles', 9], froyo: ['froyo', 6], pretzels: ['a pretzel', 5], tikka: ['tikka masala', 10] };
+const ORDER_UP = ['order up!', 'number 47!', 'here you go, hon.', 'enjoy!', 'careful, it\'s hot.', 'that\'s a lot of cheese. respect.'];
+const EATING = ['this is the best part of my day.', 'mmm.', 'don\'t talk to me, i\'m eating.', 'i deserve this.', 'i said i\'d only get a small. i lied.', 'oh that\'s good.', 'this is my lunch break. it\'s 4pm. don\'t ask.', 'they forgot my sauce. it\'s fine. it\'s FINE.'];
+const FOOD_SPILL = { tacos: 'salsa', pizza: 'pizza', noodles: 'noodles', froyo: 'froyo', pretzels: 'soda', tikka: 'salsa' };
+function goEat(c) { // after shopping, a bite at the food court (once)
+  const st = pick(Math.random, W.stalls || []); if (!st) return false; c.ate = true; c.stall = st; c.state = 'walk'; c.then = 'order'; goTo(c, st.front[0] + 0.5, st.front[1] + 0.75); return true;
+}
+function arriveFood(c) {
+  if (c.then === 'order') { c.state = 'order'; c.timer = 2.5 + Math.random() * 2; c.dir = 'down'; return true; }
+  if (c.then === 'eat') { c.state = 'eat'; c.timer = 9 + Math.random() * 8; c.dir = c.chair && c.chair.x % 4 === 1 ? 'right' : 'left'; return true; }
+  return false;
+}
+function updateFood(c, dt) {
+  if (c.state === 'order') { c.timer -= dt; c.frame = 0; if (c.timer > 0) return true;
+    const [what, price] = STALL_FOOD[c.stall.kind] || ['food', 6]; if (c.stall.cook) sayStaff(c.stall.cook, pick(Math.random, ORDER_UP));
+    addMoney(price, c.x, c.y - 26); RT.day.extra += price; c.tray = c.stall.kind; moodHit(c, 4);
+    const ch = (W.chairs || []).filter(h => !h.cust).sort((a, b) => Math.hypot(a.x * T - c.x, a.y * T - c.y) - Math.hypot(b.x * T - c.x, b.y * T - c.y))[0];
+    if (ch) { ch.cust = c; c.chair = ch; c.state = 'walk'; c.then = 'eat'; goTo(c, ch.x + 0.5, ch.y + 0.75); } else { c.tray = null; nextTask(c); } return true; }
+  if (c.state === 'eat') { c.timer -= dt; c.frame = 0;
+    if (!c.bubble && Math.random() < dt * 0.15) bubble(c, Math.random() < 0.5 ? pick(Math.random, EATING) : (c.p && c.p.topic) || pick(Math.random, EATING), 3.5);
+    if (c.timer <= 0) { const ch = c.chair; if (ch) ch.cust = null; c.chair = null;
+      if (Math.random() < 0.3) { const k = FOOD_SPILL[c.tray] || 'soda'; if (!RT.spills.find(s => s.x === ch.x && s.y === ch.y)) RT.spills.push({ id: RT.nextId++, x: ch.x, y: ch.y, kind: k, hp: 2 }); if (Math.random() < 0.5) bubble(c, pick(Math.random, ['oops.', 'somebody\'ll get that.', 'that was like that when i got here.']), 2.5); }
+      c.tray = null; nextTask(c); } return true; }
+  return false;
+}
+
+// ---------- shopping carts ----------
+// people with a real list push a cart. at the car they leave it in the lot, like people do. Dustin brings them back.
+function cartFor(c) { return c.type === 'adult' && c.list && c.list.length >= 2 && Math.random() < 0.7; }
+function abandonCart(c) {
+  if (!c.cart) return; c.cart = false; RT.carts = RT.carts || []; RT.carts.push({ id: RT.nextId++, x: c.car.x + (Math.random() < 0.5 ? -14 : 14), y: c.car.y + 6 });
+  if (RT.carts.length > 30) RT.carts.shift();
+}
+function looseCartNear(px, py, r) { let best = null, bd = r; for (const k of RT.carts || []) { const d = Math.hypot(k.x - px, k.y - py); if (d < bd) { bd = d; best = k; } } return best; }
+function cartBay() { return W.spots.cartBay; }
+
+// ---------- the crew that's always on: Kayla (food court) and Dustin (carts) ----------
+function crewSetup() {
+  const mk = (kind, name, shirt, x, y, seed) => { const look = randomLook(mkRng(seed), 'adult'); look.shirt = shirt; look.key = 'crew_' + kind; look.pattern = 'logo'; look.pc = '#f2c81c'; look.tote = null; RT.staff.push({ kind, name, look, x: x * T, y: y * T, dir: 'down', state: 'idle', timer: 2, carry: null, path: null, train: 0 }); };
+  mk('busser', 'Kayla', '#2e7d3b', 45, 53.7, 4411); mk('carts', 'Dustin', '#f07a22', 84, 56.7, 9001);
+}
+function updateCrew(s, dt) { // returns true if it handled this staff member
+  if (s.kind === 'busser') {
+    if (s.state === 'walk') { if (stepPath(s, dt, 44)) s.onArrive && s.onArrive(); return true; }
+    if (s.state === 'work') { s.timer -= dt; s.frame = 0; if (s.timer <= 0) { s.state = 'idle'; s.timer = 2; s.done && s.done(); } return true; }
+    s.timer -= dt; if (s.timer > 0) return true;
+    const fc = DEPTS.findIndex(d => d.id === 'foodcourt'); const sp = RT.spills.find(p => inb(p.x, p.y) && W.zone[idx(p.x, p.y)] === fc && !RT.staff.some(o => o.target === p));
+    if (!sp) { s.timer = 4; if (Math.random() < 0.3) { const t = randomZoneTile(['foodcourt']); if (t) { s.state = 'walk'; goTo(s, t[0] + 0.5, t[1] + 0.7); s.onArrive = () => { s.state = 'idle'; s.timer = 3; }; } } return true; }
+    s.target = sp; s.state = 'walk'; goTo(s, sp.x + 0.5, sp.y + 0.75);
+    s.onArrive = () => { s.state = 'work'; s.timer = 2.4; if (Math.random() < 0.4) sayStaff(s, pick(Math.random, ['every. single. day.', 'who eats noodles like that', 'i went to college for this. okay i didn\'t.', 'got it, got it.'])); s.done = () => { const i = RT.spills.indexOf(sp); if (i >= 0) RT.spills.splice(i, 1); s.target = null; s.timer = 3; }; };
+    return true;
+  }
+  if (s.kind === 'carts') {
+    if (s.state === 'walk') { if (stepPath(s, dt, 40)) s.onArrive && s.onArrive(); return true; }
+    s.timer -= dt; s.frame = 0; if (s.timer > 0) return true;
+    const loose = (RT.carts || []).filter(k => !k.claimed);
+    if (s.train && (s.train >= 5 || !loose.length)) { const b = cartBay(); s.state = 'walk'; goTo(s, b[0], b[1]); s.onArrive = () => { s.state = 'idle'; s.timer = 3; RT.cartsIn = (RT.cartsIn || 0) + s.train; s.train = 0; if (Math.random() < 0.5) sayStaff(s, pick(Math.random, ['and that\'s the train, folks.', 'choo choo.', 'my calves are enormous now.'])); }; return true; }
+    if (!loose.length) { s.timer = 5; return true; }
+    loose.sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y)); const k = loose[0]; k.claimed = true;
+    s.state = 'walk'; goTo(s, k.x / T, k.y / T); s.onArrive = () => { const i = RT.carts.indexOf(k); if (i >= 0) { RT.carts.splice(i, 1); s.train++; } s.state = 'idle'; s.timer = 0.5; };
+    return true;
+  }
+  return false;
+}
+
+// ---------- workers talk to each other ----------
+// a bubble over a worker who isn't a walking shopper (givers, counter clerks, cooks, cashiers, crew)
+function sayStaff(e, text, t = 3.5) { e.bubble = { text: say(text), t, kind: 'say' }; RT.staffTalk = RT.staffTalk || []; if (!RT.staffTalk.includes(e)) RT.staffTalk.push(e); }
+function speakerPos(e) { return e.o ? [e.o.x * T + 8, e.o.y * T + 12] : e.type === 'staff' ? [e.x * T + 8, e.y * T + 12 - (e.cook ? 11 : 0)] : [e.x, e.y]; }
+const WORKER_MOODS = ['hyped', 'tired', 'grumpy', 'gossipy', 'zen'];
+function workerMood(name) { const r = mkRng(name.length * 31 + name.charCodeAt(0) * 7 + ST.day * 101); return pick(r, WORKER_MOODS); }
+const MOOD_IDLE = {
+  hyped: ['let\'s GO, boss. big day. i can feel it.', 'i had three espressos. i can hear colors.', 'i love this job. don\'t quote me.'],
+  tired: ['i\'m awake. technically.', 'if i sit down i will die. so i won\'t.', 'my feet filed a complaint.'],
+  grumpy: ['don\'t start with me today.', 'somebody parked in my spot. i know who. i\'m watching.', 'i\'m fine. i\'m FINE.'],
+  gossipy: ['did you hear about sal and the pickle guy? no? never mind. okay fine.', 'i\'m not saying anything. but deb took a two hour lunch.', 'someone\'s been eating the samples in the stock room. i have theories.'],
+  zen: ['the cheese will be fine. everything will be fine.', 'i\'ve accepted the lion. the lion has accepted me.', 'breathe in. smell the bread. breathe out.'],
+};
+// little two- and three-line exchanges between whoever's near each other ({a} and {b} get their names)
+const STAFF_CHAT = [
+  [['a', 'who keeps eating my yogurt in the break room fridge?'], ['b', 'it had your name on it. i thought it was a suggestion.']],
+  [['a', 'the boss is on skates again.'], ['b', 'the boss is always on skates.'], ['a', 'i know. i\'m just saying it out loud so it\'s real.']],
+  [['a', 'did you see the guy in the banana suit?'], ['b', 'he comes every week. his name\'s todd. no, the other todd.']],
+  [['a', 'my feet hurt.'], ['b', 'everybody\'s feet hurt. it\'s a grocery store. it\'s the law.']],
+  [['a', 'i think the lion winked at me.'], ['b', 'he does that to the new people. you\'re new to him.']],
+  [['a', 'what are you doing for lunch?'], ['b', 'pickle from the barrel. same as always.'], ['a', 'that\'s not lunch.'], ['b', 'agree to disagree.']],
+  [['a', 'somebody asked me where the "normal food" is.'], ['b', 'what\'d you say?'], ['a', 'i pointed at everything.']],
+  [['a', 'the monorail moved again last night.'], ['b', 'it doesn\'t move. it\'s parked.'], ['a', 'that\'s what it WANTS you to think.']],
+  [['a', '{b}, you got a second?'], ['b', 'for you? half a second.']],
+  [['a', 'i dreamed about cheese again.'], ['b', 'good dream or the bad one?'], ['a', 'the one where it\'s chasing me.']],
+  [['a', 'a lady tried to return a half-eaten cake.'], ['b', 'did you take it?'], ['a', 'i ate the other half. problem solved.']],
+  [['a', 'you smell like the fish counter.'], ['b', 'i work the fish counter.'], ['a', 'right. carry on.']],
+];
+const PAIR_CHAT = { // specific people have specific things to fight about
+  'Rosa|Sal': [['a', 'sal, your nonna\'s meatballs need more garlic.'], ['b', 'rosa, i will throw this provolone.']],
+  'Gus|Philippe': [['b', 'a cheese like that deserves a pinot.'], ['a', 'a cheese like that deserves to be left ALONE, philippe.']],
+  'Hank|Trixie': [['a', 'kids should eat more fruit.'], ['b', 'candy has fruit in it. it says so on the bag.'], ['a', 'that\'s a lie and you know it.']],
+  'Diablo Dave|Marlene': [['a', 'ever put reaper sauce on shrimp?'], ['b', 'once. i saw my late husband. he was disappointed in me.']],
+  'Deb|Dolores': [['b', 'deb, you took my stapler.'], ['a', 'it was a team stapler, dolores.'], ['b', 'it has my NAME on it.']],
+  'Dustin|Kayla': [['a', 'i got nine carts in one train today.'], ['b', 'that\'s not a flex, dustin.'], ['a', 'it\'s a little bit of a flex.']],
+};
+function speakers() { // everyone on staff who could talk: name + an entity to put the bubble on
+  const out = [];
+  for (const g of W.givers || []) out.push({ name: g.gv.name, e: g.o });
+  for (const s of RT.staff) if (s.name) out.push({ name: s.name, e: s });
+  return out;
+}
+function updateStaffTalk(dt) {
+  for (const e of RT.staffTalk || []) if (e.bubble) { e.bubble.t -= dt; if (e.bubble.t <= 0) e.bubble = null; }
+  RT.staffTalk = (RT.staffTalk || []).filter(e => e.bubble);
+  if (RT.chatQ && RT.chatQ.length) { const q = RT.chatQ[0]; q.t -= dt; if (q.t <= 0) { sayStaff(q.e, q.text, 3.4); RT.chatQ.shift(); if (RT.chatQ[0]) RT.chatQ[0].t = 2.3; } return; }
+  if ((RT.staffChatT = (RT.staffChatT ?? 12) - dt) > 0 || ST.phase !== 'day') return; RT.staffChatT = 18 + Math.random() * 20;
+  const sp = speakers(), pos = s => speakerPos(s.e), near = sp.filter(s => { const [x, y] = pos(s); return onScreen(x, y); });
+  for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) {
+    const a = near[i], b = near[j], [ax, ay] = pos(a), [bx, by] = pos(b); if (Math.hypot(ax - bx, ay - by) > 12 * T) continue;
+    const key1 = a.name + '|' + b.name, key2 = b.name + '|' + a.name; let lines = PAIR_CHAT[key1] || (PAIR_CHAT[key2] && PAIR_CHAT[key2].map(([w, t]) => [w === 'a' ? 'b' : 'a', t]));
+    if (!lines && typeof storyGossip === 'function') lines = storyGossip(a.name, b.name);
+    if (!lines) lines = pick(Math.random, STAFF_CHAT);
+    RT.chatQ = lines.map(([w, t], k) => ({ e: w === 'a' ? a.e : b.e, text: t.replace('{a}', a.name.toLowerCase()).replace('{b}', b.name.toLowerCase()), t: k ? 2.3 : 0 }));
+    return;
+  }
+}
+function drawStaffBubbles() { for (const e of RT.staffTalk || []) { if (!e.bubble) continue; const [x, y] = speakerPos(e); if (onScreen(x, y)) drawBubble(sx(x), sy(y - 30), e.bubble); } }
+function drawCarts() { // loose carts in the lot, the one a shopper is pushing, Dustin's train, the boss's
+  const s = propSprite('cart', 0);
+  for (const k of RT.carts || []) if (onScreen(k.x, k.y)) drawSpr(s, k.x - 8, k.y - 12);
+  const b = cartBay(), n = Math.min(6, 2 + Math.floor((RT.cartsIn || 0) / 3)); for (let i = 0; i < n; i++) drawSpr(s, (b[0] + 1.2) * T - 8 + (i % 2) * 3, (b[1] - 1.6) * T + Math.floor(i / 2) * 5); // the cart bay fills up
+}
 
 // ===== renderer =====
 const R = { cv: null, g: null, SC: 3, vw: 0, vh: 0, cx: 0, cy: 0, dpr: 1, t: 0, night: null };
@@ -3268,6 +3729,8 @@ function drawPerson(e, look, carryList) {
   if (carryList) carryList.forEach((k, i) => drawSpr(crateSprite(k), e.x - 7, e.y - 34 - i * 8));
 }
 
+function drawCartBy(e) { const d = { down: [0, 6], up: [0, -10], left: [-12, -2], right: [12, -2] }[e.dir] || [0, 6]; drawSpr(propSprite('cart', 0), e.x - 8 + d[0], e.y - 14 + d[1]); }
+function drawTrain(e, n) { const d = { down: [0, -1], up: [0, 1], left: [1, 0], right: [-1, 0] }[e.dir] || [0, -1]; for (let i = n; i >= 1; i--) drawSpr(propSprite('cart', 0), e.x - 8 + d[0] * 11 * i, e.y - 12 + d[1] * 9 * i); } // a train of carts trailing behind
 function drawBoss() {
   const s = Math.hypot(PL.vx, PL.vy); let pose = 'idle';
   if (PL.walk) { if (s > 6) pose = Math.floor((PL.stride || 0) / 0.2) % 2 ? 'walkL' : 'walkR'; }
@@ -3276,6 +3739,7 @@ function drawBoss() {
   shadow(PL.x, PL.y + 0.5, 6);
   drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk, PL.outfit), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
   PL.carry.forEach((k, i) => drawSpr(crateSprite(k), PL.x - 7, PL.y - 36 - i * 8));
+  if (PL.carts) drawTrain(PL, PL.carts);
   if (s > 55 && Math.random() < 0.35) RT.parts.push({ x: PL.x - PL.vx * 0.06 + (Math.random() - 0.5) * 6, y: PL.y - 1, vx: -PL.vx * 0.2, vy: -6, t: 0.35, c: '#ffffff', dust: true });
 }
 function objDraw(o) {
@@ -3290,7 +3754,7 @@ function objDraw(o) {
     case 'gacha': return bot(propSprite('gacha', 0));
     case 'tank': return drawSpr(tankSprite(o.kind, Math.floor(t * 2 + o.x) % 3, !ST.fedToday && RT.dayT > 60), x, y - 8);
     case 'pallet': return drawSpr(palletSprite(o.crate), x - 1, y - 8 - 1);
-    case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob, dir: 'down', frame: 0 }, o.look); return; } // givers shift their weight now and then
+    case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob - (o.cook ? 11 : 0), dir: 'down', frame: 0 }, o.look); return; } // food court cooks stand behind their counter // givers shift their weight now and then
     case 'bar': return bot(propSprite('bar', o.frame || 0));
     case 'register': { const l = W.lanes[o.lane], on = !!l && laneOpen(l); return bot(registerSprite(o.lane, on, on && l.queue.length ? Math.floor(t * 4) % 2 : 0)); }
     case 'belt': { const l = W.lanes[o.lane], busy = l && l.queue.length && laneOpen(l); return bot(beltSprite(o.lane, busy ? Math.floor(t * 6) % 3 : 0)); }
@@ -3314,14 +3778,14 @@ function objDraw(o) {
     case 'corral': return drawSpr(propSprite('corral', 0), x - 12, y);
     case 'couch': return drawSpr(propSprite('couch', 0), x, y - 4);
     case 'racecar': return drawSpr(propSprite('racecar', 0), x - 1, y);
-    case 'deck': return drawSpr(propSprite('deck', 0), x - 1, y - 4);
+    case 'hangcar': { const g = R.g; g.fillStyle = '#6a6f78'; g.fillRect(sx(x + 6), sy(y - 22), R.SC, 10 * R.SC); g.fillRect(sx(x + 26), sy(y - 22), R.SC, 10 * R.SC); g.globalAlpha = 0.18; g.fillStyle = '#000'; g.fillRect(sx(x + 2), sy(y + 10), 28 * R.SC, 3 * R.SC); g.globalAlpha = 1; return drawSpr(propSprite('racecar', o.frame || 0), x - 1, y - 16); } // hung from the ceiling
     case 'elephant': return drawSpr(propSprite('elephant', 0), x - 9, y - 10);
     case 'penguin': return drawSpr(propSprite('penguin', 0), x, y - 6);
     case 'hive': return drawSpr(propSprite('hive', Math.floor(R.t * 3) % 2), x, y - 8);
     default: { const s = propSprite(o.type, o.type === 'ringlight' ? Math.floor(t * 3) % 2 : (o.frame || 0)); if (s) bot(s); }
   }
 }
-function objBase(o) { return (o.y + o.h) * T + (o.type === 'tree' || o.type === 'lamp' ? 0 : 0); }
+function objBase(o) { return o.cook ? o.y * T - 1 : (o.y + o.h) * T; } // cooks sort before their stall's counter
 
 function render() {
   const zw = RT.zoomT > 0 ? Math.max(1, Math.floor(R.SCb / 2)) : R.SCb; if (zw && R.SC !== zw) { R.SC = zw; R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC; } // the observation deck zooms out
@@ -3336,6 +3800,7 @@ function render() {
   // spills (flat)
   RT.spills.forEach(s => drawSpr(spillSprite(s.kind), s.x * T, s.y * T));
   RT.spills.filter(s => s.kind === 'water').forEach(s => drawSpr(propSprite('wetsign', 0), s.x * T + 8, s.y * T - 10));
+  drawCarts();
   // contact shadows under everything solid
   g.fillStyle = 'rgba(20,12,16,0.2)';
   for (const o of W.objs) { if (!o.solid || ['tree', 'lamp', 'staff', 'giraffe', 'rhino', 'billboard'].includes(o.type)) continue; const x0 = (o.x * T - R.cx) * SC, y0 = ((o.y + o.h) * T - R.cy) * SC; if (x0 < -80 || x0 > R.cv.width + 40 || y0 < -20 || y0 > R.cv.height + 40) continue; g.fillRect(x0 + SC, y0, (o.w * T) * SC, 3 * SC); g.fillRect(x0 + o.w * T * SC, y0 - 6 * SC, 2 * SC, 9 * SC); }
@@ -3350,8 +3815,8 @@ function render() {
   for (const [, k, e] of list) {
     if (k === 0) objDraw(e);
     else if (k === 1) { const off = e.leaving ? e.t * 30 : e.enter * 28; g.globalAlpha = e.leaving ? Math.max(0, 1 - e.t) : 1 - e.enter * 0.8; drawSpr(carSprite(e.col), e.x - 9, e.y - 13 + off); g.globalAlpha = 1; }
-    else if (k === 2) drawPerson(e, e.look);
-    else if (k === 3) drawPerson(e, e.look, e.carry ? [e.carry] : null);
+    else if (k === 2) { if (e.cart && e.dir === 'up') drawCartBy(e); drawPerson(e, e.look); if (e.cart && e.dir !== 'up') drawCartBy(e); if (e.tray && e.state === 'walk') drawSpr(propSprite('tray', 0), e.x - 5, e.y - 20); }
+    else if (k === 3) { drawPerson(e, e.look, e.carry ? [e.carry] : null); if (e.train) drawTrain(e, e.train); }
     else if (k === 4) drawBoss();
   }
   if (RT.sleeping) { drawSpr(bossSprite('down', 'idle', false, 0), PL.x - 10, PL.y - 28); }
@@ -3382,18 +3847,18 @@ function drawRain() {
   for (let i = 0; i < 160; i++) { const rx = (i * 97.3 + R.t * 40) % R.vw, ry = (i * 53.1 + R.t * 260) % R.vh; const wx = R.cx + rx, wy = R.cy + ry; const tx = Math.floor(wx / T), ty = Math.floor(wy / T); if (!inb(tx, ty) || !W.outdoor[idx(tx, ty)]) continue; g.moveTo(rx * R.SC, ry * R.SC); g.lineTo((rx - 2) * R.SC, (ry + 6) * R.SC); }
   g.stroke();
 }
-// monorail: runs north-south along the east side, station by the quick-trip door
+// monorail: parked on a raised track along the plaza out front of the Foodie Entrance (you can skate under it).
+// with the Fix the Monorail upgrade it shuttles back and forth on Fridays and fest days.
 function drawMonorail() {
-  const g = R.g, SC = R.SC, x = 74.5 * T, y1 = 3 * T, y2 = 46 * T;
-  if (sx(x) < -60 || sx(x) > R.cv.width + 60) return;
-  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(sx(x + 10), sy(y1), 4 * SC, (y2 - y1) * SC);
-  g.fillStyle = '#6a6f78'; for (let y = y1 + 8; y <= y2; y += 6 * T) g.fillRect(sx(x - 1), sy(y), 3 * SC, 10 * SC);
-  g.fillStyle = '#8a8f98'; g.fillRect(sx(x - 3), sy(y1), 6 * SC, (y2 - y1) * SC); g.fillStyle = '#b8bec8'; g.fillRect(sx(x - 3), sy(y1), SC, (y2 - y1) * SC);
-  g.fillStyle = '#9aa3ad'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 3 * T * SC); g.fillStyle = '#c8ccd2'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 2 * SC);
-  const running = ST.ups.monorail && isOpen() && (['Sat', 'Sun'].includes(weekday()) || eventToday());
-  const k = running ? (1 - Math.cos(R.t / 9)) / 2 : 0; const py = (8.5 + k * 34) * T;
-  const s = propSprite('monorail', 0); g.save(); g.translate(sx(x), sy(py)); g.rotate(Math.PI / 2); g.drawImage(s, -25 * SC, -11 * SC, s.width * SC, s.height * SC); g.restore();
-  if (!ST.ups.monorail) label(sx(x), sy(6 * T), 'Monorail: out of order', '#f2c81c', '#2a1d22', 5.5);
+  const g = R.g, SC = R.SC, m = W.spots.monorail; if (!m) return; const x0 = m[0] * T, x1 = m[1] * T, y = m[2] * T;
+  if (sx(x1) < -60 || sx(x0) > R.cv.width + 60 || sy(y) < -60 || sy(y) > R.cv.height + 80) return;
+  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(sx(x0), sy(y + 30), (x1 - x0) * SC, 4 * SC); // its shadow on the plaza
+  g.fillStyle = '#6a6f78'; for (let x = x0 + 8; x <= x1; x += 4 * T) { g.fillRect(sx(x), sy(y + 2), 3 * SC, 28 * SC); g.fillStyle = '#8a8f98'; g.fillRect(sx(x), sy(y + 2), SC, 28 * SC); g.fillStyle = '#6a6f78'; }
+  g.fillStyle = '#8a8f98'; g.fillRect(sx(x0), sy(y - 3), (x1 - x0) * SC, 6 * SC); g.fillStyle = '#b8bec8'; g.fillRect(sx(x0), sy(y - 3), (x1 - x0) * SC, SC);
+  const running = ST.ups.monorail && isOpen() && (weekday() === 'Fri' || eventToday());
+  const k = running ? (1 - Math.cos(R.t / 6)) / 2 : 0.15, px = x0 + k * (x1 - x0 - 50);
+  drawSpr(propSprite('monorail', 0), px, y - 20);
+  if (!ST.ups.monorail) label(sx((x0 + x1) / 2), sy(y - 28), 'Monorail: parked for good (for now)', '#f2c81c', '#2a1d22', 5.5);
 }
 // ---------- hi-res overlay ----------
 function label(x, y, text, fg, bg, size, font) {
@@ -3431,6 +3896,7 @@ function drawOverlay() {
       g.save(); g.translate(ax, ay); g.rotate(a); g.scale(pulse, pulse); g.fillStyle = '#ffe14d'; g.strokeStyle = '#2a1d22'; g.lineWidth = 1.5 * SC; g.beginPath(); g.moveTo(11 * SC, 0); g.lineTo(-6 * SC, -8 * SC); g.lineTo(-2 * SC, 0); g.lineTo(-6 * SC, 8 * SC); g.closePath(); g.fill(); g.stroke(); g.restore();
       questMark(ax - Math.cos(a) * 16 * SC, ay - Math.sin(a) * 16 * SC + 6 * SC, '?'); } }
   // bubbles
+  drawStaffBubbles();
   for (const c of RT.custs) { if (!c.bubble) continue; const x = sx(c.x), y = sy(c.y - 30); if (x < -100 || x > R.cv.width + 100 || y < -50 || y > R.cv.height + 50) continue; drawBubble(x, y, c.bubble); }
   // floats
   RT.floats.forEach(f => { g.globalAlpha = Math.min(1, f.t * 1.5); const sp = floatSprite(f.text.replace(/,/g, ''), f.col); drawSpr(sp, Math.round(f.x - sp.width / 2), Math.round(f.y)); g.globalAlpha = 1; });
@@ -3506,8 +3972,23 @@ function updateUI(dt) {
 }
 
 // ---------- dialog ----------
-function showDialog(name, text, cb, sub, choices) {
-  RT.dialog = { name, text: say(text), shown: 0, cb, sub: sub ? typo(sub) : sub, choices, sel: 0 };
+// who's talking: a portrait from their look (shoppers, workers, givers, room characters) or their prop (Elvis, Corn...)
+function faceFor(name) {
+  const base = String(name).split(' · ')[0];
+  if (PROP_FACES[base]) return { prop: PROP_FACES[base] };
+  const g = (W.givers || []).find(g => g.gv.name === base); if (g) return { look: g.o.look };
+  const s = RT.staff.find(s => s.name === base); if (s) return { look: s.look };
+  const n = W.objs.find(o => o.npc && ({ reginald: 'Reginald', gouda: 'Brother Gouda' })[o.npc] === base); if (n) return { look: n.look };
+  if (typeof storyFace === 'function') return storyFace(base);
+  return null;
+}
+function setFace(face) {
+  const img = $('#dl-face'); if (!img) return; let c = null;
+  if (face && face.look) c = portraitSprite(face.look, face.expr); else if (face && face.prop) c = propPortrait(...face.prop);
+  if (!c) { img.style.display = 'none'; return; } const key = c.__url || (c.__url = c.toDataURL()); img.src = key; img.style.display = 'block';
+}
+function showDialog(name, text, cb, sub, choices, face) {
+  RT.dialog = { name, text: say(text), shown: 0, cb, sub: sub ? typo(sub) : sub, choices, sel: 0 }; setFace(face || faceFor(name));
   $('#dialog').style.display = 'block'; setText('dl-name', name); UI.cache['dl-text'] = null;
   const ch = $('#dl-choices'); ch.innerHTML = ''; if (choices) choices.forEach(([lbl, fn], i) => { const b = document.createElement('button'); b.textContent = lbl; b.onclick = () => { closeDialog(); fn(); }; ch.appendChild(b); });
 }

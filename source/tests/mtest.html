@@ -10,7 +10,7 @@ async function render(song,moods,sec){
 }
 // drive the conductor without rendering: start on a song, ask for another at step `at`, run `steps` 16ths
 function drive(from,to,at,steps,moods){
-  const ctx=window.__dctx||(window.__dctx=new OfflineAudioContext(2,44100*30,44100)); // one context for every drive (chrome caps how many you can make)
+  window.__dn=(window.__dn||0)+1; if(!window.__dctx||window.__dn%50===0) window.__dctx=new OfflineAudioContext(2,44100*30,44100); const ctx=window.__dctx; // a fresh context every 50 drives: chrome caps how many exist, and one shared context fills up with nodes
   MUSIC.init(ctx,ctx.destination); const M=MUSIC.M;
   MUSIC.reset(from,moods); M.log=fresh(); M.step=0; M.next=0;
   for(let i=0;i<steps;i++){ if(i===at) MUSIC.set(to,moods); MUSIC.scheduleUntil(M.next+1e-6); }

@@ -49,8 +49,23 @@ function updateUI(dt) {
 }
 
 // ---------- dialog ----------
-function showDialog(name, text, cb, sub, choices) {
-  RT.dialog = { name, text: say(text), shown: 0, cb, sub: sub ? typo(sub) : sub, choices, sel: 0 };
+// who's talking: a portrait from their look (shoppers, workers, givers, room characters) or their prop (Elvis, Corn...)
+function faceFor(name) {
+  const base = String(name).split(' · ')[0];
+  if (PROP_FACES[base]) return { prop: PROP_FACES[base] };
+  const g = (W.givers || []).find(g => g.gv.name === base); if (g) return { look: g.o.look };
+  const s = RT.staff.find(s => s.name === base); if (s) return { look: s.look };
+  const n = W.objs.find(o => o.npc && ({ reginald: 'Reginald', gouda: 'Brother Gouda' })[o.npc] === base); if (n) return { look: n.look };
+  if (typeof storyFace === 'function') return storyFace(base);
+  return null;
+}
+function setFace(face) {
+  const img = $('#dl-face'); if (!img) return; let c = null;
+  if (face && face.look) c = portraitSprite(face.look, face.expr); else if (face && face.prop) c = propPortrait(...face.prop);
+  if (!c) { img.style.display = 'none'; return; } const key = c.__url || (c.__url = c.toDataURL()); img.src = key; img.style.display = 'block';
+}
+function showDialog(name, text, cb, sub, choices, face) {
+  RT.dialog = { name, text: say(text), shown: 0, cb, sub: sub ? typo(sub) : sub, choices, sel: 0 }; setFace(face || faceFor(name));
   $('#dialog').style.display = 'block'; setText('dl-name', name); UI.cache['dl-text'] = null;
   const ch = $('#dl-choices'); ch.innerHTML = ''; if (choices) choices.forEach(([lbl, fn], i) => { const b = document.createElement('button'); b.textContent = lbl; b.onclick = () => { closeDialog(); fn(); }; ch.appendChild(b); });
 }

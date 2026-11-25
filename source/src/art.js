@@ -254,6 +254,7 @@ function caseSprite(art, seed, fill) {
         case 'fish': P(g, x, y + 1, 3, 2, '#a8b8c8'); P(g, x + 3, y, 1, 1, '#8898a8'); P(g, x + 3, y + 3, 1, 1, '#8898a8'); P(g, x, y + 1, 1, 1, '#222'); if (r() < 0.3) { P(g, x, y + 1, 3, 2, '#f08a6a'); } break;
         case 'cheesecase': if (r() < 0.5) { P(g, x, y + 1, 4, 2, '#f6d040'); P(g, x + 1, y, 3, 1, '#f6d040'); P(g, x + 2, y + 1, 1, 1, '#d8a820'); } else { oval(g, x + 1.5, y + 1.5, 2, 1.5, '#e8a030'); P(g, x, y + 1, 4, 1, '#f6d070'); } break;
         case 'sushi': disc(g, x + 1.5, y + 1.5, 1.6, '#1a1a1a'); P(g, x + 1, y + 1, 1, 1, '#ffffff'); P(g, x + 2, y + 1, 1, 1, '#f06a5a'); break;
+        case 'olive': for (let k = 0; k < 4; k++) disc(g, x + (k % 2) * 2 + 0.5, y + Math.floor(k / 2) * 2 + 0.5, 0.9, r() < 0.5 ? '#3a5a1a' : '#2a1a2a'); P(g, x, y + 3, 4, 1, '#d8c890'); break;
       } });
     // curved front glass: a tint, a bright curve along the top, two glare streaks, a mullion between panes
     g.globalAlpha = 0.12; P(g, 0, 2, 16, 13, '#bfe8ff'); g.globalAlpha = 0.5; P(g, 0, 2, 16, 1, '#ffffff'); g.globalAlpha = 0.9; P(g, 2, 3, 6, 1, '#ffffff'); P(g, 1, 4, 1, 2, '#ffffff');
@@ -663,7 +664,7 @@ function tankSprite(kind, frame, hungry) {
 // spills
 function spillSprite(kind) {
   return spr('spill_' + kind, 16, 16, g => {
-    const c = { milk: '#f6f6f0', salsa: '#c8301e', pickle: '#7aa83a', grape: '#7a2a8a', water: '#9ad0f0' }[kind];
+    const c = { milk: '#f6f6f0', salsa: '#c8301e', pickle: '#7aa83a', grape: '#7a2a8a', water: '#9ad0f0', pizza: '#e8a030', noodles: '#f2d880', froyo: '#ffc0e0', soda: '#6a3a1a' }[kind] || '#c8a070';
     oval(g, 8, 9, 6.5, 4, c); oval(g, 4, 11, 2.5, 2, c); oval(g, 12, 7, 2.5, 2, c); P(g, 6, 7, 3, 1, shade(c, 0.5));
     if (kind === 'salsa') { P(g, 7, 9, 1, 1, '#2a8a2a'); P(g, 10, 10, 1, 1, '#f2e0a0'); }
     if (kind === 'pickle') { P(g, 5, 8, 2, 1, '#e8f4f8'); P(g, 11, 10, 1, 2, '#e8f4f8'); P(g, 8, 10, 3, 1, '#4a7a2a'); }

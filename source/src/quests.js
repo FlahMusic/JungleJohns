@@ -25,11 +25,12 @@ function questGoalText(q) { // plain words for the log
 // the giver in reach of where the player is facing (counter clerks stand one tile behind their case)
 function giverNear(f) { let best = null, bd = 26; for (const g of W.givers || []) { const d = Math.hypot(g.px - f.px, g.py - 6 - f.py); if (d < bd) { bd = d; best = g; } } return best; }
 function talkGiver(g) {
-  const q = questOf(g); sfx('talk'); if (!q) return showDialog(g.gv.name, pick(Math.random, GIVER_IDLE));
+  const q = questOf(g); sfx('talk'); const idle = () => pick(Math.random, MOOD_IDLE[workerMood(g.gv.name)]); // a different mood every day
+  if (!q) return showDialog(g.gv.name, idle());
   if (q.state === 'offer') showDialog(g.gv.name, q.def.ask, null, `${questGoalText(q)} Reward ${fmtMoney(q.reward)}.`, [['Accept', () => acceptQuest(q)], ['Not now', () => { }]]);
   else if (q.state === 'active') showDialog(g.gv.name, q.def.nag, null, `${questGoalText(q)} ${q.got}/${q.n}.`);
   else if (q.state === 'ready') turnIn(q);
-  else showDialog(g.gv.name, pick(Math.random, GIVER_IDLE));
+  else showDialog(g.gv.name, idle());
 }
 function acceptQuest(q) {
   q.state = 'active'; sfx('pick'); hint('quest'); toast(`New job from ${q.g.gv.name}: ${questGoalText(q)}`, 'good');

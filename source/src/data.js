@@ -6,8 +6,8 @@ const CONFIG = {
 };
 
 const T = 16;            // tile size in art pixels
-const MW = 112, MH = 66; // map size in tiles (x >= SW: walk-in rooms, walled off; see fun.js)
-const SW = 78;           // the store + parking lot width
+const MW = 150, MH = 80; // map size in tiles (x >= SW: walk-in rooms, walled off; see fun.js)
+const SW = 112;          // the store + parking lot width
 const OPEN_MIN = 8 * 60, CLOSE_MIN = 22 * 60; // 8am - 10pm
 const DAY_START = 6 * 60;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -31,94 +31,89 @@ const CRATES = {
   health:    { name: 'Health & Beauty', units: 20, color: '#8a6ad8' },
   hotsauce:  { name: 'Hot Sauce',   units: 22, color: '#e23a1e' },
   housewares:{ name: 'Cookware & Pets', units: 18, color: '#6b7a8a' },
-  toys:      { name: 'Toys',        units: 18, color: '#f08030', lock: 'toys' },
+  toys:      { name: 'Toys',        units: 18, color: '#f08030' },
   capsules:  { name: 'Gacha Capsules', units: 30, color: '#ff6fb0', lock: 'gacha' },
-  cards:     { name: 'Card Packs',  units: 24, color: '#4a5ad8', lock: 'cards' },
+  cards:     { name: 'Card Packs',  units: 24, color: '#4a5ad8' },
   viral:     { name: 'Viral Stuff', units: 20, color: '#25f4ee', lock: 'tiktok' },
 };
 
-// departments. kind decides layout + art. price = avg item price.
-// labels: aisle sign text per shelf row segment.
-// layout follows the Fairfield floor plan, with a few Eastgate-only spots added (deals / scratch & dent, honey hive)
+// departments. layout decides what gets built, art the shelf look. price = avg item price.
+// labels: aisle sign text per shelf row segment. props: extra displays [type, dx, dy, w, h, extra] relative to the dept.
+// layout follows the Eastgate (Cincinnati) floor plan (official store map, Dec 2023): wine wing west, the fresh-food
+// loop in the middle, International + Hot Sauce east, Sushi / Card shop / Customer Service by the Foodie Entrance,
+// the shop row along the front (here: a food court). Fairfield's displays (Elvis, Robin Hood, Corn & Butter, the soup
+// can swing, the S.S. Minnow, the porta-potty restrooms, the jungle scene) are placed in spots that had room.
 const DEPTS = [
-  // north-west: the original international block
-  { id: 'europe', sign: 'Europe', name: 'International: Europe', x: 7, y: 11, w: 8, h: 8, floor: 'terra2', layout: 'rows', art: 'europe', price: 7, crate: 'intl', pop: 0.9, max: 30,
-    labels: [['Ireland'], ['Great Britain']], items: ['irish butter', 'beans for toast', 'proper tea', 'digestive biscuits'], sub: 'Sherwood Forest' },
-  { id: 'asia', sign: 'Asia', name: 'International: Asia', x: 15, y: 11, w: 5, h: 8, floor: 'terra', layout: 'rows', art: 'asia', price: 6, crate: 'intl', pop: 1.0, max: 30,
-    labels: [['Ramen World'], ['China']], items: ['ramen', 'gochujang', 'rice crackers', 'fish sauce', 'basmati rice'] },
-  { id: 'deck', sign: 'Deck', name: 'Observation Deck', x: 20, y: 11, w: 3, h: 4, floor: 'wood', layout: 'deck', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'livefish', sign: 'Live Fish', name: 'Live Fish Harvest', x: 20, y: 15, w: 3, h: 4, floor: 'bluetile', layout: 'tanks', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'intlproduce', sign: 'Intl Produce', signY: 9, name: 'Intl Produce', x: 23, y: 11, w: 2, h: 12, floor: 'wood', layout: 'binscol', art: 'produce', price: 3, crate: 'produce', pop: 0.6, max: 30,
-    items: ['plantains', 'bitter melon', 'fresh lemongrass'] },
-  { id: 'americas', sign: 'Americas', name: 'International: Americas', x: 2, y: 16, w: 5, h: 17, floor: 'orange', layout: 'rows', art: 'americas', price: 5, crate: 'intl', pop: 1.0, max: 40,
-    labels: [['Nepal'], ['Hispanic'], ['South America'], ['Canada & Caribbean'], ['Africa & Kosher']], items: ['masa', 'yerba mate', 'ketchup chips', 'jerk seasoning', 'fufu flour', 'matzo'] },
-  { id: 'gigante', name: 'Mercado Grande', x: 7, y: 19, w: 5, h: 5, floor: 'orange', layout: 'rows', art: 'americas', price: 5, crate: 'intl', pop: 0.7, max: 20,
-    items: ['dried chiles', 'mexican coke', 'queso fresco'] },
-  { id: 'hotsauce', name: 'Hot Sauce', x: 12, y: 19, w: 11, h: 5, floor: 'redcheck', layout: 'hot', art: 'hotsauce', price: 8, crate: 'hotsauce', pop: 0.9, max: 40,
-    labels: [['Vietnam / Cajun / Philippines / Japan']], items: ['the hottest sauce you got', 'ghost pepper sauce', 'a sauce that won\'t kill me'] },
-  { id: 'intl', name: 'International', x: 7, y: 24, w: 11, h: 9, floor: 'sand', layout: 'rows', art: 'mideast', price: 6, crate: 'intl', pop: 1.0, max: 40,
-    labels: [['East Europe', 'Coffee'], ['Germany', 'Specialty Soda'], ['Middle East', 'Turkey']], items: ['pierogi', 'german mustard', 'tahini', 'turkish delight', 'weird soda'], sub: '70,000 products from 75 countries' },
-  { id: 'seafood', name: 'Seafood', x: 18, y: 24, w: 7, h: 6, floor: 'bluetile', layout: 'seafood', art: 'fish', price: 14, crate: 'seafood', pop: 0.8, max: 30,
-    items: ['salmon', 'shrimp', 'a whole weird fish', 'crab legs'] },
-  { id: 'honey', name: 'Honey & Maple Syrup', x: 18, y: 30, w: 7, h: 3, floor: 'sage', layout: 'rows', art: 'natural', price: 9, crate: 'natural', pop: 0.5, max: 20,
-    items: ['raw honey', 'maple syrup'] },
-  // middle
-  { id: 'produce', name: 'Produce', x: 25, y: 22, w: 11, h: 8, floor: 'wood', layout: 'bins', art: 'produce', price: 3, crate: 'produce', pop: 1.4, max: 60,
-    items: ['dragon fruit', 'the spiky fruit', 'fresh basil', 'bananas', 'a decent avocado'], sub: 'Over an acre of produce' },
-  { id: 'natural', name: 'Natural Foods', x: 25, y: 30, w: 11, h: 3, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.7, max: 30,
-    items: ['protein powder', 'oat milk', 'kombucha'] },
-  { id: 'bakery', name: 'Bakery', x: 36, y: 21, w: 7, h: 4, floor: 'warm', layout: 'counter', art: 'bakery', price: 6, crate: 'bakery', pop: 0.9, max: 30,
-    items: ['sourdough', 'a birthday cake', 'croissants'], sub: 'We still bake from scratch' },
-  { id: 'meat', name: 'Meat', x: 36, y: 25, w: 7, h: 8, floor: 'redtile', layout: 'counter', art: 'meat', price: 15, crate: 'meat', pop: 0.9, max: 30,
-    labels: [['Exotic Meats']], items: ['ribeye', 'ground beef', 'alligator meat', 'kangaroo steak'], sub: 'Prime steaks & exotic meats' },
-  // the wing: wine, liquor, beer, candy
-  { id: 'wine', name: 'Wine', x: 43, y: 3, w: 8, h: 6, floor: 'darkwood', layout: 'rows', art: 'wine', price: 18, crate: 'wine', pop: 0.9, max: 40,
-    labels: [['Reds / Whites'], ['Bubbly / Imports']], items: ['a dry red', 'some cheap bubbly', 'ohio wine', 'a pinot'], sub: 'Over 15,000 wines' },
-  { id: 'liquor', name: 'State Liquor', x: 51, y: 3, w: 5, h: 4, floor: 'darkwood', layout: 'rows', art: 'liquor', price: 26, crate: 'liquor', pop: 0.45, max: 20,
-    items: ['bourbon', 'tequila', 'the good vodka'] },
-  { id: 'cigars', name: 'Cigars', x: 51, y: 7, w: 5, h: 4, floor: 'darkwood', layout: 'rows', art: 'cigars', price: 12, crate: 'liquor', pop: 0.3, max: 15,
-    items: ['a cigar'], sub: 'World class humidor' },
-  { id: 'tasting', name: 'Tasting Bar', x: 43, y: 9, w: 8, h: 3, floor: 'wood', layout: 'bar', art: 'bar', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'beer', name: 'Beer', x: 43, y: 12, w: 8, h: 7, floor: 'coolblue', layout: 'rows', art: 'beer', price: 11, crate: 'beer', pop: 1.0, max: 40,
-    labels: [['Beer Cave'], ['Craft']], items: ['an ipa', 'german lager', 'a sour beer', 'cheap beer'], sub: 'Over 4,000 beers' },
-  { id: 'candy', name: 'Candy', x: 43, y: 19, w: 9, h: 5, floor: 'pink', layout: 'candy', art: 'candy', price: 4, crate: 'candy', pop: 1.1, max: 40,
-    items: ['sour belts', 'british chocolate', 'circus peanuts', 'gummy worms'], sub: 'See Elvis, the singing lion' },
-  { id: 'grocery', name: 'Grocery', x: 43, y: 24, w: 13, h: 9, floor: 'lino', layout: 'rows', art: 'grocery', price: 4, crate: 'grocery', pop: 1.5, max: 60,
-    labels: [['Cereal', 'Snacks'], ['Canned', 'Pasta'], ['Cleaning', 'Paper']], items: ['laundry detergent', 'cereal', 'paper towels', 'canned soup', 'chips'], sub: 'Your local favorites' },
-  { id: 'toys', name: 'Toys', x: 43, y: 33, w: 6, h: 3, floor: 'kids', layout: 'rows', art: 'toys', price: 14, crate: 'toys', pop: 0.7, max: 20, lock: 'toys',
-    items: ['a plush thing', 'a yo-yo'] },
-  { id: 'health', name: 'Health & Beauty', x: 49, y: 33, w: 7, h: 3, floor: 'lino2', layout: 'rows', art: 'health', price: 7, crate: 'health', pop: 0.8, max: 30,
-    items: ['shampoo', 'toothpaste', 'ibuprofen'] },
-  // east side
-  { id: 'cheese', name: 'Cheese Shop', x: 52, y: 13, w: 7, h: 8, floor: 'cheesecheck', layout: 'cheese', art: 'cheesecase', price: 9, crate: 'cheese', pop: 1.0, max: 40,
-    items: ['gouda', 'a stinky french one', 'aged cheddar', 'brie'], sub: '1,400 meats & cheeses from 32 countries' },
-  { id: 'tenants', name: 'Coffee Bar', x: 59, y: 13, w: 4, h: 6, floor: 'darkwood', layout: 'tenant', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'deli', name: 'Deli', x: 53, y: 21, w: 9, h: 3, floor: 'cheesecheck', layout: 'counter', art: 'deli', price: 8, crate: 'deli', pop: 1.0, max: 40,
-    items: ['sliced turkey', 'mortadella', 'olives', 'a sub'], sub: 'A slice above the rest' },
-  { id: 'sushi', name: 'Sushi', x: 56, y: 25, w: 4, h: 6, floor: 'tatami', layout: 'counter', art: 'sushi', price: 12, crate: 'seafood', pop: 0.8, max: 25, lock: 'sushi',
-    items: ['a spicy tuna roll', 'sushi'] },
-  { id: 'deals', name: 'Deals', x: 60, y: 25, w: 3, h: 6, floor: 'lino', layout: 'vcol', art: 'grocery', price: 3, crate: 'grocery', pop: 0.6, max: 20,
-    items: ['dented cans', 'cheap cereal'], sub: 'Scratch & dent' },
-  { id: 'pets', name: 'Pets', x: 63, y: 25, w: 8, h: 6, floor: 'lino', layout: 'rows', art: 'pets', price: 9, crate: 'housewares', pop: 0.6, max: 30,
-    items: ['dog food', 'a squeaky toy', 'cat litter'], sub: 'Amazing pet toy selection' },
-  { id: 'cookware', name: 'Cookware', x: 56, y: 31, w: 15, h: 5, floor: 'lino', layout: 'rows', art: 'cookware', price: 16, crate: 'housewares', pop: 0.5, max: 30,
-    items: ['a wok', 'a cast iron pan', 'a garlic press'], sub: 'Inspire your inner chef' },
-  // south-west
-  { id: 'eurosouth', sign: 'Mediterranean', name: 'International: Mediterranean', x: 2, y: 33, w: 9, h: 6, floor: 'terra', layout: 'rows', art: 'europe', price: 7, crate: 'intl', pop: 0.9, max: 30,
-    labels: [['Greece / France'], ['Italy / Spain']], items: ['feta', 'imported pasta', 'olive oil', 'french butter cookies'] },
-  { id: 'tiktok', name: 'TikTok Shop', x: 11, y: 33, w: 4, h: 6, floor: 'neon', layout: 'rows', art: 'viral', price: 15, crate: 'viral', pop: 0.9, max: 20, lock: 'tiktok',
-    items: ['that viral tumbler', 'the led thing from my feed'] },
-  { id: 'herb', name: 'Herb \'N Jungle', x: 15, y: 33, w: 6, h: 6, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.6, max: 30,
-    labels: [['Supplements'], ['Gluten Free']], items: ['turmeric pills', 'gluten free bread', 'elderberry gummies'] },
-  { id: 'frozen', name: 'Frozen & Dairy', x: 21, y: 33, w: 9, h: 13, floor: 'ice', layout: 'freezers', art: 'frozen', price: 5, crate: 'dairy', pop: 1.2, max: 50,
-    items: ['milk', 'eggs', 'craft ice cream', 'frozen pizza', 'butter'], sub: 'Craft ice cream & pizzas galore' },
-  { id: 'registers', name: 'Registers', x: 30, y: 36, w: 15, h: 10, floor: 'lino', layout: 'registers', art: 'reg', price: 0, crate: null, pop: 0, max: 0 },
-  { id: 'custserv', name: 'Customer Service', x: 34, y: 42, w: 5, h: 3, floor: 'lino', layout: 'desk', art: 'desk', price: 0, crate: null, pop: 0, max: 0 },
-  // toys & collectibles corner (upgrades)
-  { id: 'cards', name: 'Card Shop', x: 62, y: 40, w: 4, h: 6, floor: 'bluecarpet', layout: 'cards', art: 'cards', price: 10, crate: 'cards', pop: 0.6, max: 25, lock: 'cards',
-    items: ['booster packs', 'card sleeves'] },
-  { id: 'gacha', name: 'Gachapon', x: 66, y: 40, w: 5, h: 6, floor: 'kids2', layout: 'gacha', art: 'gacha', price: 3, crate: 'capsules', pop: 0.8, max: 40, lock: 'gacha',
-    items: ['capsule toys'] },
+  // ---- the wine wing (west) ----
+  { id: 'cigars', name: 'Cigars', x: 9, y: 32, w: 6, h: 4, floor: 'darkwood', layout: 'rows', art: 'cigars', price: 12, crate: 'liquor', pop: 0.3, max: 15, items: ['a cigar', 'a humidor thing'], sub: 'World class humidor' },
+  { id: 'wine', name: 'Wine', x: 9, y: 36, w: 13, h: 8, floor: 'darkwood', layout: 'rows', art: 'wine', price: 18, crate: 'wine', pop: 0.9, max: 40,
+    labels: [['Reds', 'Whites'], ['Ohio', 'Bubbly']], items: ['a dry red', 'some cheap bubbly', 'ohio wine', 'a pinot'], sub: 'Over 15,000 wines' },
+  { id: 'tasting', name: 'Tasting Bar', x: 22, y: 36, w: 6, h: 3, floor: 'wood', layout: 'bar', art: 'bar', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'liquor', name: 'State Liquor', x: 1, y: 45, w: 9, h: 6, floor: 'darkwood', layout: 'rows', art: 'liquor', price: 26, crate: 'liquor', pop: 0.45, max: 25, items: ['bourbon', 'tequila', 'the good vodka'] },
+  { id: 'jxc', sign: 'Event Center', name: 'Experience Center', x: 20, y: 45, w: 7, h: 4, floor: 'bluecarpet', layout: 'jxc', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'tiktok', name: 'TikTok Shop', x: 13, y: 46, w: 5, h: 4, floor: 'neon', layout: 'rows', art: 'viral', price: 15, crate: 'viral', pop: 0.9, max: 20, lock: 'tiktok', items: ['that viral tumbler', 'the led thing from my feed'] },
+  // ---- the back wall ----
+  { id: 'dairy', sign: 'Dairy', signY: 8, name: 'Dairy', x: 28, y: 20, w: 3, h: 10, floor: 'ice', layout: 'coolwall', art: 'dairy', price: 4, crate: 'dairy', pop: 0.8, max: 30, items: ['milk', 'eggs', 'butter', 'yogurt'] },
+  { id: 'intlproduce', sign: 'International Produce', name: 'Intl Produce', x: 31, y: 15, w: 20, h: 5, floor: 'wood', layout: 'bins', art: 'produce', price: 3, crate: 'produce', pop: 0.7, max: 40, items: ['plantains', 'bitter melon', 'fresh lemongrass', 'a weird root'] },
+  { id: 'scratch', sign: 'Scratch & Dent', name: 'Scratch & Dent', x: 51, y: 15, w: 5, h: 5, floor: 'lino', layout: 'rows', art: 'grocery', price: 3, crate: 'grocery', pop: 0.5, max: 20, items: ['dented cans', 'cheap cereal'] },
+  { id: 'meat', name: 'Meat', x: 56, y: 15, w: 7, h: 6, floor: 'redtile', layout: 'counter', art: 'meat', price: 15, crate: 'meat', pop: 0.9, max: 30,
+    labels: [['Exotic Meats']], items: ['ribeye', 'ground beef', 'alligator meat', 'kangaroo steak'], sub: 'Prime steaks & premium cuts' },
+  { id: 'seafood', name: 'Seafood', x: 63, y: 15, w: 8, h: 6, floor: 'bluetile', layout: 'seafood', art: 'fish', price: 14, crate: 'seafood', pop: 0.8, max: 30,
+    items: ['salmon', 'shrimp', 'a whole weird fish', 'crab legs'], sub: 'One of America\'s largest' },
+  { id: 'grocery', name: 'Grocery', x: 73, y: 15, w: 14, h: 9, floor: 'lino', layout: 'rows', art: 'grocery', price: 4, crate: 'grocery', pop: 1.5, max: 60,
+    labels: [['Cereal', 'Coffee'], ['Canned', 'Pasta'], ['Cleaning', 'Paper']], items: ['laundry detergent', 'cereal', 'paper towels', 'canned soup', 'coffee'], sub: 'Your local favorites',
+    props: [['anim:swing', 7, 1]] },
+  // ---- east: world foods, hot sauce, international ----
+  { id: 'intl', sign: 'World Foods', name: 'International', x: 87, y: 11, w: 14, h: 12, floor: 'sand', layout: 'rows', art: 'mideast', price: 6, crate: 'intl', pop: 1.0, max: 40,
+    labels: [['Specialty Soda', 'Africa'], ['Italy', 'Cajun'], ['Pasta', 'Olive Oil'], ['Specialty Soda']], items: ['weird soda', 'fufu flour', 'imported pasta', 'cajun seasoning', 'olive oil'],
+    props: [['ship', 5, 5, 3, 2]] },
+  { id: 'hotsauce', name: 'Hot Sauce', x: 101, y: 11, w: 8, h: 12, floor: 'redcheck', layout: 'hot', art: 'hotsauce', price: 8, crate: 'hotsauce', pop: 0.9, max: 40,
+    labels: [['Hot Sauce']], items: ['the hottest sauce you got', 'ghost pepper sauce', 'a sauce that won\'t kill me'], sub: '& fiery foods' },
+  { id: 'europe', sign: 'Europe', name: 'International: Europe', x: 88, y: 24, w: 11, h: 10, floor: 'terra2', layout: 'rows', art: 'europe', price: 7, crate: 'intl', pop: 0.9, max: 40,
+    labels: [['Germany', 'Great Britain'], ['Kosher', 'Russia'], ['Ireland', 'Dutch']], items: ['irish butter', 'beans for toast', 'proper tea', 'german mustard', 'matzo', 'pierogi'],
+    props: [['anim:robin', 5, 2, 2, 1]] },
+  { id: 'americas', sign: 'Americas', name: 'International: Americas', x: 99, y: 24, w: 10, h: 10, floor: 'orange', layout: 'rows', art: 'americas', price: 5, crate: 'intl', pop: 1.0, max: 40,
+    labels: [['Hispanic'], ['South America'], ['Caribbean']], items: ['masa', 'yerba mate', 'dried chiles', 'jerk seasoning', 'mexican coke'] },
+  { id: 'asia', sign: 'Asia', name: 'International: Asia', x: 95, y: 34, w: 14, h: 6, floor: 'terra', layout: 'rows', art: 'asia', price: 6, crate: 'intl', pop: 1.0, max: 30,
+    labels: [['Japan', 'Tea'], ['China', 'Thailand']], items: ['ramen', 'gochujang', 'rice crackers', 'fish sauce', 'a 25 lb bag of rice'], sub: 'Intl wall of rice' },
+  { id: 'india', sign: 'India & Middle East', name: 'International: India', x: 95, y: 40, w: 14, h: 5, floor: 'sand', layout: 'rows', art: 'mideast', price: 6, crate: 'intl', pop: 0.8, max: 25,
+    labels: [['India', 'Middle Eastern']], items: ['basmati rice', 'tahini', 'ghee', 'turkish delight', 'garam masala'], props: [['tuktuk', 1, 1, 2, 1]] },
+  { id: 'theater', sign: 'The Story', name: 'The Jungle John\'s Story', x: 88, y: 39, w: 6, h: 5, floor: 'bluecarpet', layout: 'theater', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'cards', name: 'Card Shop', x: 87, y: 45, w: 8, h: 4, floor: 'bluecarpet', layout: 'cards', art: 'cards', price: 10, crate: 'cards', pop: 0.7, max: 25, items: ['booster packs', 'card sleeves', 'that one rare card'], sub: 'Card games & tournaments' },
+  { id: 'deals', name: 'Deals', x: 87, y: 49, w: 8, h: 3, floor: 'lino', layout: 'rows', art: 'grocery', price: 3, crate: 'grocery', pop: 0.6, max: 20, items: ['dented cans', 'cheap cereal', 'mystery bundle'], sub: 'Scratch & dent' },
+  // ---- the fresh-food loop (middle) ----
+  { id: 'frozen', name: 'Frozen & Dairy', x: 34, y: 21, w: 9, h: 8, floor: 'ice', layout: 'freezers', art: 'frozen', price: 5, crate: 'dairy', pop: 1.2, max: 50,
+    items: ['craft ice cream', 'frozen pizza', 'frozen peas', 'popsicles'], sub: 'Craft ice cream & pizzas galore' },
+  { id: 'produce', name: 'Produce', x: 43, y: 21, w: 11, h: 8, floor: 'wood', layout: 'bins', art: 'produce', price: 3, crate: 'produce', pop: 1.4, max: 60,
+    items: ['dragon fruit', 'the spiky fruit', 'fresh basil', 'bananas', 'a decent avocado'], sub: 'Over an acre of produce', props: [['anim:corn', 9, 0, 2, 1]] },
+  { id: 'bulk', name: 'Bulk Foods', x: 46, y: 29, w: 8, h: 3, floor: 'wood', layout: 'binsrow', art: 'produce', price: 4, crate: 'natural', pop: 0.6, max: 25, items: ['trail mix', 'dried mango', 'pistachios', 'gummy bears by the pound'] },
+  { id: 'beer', name: 'Beer', x: 34, y: 29, w: 11, h: 8, floor: 'coolblue', layout: 'rows', art: 'beer', price: 11, crate: 'beer', pop: 1.0, max: 40,
+    labels: [['Beer Cave'], ['Craft', 'Imports']], items: ['an ipa', 'german lager', 'a sour beer', 'cheap beer'], sub: 'Over 4,000 beers', props: [['hangcar', 2, 2, 2, 1], ['hangcar', 7, 5, 2, 1, { frame: 1 }]] },
+  { id: 'cheese', name: 'Cheese Shop', x: 34, y: 37, w: 11, h: 6, floor: 'cheesecheck', layout: 'cheese', art: 'cheesecase', price: 9, crate: 'cheese', pop: 1.0, max: 40,
+    items: ['gouda', 'a stinky french one', 'aged cheddar', 'brie'], sub: '1,400 meats & cheeses' },
+  { id: 'olive', sign: 'Olive Bar', name: 'Olive Bar & Fresh Meals', x: 47, y: 32, w: 8, h: 4, floor: 'cheesecheck', layout: 'olive', art: 'olive', price: 8, crate: 'deli', pop: 0.7, max: 25, items: ['olives', 'a hot meal to go', 'stuffed peppers'] },
+  { id: 'deli', name: 'Deli', x: 47, y: 36, w: 8, h: 7, floor: 'cheesecheck', layout: 'counter', art: 'deli', price: 8, crate: 'deli', pop: 1.0, max: 40, items: ['sliced turkey', 'mortadella', 'a sub'], sub: 'A slice above the rest' },
+  { id: 'bakery', name: 'Bakery', x: 56, y: 27, w: 10, h: 8, floor: 'warm', layout: 'counter', art: 'bakery', price: 6, crate: 'bakery', pop: 0.9, max: 30, items: ['sourdough', 'a birthday cake', 'croissants'], sub: 'We still bake from scratch' },
+  { id: 'jerky', name: 'Jerky', x: 56, y: 35, w: 7, h: 2, floor: 'darkwood', layout: 'hrow', art: 'americas', price: 9, crate: 'meat', pop: 0.5, max: 15, items: ['beef jerky', 'alligator jerky', 'jerky of unclear origin'] },
+  { id: 'candy', name: 'Candy', x: 55, y: 38, w: 9, h: 5, floor: 'pink', layout: 'candy', art: 'candy', price: 4, crate: 'candy', pop: 1.1, max: 40, items: ['sour belts', 'british chocolate', 'circus peanuts', 'gummy worms'], sub: 'The Candy Castle' },
+  { id: 'honey', name: 'Honey & Maple Syrup', x: 66, y: 24, w: 5, h: 6, floor: 'sage', layout: 'rows', art: 'natural', price: 9, crate: 'natural', pop: 0.5, max: 20, items: ['raw honey', 'maple syrup', 'a honeycomb'] },
+  { id: 'snacks', name: 'Snacks', x: 71, y: 24, w: 14, h: 3, floor: 'lino', layout: 'rows', art: 'grocery', price: 4, crate: 'grocery', pop: 1.0, max: 30, labels: [['Chips', 'Cookies']], items: ['chips', 'cookies', 'pretzels'] },
+  { id: 'gluten', sign: 'Gluten Free', name: 'Gluten Free', x: 67, y: 30, w: 7, h: 3, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.5, max: 20, items: ['gluten free bread', 'almond flour'] },
+  { id: 'natural', name: 'Natural Foods', x: 75, y: 27, w: 10, h: 7, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.7, max: 30,
+    labels: [['Protein', 'Plant Milk'], ['Kombucha']], items: ['protein powder', 'oat milk', 'kombucha'], props: [['vwbus', 6, 4, 3, 2]] },
+  { id: 'tiki', sign: 'Tiki Bar', name: 'Tiki Bar', x: 69, y: 34, w: 6, h: 3, floor: 'wood', layout: 'bar', art: 'tiki', price: 0, crate: null, pop: 0, max: 0, props: [['tikihead', 5, 0]] },
+  { id: 'herb', name: 'Herb \'N Jungle', x: 64, y: 38, w: 11, h: 5, floor: 'sage', layout: 'rows', art: 'natural', price: 8, crate: 'natural', pop: 0.6, max: 30,
+    labels: [['Supplements', 'Vitamins']], items: ['turmeric pills', 'elderberry gummies', 'a tincture'] },
+  { id: 'toys', name: 'Toys & Collectibles', x: 76, y: 37, w: 9, h: 7, floor: 'kids', layout: 'rows', art: 'toys', price: 14, crate: 'toys', pop: 0.8, max: 25, items: ['a plush thing', 'a yo-yo', 'a mystery figure'] },
+  // ---- the front: shops, registers, entrance ----
+  { id: 'cookware', name: 'Cookware', x: 28, y: 46, w: 16, h: 6, floor: 'lino', layout: 'rows', art: 'cookware', price: 16, crate: 'housewares', pop: 0.5, max: 30, items: ['a wok', 'a cast iron pan', 'a garlic press'], sub: 'Inspire your inner chef' },
+  { id: 'pets', name: 'Pets', x: 44, y: 46, w: 10, h: 6, floor: 'lino', layout: 'rows', art: 'pets', price: 9, crate: 'housewares', pop: 0.6, max: 30, items: ['dog food', 'a squeaky toy', 'cat litter'], sub: 'Amazing pet toy selection' },
+  { id: 'gacha', name: 'Gachapon', x: 54, y: 46, w: 8, h: 6, floor: 'kids2', layout: 'gacha', art: 'gacha', price: 3, crate: 'capsules', pop: 0.8, max: 40, lock: 'gacha', items: ['capsule toys'] },
+  { id: 'health', name: 'Health & Beauty', x: 62, y: 46, w: 4, h: 6, floor: 'lino2', layout: 'rows', art: 'health', price: 7, crate: 'health', pop: 0.8, max: 30, items: ['shampoo', 'toothpaste', 'ibuprofen'] },
+  { id: 'registers', name: 'Registers', x: 66, y: 44, w: 15, h: 7, floor: 'lino', layout: 'registers', art: 'reg', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'sushi', name: 'Sushi', x: 81, y: 45, w: 6, h: 4, floor: 'tatami', layout: 'counter', art: 'sushi', price: 12, crate: 'seafood', pop: 0.8, max: 25, items: ['a spicy tuna roll', 'sushi'] },
+  { id: 'custserv', name: 'Customer Service', x: 76, y: 53, w: 4, h: 3, floor: 'lino', layout: 'desk', art: 'desk', price: 0, crate: null, pop: 0, max: 0 },
+  { id: 'foodcourt', name: 'Food Court', x: 28, y: 52, w: 34, h: 7, floor: 'foodtile', layout: 'foodcourt', price: 0, crate: null, pop: 0, max: 0 },
 ];
 const DEPT = {}; DEPTS.forEach(d => DEPT[d.id] = d);
 
@@ -135,20 +130,17 @@ const ANIMS = {
 
 // upgrades: cat = area | staff | gear | promo
 const UPGRADES = [
-  { id: 'toys', cat: 'area', name: 'Toy Aisle', cost: 3500, desc: 'Toys next to grocery. Kids drag parents in.', stars: 1 },
   { id: 'gacha', cat: 'area', name: 'Gachapon Corner', cost: 4500, desc: 'Capsule machines. Refill them with capsule crates.', stars: 2 },
   { id: 'tiktok', cat: 'area', name: 'TikTok Shop', cost: 5000, desc: 'Viral junk. Film a video once a day for a crowd boost.', stars: 2 },
-  { id: 'cards', cat: 'area', name: 'Card Shop', cost: 6000, desc: 'Card packs. Run a tournament every Saturday.', stars: 2 },
-  { id: 'sushi', cat: 'area', name: 'Sushi Bar', cost: 7500, desc: 'Sushi counter next to the deli. Uses seafood crates.', stars: 3 },
   { id: 'drone', cat: 'promo', name: 'Hot Sauce Drone', cost: 2500, desc: 'A drone flies a giant hot sauce bottle over the aisle. Rep up.', stars: 1 },
-  { id: 'monorail', cat: 'promo', name: 'Fix the Monorail', cost: 12000, desc: 'Rides on weekends and fest days. Money and rep.', stars: 3 },
+  { id: 'monorail', cat: 'promo', name: 'Fix the Monorail', cost: 12000, desc: 'The monorail out front runs again: rides on Fridays and fest days. Money and rep.', stars: 3 },
   { id: 'cellar', cat: 'promo', name: 'Reserve Cellar', cost: 8000, desc: 'Fancy wine room. Wine sells for 30% more.', stars: 3 },
   { id: 'billboard', cat: 'promo', name: 'Dixie Hwy Billboard', cost: 3000, desc: '+20% customers.', stars: 1 },
   { id: 'parking', cat: 'promo', name: 'Bigger Parking Lot', cost: 6000, desc: '+15% customers.', stars: 2 },
   { id: 'cashier1', cat: 'staff', name: 'Hire Cashier: Marcus', cost: 800, wage: 110, desc: 'Opens register 3.', stars: 1 },
   { id: 'cashier2', cat: 'staff', name: 'Hire Cashier: Bev', cost: 1200, wage: 110, desc: 'Opens register 4.', stars: 2, req: 'cashier1' },
   { id: 'cashier3', cat: 'staff', name: 'Hire Cashier: Tyler', cost: 1800, wage: 120, desc: 'Opens register 5.', stars: 3, req: 'cashier2' },
-  { id: 'cashierQ', cat: 'staff', name: 'Hire Cashier: Earl', cost: 900, wage: 100, desc: 'Opens the Quick Trips register by the Rhino door. 5 items or less, and he means it.', stars: 1 },
+  { id: 'cashierQ', cat: 'staff', name: 'Hire Cashier: Earl', cost: 900, wage: 100, desc: 'Opens the Quick Trips register by the wine entrance. 5 items or less, and he means it.', stars: 1 },
   { id: 'stocker', cat: 'staff', name: 'Hire Stocker: Ray', cost: 1500, wage: 150, desc: 'Restocks the emptiest aisle on his own. Pays wholesale.', stars: 1 },
   { id: 'stocker2', cat: 'staff', name: 'Hire Stocker: Nina', cost: 3000, wage: 160, desc: 'A second stocker.', stars: 3, req: 'stocker' },
   { id: 'janitor', cat: 'staff', name: 'Hire Janitor: Big Lou', cost: 1000, wage: 100, desc: 'Mops spills on his own.', stars: 1 },
@@ -349,14 +341,14 @@ const WEEK_GOALS = [2000, 2600, 3300, 4100, 5000]; // week 2+ asks 30% more each
 
 // quest givers, one per main area. counter clerks already stand behind their cases; the rest stand at `at`
 const GIVERS = [
-  { id: 'gus', name: 'Gus', dept: 'cheese', at: [53, 13], shirt: '#f4f4f4', apron: '#e8c23a' },
+  { id: 'gus', name: 'Gus', dept: 'cheese', at: [37, 41], shirt: '#f4f4f4', apron: '#e8c23a' },
   { id: 'rosa', name: 'Rosa', dept: 'bakery' },
   { id: 'sal', name: 'Sal', dept: 'deli' },
   { id: 'marlene', name: 'Marlene', dept: 'seafood' },
-  { id: 'philippe', name: 'Philippe', dept: 'tasting', at: [47, 9], shirt: '#1e1e24', apron: '#5a1626' },
-  { id: 'hank', name: 'Hank', dept: 'produce', at: [34, 24], shirt: '#2e7d3b', apron: '#6a4a2a' },
-  { id: 'trixie', name: 'Trixie', dept: 'candy', at: [50, 22], shirt: '#ff8fc0', apron: '#6fc6e8' },
-  { id: 'dave', name: 'Diablo Dave', dept: 'hotsauce', at: [22, 19], shirt: '#1e1e24', apron: '#d42a1a' },
+  { id: 'philippe', name: 'Philippe', dept: 'tasting', at: [25, 36], shirt: '#1e1e24', apron: '#5a1626' },
+  { id: 'hank', name: 'Hank', dept: 'produce', at: [53, 27], shirt: '#2e7d3b', apron: '#6a4a2a' },
+  { id: 'trixie', name: 'Trixie', dept: 'candy', at: [63, 41], shirt: '#ff8fc0', apron: '#6fc6e8' },
+  { id: 'dave', name: 'Diablo Dave', dept: 'hotsauce', at: [101, 13], shirt: '#1e1e24', apron: '#d42a1a' },
   { id: 'deb', name: 'Deb', dept: 'custserv' },
 ];
 // one quest per giver per weekday (Mon..Fri). types: sample/talk (hand out to customers in `zones`), stock (restock `dept`),
@@ -394,7 +386,7 @@ const QUESTS = {
   ],
   marlene: [
     { type: 'feed', n: 1, reward: 220, title: 'Feed the live tanks', ask: "honey, the lobsters are staring at me like i owe them money. feed the tanks. fish food is tool 4.", nag: "they're still staring.", done: "look at them. happy as clams. which, legally, they are not." },
-    { type: 'sample', n: 8, item: 'shrimp cocktail', lines: 'shrimp', zones: ['seafood', 'livefish', 'honey', 'intl'], buy: 'seafood', reward: 300, title: 'Hand out shrimp near Seafood',
+    { type: 'sample', n: 8, item: 'shrimp cocktail', lines: 'shrimp', zones: ['seafood', 'grocery', 'honey', 'meat'], buy: 'seafood', reward: 300, title: 'Hand out shrimp near Seafood',
       ask: "shrimp cocktail samples. eight of 'em. seafood or nearby. keep them cold and keep them moving.", nag: "warm shrimp is a lawsuit, hon.", done: "eight people, zero lawsuits. that's a great day in seafood." },
     { type: 'stock', n: 2, dept: 'seafood', reward: 300, title: 'Restock Seafood twice', ask: "the fish case is looking thin. two seafood crates. the ice is melting into my shoes.", nag: "my shoes are full of ice water. hurry.", done: "beautiful. the case looks like a postcard again." },
     { type: 'mop', n: 3, reward: 340, title: 'Mop 3 spills', ask: "the ice machine leaked and now it's a slip-and-slide. three spills. mop. go.", nag: "somebody's gonna eat it. hard.", done: "dry floors! nobody broke a hip! today is a good day." },
@@ -418,22 +410,22 @@ const QUESTS = {
       ask: "dragon fruit friday. twelve samples. it looks like a pokemon and tastes like a pear that went to college.", nag: "the dragons await.", done: "twelve! the dragons are proud. so am i, chief." },
   ],
   trixie: [
-    { type: 'sample', n: 5, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery'], kids: true, buy: 'candy', reward: 260, title: 'Give lollipops to 5 kids near Candy',
+    { type: 'sample', n: 5, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'herb', 'bakery'], kids: true, buy: 'candy', reward: 260, title: 'Give lollipops to 5 kids near Candy',
       ask: "omg hi!! give lollipops to five kids around candy. kids only. adults will ask. adults cannot have one. it's the law. my law.", nag: "the kids are vibrating. find them.", done: "five sugar-blasted children!! their parents hate us. perfect." },
     { type: 'elvis', n: 3, reward: 280, title: 'Make Elvis sing 3 times', ask: "the kids want elvis. make him sing three times. he's the lion. don't ask. nobody knows.", nag: "elvis has left the building. please bring him back.", done: "three songs!! one kid cried. happy tears. probably." },
     { type: 'stock', n: 2, dept: 'candy', reward: 300, title: 'Restock Candy twice', ask: "we're OUT of the sour stuff and a kid bit a display. two candy crates. please. for safety.", nag: "the kid is eyeing another display.", done: "restocked!! the biting has stopped. for now." },
-    { type: 'sample', n: 6, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'grocery', 'bakery', 'health'], kids: true, buy: 'candy', reward: 380, title: 'Give lollipops to 6 kids near Candy',
+    { type: 'sample', n: 6, item: 'lollipop', lines: 'lollipop', zones: ['candy', 'toys', 'herb', 'bakery', 'jerky'], kids: true, buy: 'candy', reward: 380, title: 'Give lollipops to 6 kids near Candy',
       ask: "lollipop day part two!! six kids. it's the sour apple ones. they make your face do a thing.", nag: "six faces must do the thing.", done: "six faces did the thing!! you're my favorite boss. you're my only boss but still." },
     { type: 'elvis', n: 5, reward: 460, title: 'Make Elvis sing 5 times', ask: "friday concert!! five elvis songs. he gets a little hoarse but he's a professional.", nag: "the crowd wants more!!", done: "five!! elvis needs a nap. so do i. so do you, honestly." },
   ],
   dave: [
-    { type: 'sample', n: 8, item: 'mild hot sauce', lines: 'mild', zones: ['hotsauce', 'americas', 'gigante', 'intl'], buy: 'hotsauce', reward: 280, title: 'Hand out mild hot sauce near Hot Sauce',
+    { type: 'sample', n: 8, item: 'mild hot sauce', lines: 'mild', zones: ['hotsauce', 'americas', 'intl'], buy: 'hotsauce', reward: 280, title: 'Hand out mild hot sauce near Hot Sauce',
       ask: "my friend. today we start gentle. 'mild'. eight samples. hot sauce, americas, mercado. watch their faces. 'mild' is a lie i tell for fun.", nag: "they're waiting to suffer. go.", done: "eight people. four said 'that's not mild'. correct. it's not." },
-    { type: 'sample', n: 10, item: 'ghost pepper sauce', lines: 'ghost', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia'], buy: 'hotsauce', reward: 380, title: 'Hand out ghost pepper sauce near Hot Sauce',
+    { type: 'sample', n: 10, item: 'ghost pepper sauce', lines: 'ghost', zones: ['hotsauce', 'americas', 'intl', 'asia'], buy: 'hotsauce', reward: 380, title: 'Hand out ghost pepper sauce near Hot Sauce',
       ask: "ghost pepper. ten brave people. hot sauce or the international aisles. have milk nearby. i don't. you should.", nag: "the ghosts are restless.", done: "ten souls touched by the ghost. one guy saw his ancestors. good reviews." },
     { type: 'stock', n: 2, dept: 'hotsauce', reward: 300, title: 'Restock Hot Sauce twice', ask: "my wall of fire is down to embers. two hot sauce crates, my friend.", nag: "embers. only embers.", done: "the wall burns again. you are a true friend of the pepper." },
     { type: 'help', n: 3, reward: 420, title: 'Walk 3 lost customers to their aisle', ask: "three people wandered in here looking for 'normal ketchup' and now they're scared. help three lost people find their way.", nag: "they keep coming. they keep being lost.", done: "three saved. they will never come back to my aisle. that's fine." },
-    { type: 'sample', n: 12, item: 'the reaper', lines: 'reaper', zones: ['hotsauce', 'americas', 'gigante', 'intl', 'asia', 'seafood'], buy: 'hotsauce', reward: 560, title: 'Hand out The Reaper near Hot Sauce + Intl',
+    { type: 'sample', n: 12, item: 'the reaper', lines: 'reaper', zones: ['hotsauce', 'americas', 'intl', 'asia', 'seafood'], buy: 'hotsauce', reward: 560, title: 'Hand out The Reaper near Hot Sauce + Intl',
       ask: "friday. the reaper. twelve people. i've signed nothing and neither have you. hand it out and walk away fast.", nag: "the reaper is patient. the customers are not.", done: "twelve. three of them are still sweating in the parking lot. legends." },
   ],
   deb: [

@@ -36,12 +36,13 @@ function musicStart() {
 }
 // which song each department plays (music.js SONGS); anything not listed plays 'market'.
 // three key families: middle = C, west international wing = G, north-east wine/cheese wing = F (when the day is in C).
-// tests/mzone.py checks every pair of departments you can walk between is at most one note apart.
-const ZONE_SONG = {
-  produce: 'fresh', natural: 'fresh', bakery: 'counter', meat: 'counter', frozen: 'frozen', candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy',
-  europe: 'europe', eurosouth: 'med', intlproduce: 'europe', deck: 'europe', asia: 'asia', livefish: 'asia', americas: 'americas', gigante: 'mercado',
-  hotsauce: 'hot', intl: 'souk', seafood: 'harbor', honey: 'herb', herb: 'herb', tiktok: 'viral',
-  wine: 'lounge', liquor: 'lounge', cigars: 'lounge', tasting: 'lounge', cheese: 'bistro', tenants: 'bistro', deli: 'bistro', beer: 'beerhall', sushi: 'sushi',
+// tests/mzone.py checks every pair of departments you can walk between shares a chord to hand over on.
+const ZONE_SONG = { // three key families: wine wing (west) = F, the middle = C, international (east) = G, when the day is in C
+  cigars: 'lounge', wine: 'lounge', tasting: 'lounge', liquor: 'lounge', jxc: 'lounge', tiktok: 'viral',
+  cheese: 'bistro', olive: 'bistro', deli: 'bistro', beer: 'beerhall',
+  produce: 'fresh', bulk: 'fresh', intlproduce: 'fresh', dairy: 'frozen', frozen: 'frozen', bakery: 'counter', meat: 'counter', jerky: 'counter',
+  candy: 'candy', toys: 'candy', gacha: 'candy', cards: 'candy', honey: 'herb', herb: 'herb', gluten: 'herb', natural: 'herb', tiki: 'tiki', foodcourt: 'foodcourt',
+  seafood: 'harbor', sushi: 'sushi', intl: 'souk', hotsauce: 'hot', europe: 'europe', americas: 'americas', asia: 'asia', india: 'souk',
 };
 const zoneSong = id => ZONE_SONG[id] || 'market';
 function musicTick() { // pick the song from where you are; music.js gets there on the beat

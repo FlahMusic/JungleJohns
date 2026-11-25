@@ -2,9 +2,9 @@
 // rooms live past the store's east edge (x >= SW), walled off from it. you get in through doors (Space), the camera
 // stays inside the room, the store keeps running while you're in there.
 const ROOMS = {
-  throne:    { name: 'The Throne Room', x0: 81, y0: 3, x1: 92, y1: 10, floor: 'marble', wall: 'marble', song: 'spa' },
-  cave:      { name: 'The Cheese Cave', x0: 96, y0: 3, x1: 108, y1: 11, floor: 'stone', wall: 'cave', song: 'cave', exitTo: 'bigcheese' },
-  backstage: { name: 'Elvis\'s Dressing Room', x0: 81, y0: 15, x1: 92, y1: 22, floor: 'redcarpet', wall: 'backstage', song: 'backstage', exitTo: 'stagedoor' },
+  throne:    { name: 'The Throne Room', x0: 115, y0: 3, x1: 126, y1: 10, floor: 'marble', wall: 'marble', song: 'spa' },
+  cave:      { name: 'The Cheese Cave', x0: 130, y0: 3, x1: 142, y1: 11, floor: 'stone', wall: 'cave', song: 'cave', exitTo: 'bigcheese' },
+  backstage: { name: 'Elvis\'s Dressing Room', x0: 115, y0: 15, x1: 126, y1: 22, floor: 'redcarpet', wall: 'backstage', song: 'backstage', exitTo: 'stagedoor' },
 };
 const roomDoorX = r => Math.floor((r.x0 + r.x1) / 2);
 
@@ -25,7 +25,7 @@ const SECRETS = [
   { id: 'bloom', name: 'Green Thumb', hint: 'The plants are plastic. Water one anyway. A lot.', reward: 200 },
   { id: 'hippo', name: 'The Hippo Speaks', hint: 'Toss coins in the jungle scene pond.', reward: 300 },
   { id: 'banana', name: 'Banana Guy', hint: 'Talk to the person in the banana suit.', reward: 150 },
-  { id: 'capsules', name: 'Capsule Collector', hint: 'Collect all 12 capsule toys from the machine by the entrance.', reward: 1000 },
+  { id: 'capsules', name: 'Capsule Collector', hint: 'Collect all 12 capsule toys from the machine by the Foodie Entrance.', reward: 1000 },
 ];
 const CAPSULES = ['tiny Big Cheese', 'Elvis keychain', 'rubber durian', 'pocket penguin', 'glow-in-the-dark lobster', 'mini soup can on a swing', 'a single sock', 'monorail ticket stub', 'teeny hot sauce', 'Gerald figure', 'a capsule with a smaller capsule inside', 'golden skate'];
 const PENGUINS = ['frozen1', 'frozen2', 'deck', 'beer', 'throne', 'cave', 'backstage'];
@@ -53,28 +53,29 @@ function buildFun() {
   }
   const free = (x, y) => inb(x, y) && !W.solid[idx(x, y)] && !W.objAt.get(idx(x, y));
   const put = (o) => free(o.x, o.y) ? addObj(o) : null;
+  const addObjR = o => addObj(Object.assign(o, { x: o.x + 34 })); // room furniture is laid out from x=81; rooms sit 34 further east now
   // the throne room: the award-winning restroom behind the porta-potty doors
-  for (const x of [82, 84]) { addObj({ type: 'mirror', x, y: 2 }); addObj({ type: 'sink', x, y: 3 }); }
-  addObj({ type: 'dryer', x: 86, y: 2 }); addObj({ type: 'plaque', x: 88, y: 2 });
-  [90, 91, 92].forEach((x, n) => addObj({ type: 'stall', x, y: 3, n, frame: n === 2 ? (F().found.stall ? 3 : 2) : 0 }));
-  addObj({ type: 'staff', npc: 'reginald', x: 88, y: 6, solid: true, look: npcLook('reginald') });
-  addObj({ type: 'plungercase', x: 81, y: 9, frame: F().found.plunger ? 1 : 0 }); addObj({ type: 'plant', x: 81, y: 10 }); addObj({ type: 'plant', x: 81, y: 3 });
-  addObj({ type: 'penguin', pid: 'throne', x: 92, y: 10 });
+  for (const x of [82, 84]) { addObjR({ type: 'mirror', x, y: 2 }); addObjR({ type: 'sink', x, y: 3 }); }
+  addObjR({ type: 'dryer', x: 86, y: 2 }); addObjR({ type: 'plaque', x: 88, y: 2 });
+  [90, 91, 92].forEach((x, n) => addObjR({ type: 'stall', x, y: 3, n, frame: n === 2 ? (F().found.stall ? 3 : 2) : 0 }));
+  addObjR({ type: 'staff', npc: 'reginald', x: 88, y: 6, solid: true, look: npcLook('reginald') });
+  addObjR({ type: 'plungercase', x: 81, y: 9, frame: F().found.plunger ? 1 : 0 }); addObjR({ type: 'plant', x: 81, y: 10 }); addObjR({ type: 'plant', x: 81, y: 3 });
+  addObjR({ type: 'penguin', pid: 'throne', x: 92, y: 10 });
   // the cheese cave
-  for (let x = 96; x <= 108; x++) if (x !== 102) addObj({ type: 'cheeserack', x, y: 3, seed: x });
-  for (const x of [98, 99, 100, 104, 105, 106]) addObj({ type: 'cheeserack', x, y: 6, seed: x * 3 });
-  addObj({ type: 'bigwheel', x: 97, y: 9, w: 2, h: 2 }); addObj({ type: 'candle', x: 96, y: 11 }); addObj({ type: 'candle', x: 108, y: 11 }); addObj({ type: 'candle', x: 101, y: 9 }); addObj({ type: 'candle', x: 103, y: 9 });
-  addObj({ type: 'staff', npc: 'gouda', x: 102, y: 8, solid: true, look: npcLook('gouda') });
-  addObj({ type: 'penguin', pid: 'cave', x: 107, y: 10 });
+  for (let x = 96; x <= 108; x++) if (x !== 102) addObjR({ type: 'cheeserack', x, y: 3, seed: x });
+  for (const x of [98, 99, 100, 104, 105, 106]) addObjR({ type: 'cheeserack', x, y: 6, seed: x * 3 });
+  addObjR({ type: 'bigwheel', x: 97, y: 9, w: 2, h: 2 }); addObjR({ type: 'candle', x: 96, y: 11 }); addObjR({ type: 'candle', x: 108, y: 11 }); addObjR({ type: 'candle', x: 101, y: 9 }); addObjR({ type: 'candle', x: 103, y: 9 });
+  addObjR({ type: 'staff', npc: 'gouda', x: 102, y: 8, solid: true, look: npcLook('gouda') });
+  addObjR({ type: 'penguin', pid: 'cave', x: 107, y: 10 });
   // elvis's dressing room
-  addObj({ type: 'vanity', x: 82, y: 15, w: 2 }); addObj({ type: 'jumprack', x: 86, y: 15, w: 2, frame: PL.outfit ? 1 : 0 });
-  for (const x of [89, 90, 91]) addObj({ type: 'goldrec', x, y: 14, seed: x });
-  addObj({ type: 'sofa', x: 90, y: 21, w: 2 }); addObj({ type: 'rider', x: 83, y: 20 }); addObj({ type: 'cutout', x: 92, y: 17 });
-  addObj({ type: 'penguin', pid: 'backstage', x: 81, y: 22 }); addObj({ type: 'plant', x: 81, y: 15 });
+  addObjR({ type: 'vanity', x: 82, y: 15, w: 2 }); addObjR({ type: 'jumprack', x: 86, y: 15, w: 2, frame: PL.outfit ? 1 : 0 });
+  for (const x of [89, 90, 91]) addObjR({ type: 'goldrec', x, y: 14, seed: x });
+  addObjR({ type: 'sofa', x: 90, y: 21, w: 2 }); addObjR({ type: 'rider', x: 83, y: 20 }); addObjR({ type: 'cutout', x: 92, y: 17 });
+  addObjR({ type: 'penguin', pid: 'backstage', x: 81, y: 22 }); addObjR({ type: 'plant', x: 81, y: 15 });
   // in the store: name the penguins, two more of them hiding, a capsule machine, a PA mic, the stage door
   W.objs.filter(o => o.type === 'penguin' && !o.pid).forEach((o, i) => o.pid = 'frozen' + (i + 1));
-  put({ type: 'penguin', pid: 'deck', x: 22, y: 14 }); put({ type: 'penguin', pid: 'beer', x: 43, y: 15 });
-  put({ type: 'capsule', x: 55, y: 45 }); put({ type: 'pa', x: 38, y: 43 });
+  put({ type: 'penguin', pid: 'deck', x: 76, y: 59 }); put({ type: 'penguin', pid: 'beer', x: 34, y: 31 }); // one by the monorail, one in the beer cave
+  put({ type: 'capsule', x: 85, y: 53 }); put({ type: 'pa', x: 80, y: 54 });
   const candy = DEPT.candy; if (candy) { const sx = candy.x + 1, sy = candy.y + 1; removeAt(sx, sy); addObj({ type: 'stagedoor', x: sx, y: sy }); W.spots.stagedoor = [sx + 0.5, sy + 1.75]; }
   if (W.spots.bigcheese) W.spots.cheeseFront = [W.spots.bigcheese[0], W.spots.bigcheese[1] - 0.1];
   W.objs.forEach(o => { if (o.type === 'trash' || o.type === 'plant') o.key = o.type + o.x + '_' + o.y; if (o.type === 'plant' && F().bloom[o.key]) o.frame = 1; });
@@ -140,7 +141,7 @@ function funInfo(o, tool) { // label + act for anything fun in front of you, or 
     case 'corral': return A('Space: push a cart');
     case 'giraffe': case 'elephant': case 'rhino': return A(`Space: pat the ${o.type}`);
     case 'tree': return A('Space: shake the tree');
-    case 'deck': return A('Space: climb up and look around');
+    case 'mstairs': return A('Space: climb the monorail platform and look around');
     case 'capsule': return A(`Space: capsule machine ($1) · ${Object.keys(f.caps).length}/${CAPSULES.length} collected`);
     case 'gacha': return PL.carry.length ? null : A(`Space: try a capsule ($1) · ${Object.keys(f.caps).length}/${CAPSULES.length} collected`, 'capsule');
     case 'pa': return A(RT.dayT - RT.fun.paT < 45 ? 'The PA mic needs a minute' : 'Space: make an announcement');
@@ -192,7 +193,7 @@ function funAct(t) {
     case 'rhino': say1('the rhino has seen ten thousand shoppers. it has opinions about all of them.'); break;
     case 'tree': { const k = o.x + '_' + o.y; if (RT.fun.tree[k]) { say1('you shake it again. nothing. the tree is done with you.'); break; } RT.fun.tree[k] = 1; const r = Math.random();
       if (r < 0.3) { addMoney(1, PL.x, PL.y - 30); RT.day.extra += 1; say1('a dollar falls out of the tree. that\'s how money works now.'); } else say1(funPick(['a frisbee from 2004 falls out.', 'a very surprised squirrel.', 'one leaf. the leaf is judging you.', 'a kite. no string. no explanation.'])); break; }
-    case 'deck': RT.zoomT = 6; say1('you climb the deck. you can see the whole store from up here.'); sfx('pick'); break;
+    case 'mstairs': RT.zoomT = 6; say1('you climb the monorail platform. you can see the whole lot from up here. somebody parked across three spots.'); sfx('pick'); break;
     case 'capsule': pullCapsule(); break;
     case 'pa': paAnnounce(); break;
     case 'stagedoor': if (stageOpen()) enterRoom('backstage'); else { sfx('clank'); say1('stage door. AUTHORIZED LIONS ONLY. (sounds like he\'s warming up. maybe after a few songs.)'); } break;
@@ -301,7 +302,7 @@ function updateFun(dt) {
   if (RT.fadeT > 0) RT.fadeT -= dt; if (RT.zoomT > 0) RT.zoomT -= dt; if (RT.swingT > 0) RT.swingT -= dt; if (RT.sirenT > 0) RT.sirenT -= dt;
   if (RT.beesT > 0) { RT.beesT -= dt; for (let i = 0; i < 2; i++) { const a = Math.random() * 6.283, r = 10 + Math.random() * 10; RT.parts.push({ x: PL.x + Math.cos(a) * r, y: PL.y - 12 + Math.sin(a) * r * 0.6, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 40, t: 0.25, c: Math.random() < 0.5 ? '#ffd23f' : '#2a2a2a' }); }
     if (RT.beesT <= 0) { flash('the bees lost interest. you survived.'); foundSecret('bees'); } }
-  if (PL.spinT > 0) { PL.spinT -= dt; PL.dir = ['down', 'left', 'up', 'right'][Math.floor(PL.spinT * 12) % 4]; }
+  if (PL.spinT > 0) { PL.spinT = Math.max(0, PL.spinT - dt); PL.dir = ['down', 'left', 'up', 'right'][Math.floor(PL.spinT * 12) % 4]; }
   // laps around the jungle scene: the angle around the pond adds up while you stay near it and keep moving
   const pond = W.objs.find(o => o.type === 'pond');
   if (pond && !RT.room && !PL.walk) { const cx = (pond.x + pond.w / 2) * T, cy = (pond.y + pond.h / 2) * T, d = Math.hypot(PL.x - cx, PL.y - cy), a = Math.atan2(PL.y - cy, PL.x - cx);

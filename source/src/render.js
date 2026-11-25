@@ -97,6 +97,8 @@ function drawPerson(e, look, carryList) {
   if (carryList) carryList.forEach((k, i) => drawSpr(crateSprite(k), e.x - 7, e.y - 34 - i * 8));
 }
 
+function drawCartBy(e) { const d = { down: [0, 6], up: [0, -10], left: [-12, -2], right: [12, -2] }[e.dir] || [0, 6]; drawSpr(propSprite('cart', 0), e.x - 8 + d[0], e.y - 14 + d[1]); }
+function drawTrain(e, n) { const d = { down: [0, -1], up: [0, 1], left: [1, 0], right: [-1, 0] }[e.dir] || [0, -1]; for (let i = n; i >= 1; i--) drawSpr(propSprite('cart', 0), e.x - 8 + d[0] * 11 * i, e.y - 12 + d[1] * 9 * i); } // a train of carts trailing behind
 function drawBoss() {
   const s = Math.hypot(PL.vx, PL.vy); let pose = 'idle';
   if (PL.walk) { if (s > 6) pose = Math.floor((PL.stride || 0) / 0.2) % 2 ? 'walkL' : 'walkR'; }
@@ -105,6 +107,7 @@ function drawBoss() {
   shadow(PL.x, PL.y + 0.5, 6);
   drawSpr(bossSprite(dk, pose, PL.carry.length > 0, PL.walk ? 0 : wf, PL.walk, PL.outfit), PL.x - 10 + (dk !== 'side' ? Math.round(PL.lean || 0) : 0), PL.y - 28, PL.dir === 'left');
   PL.carry.forEach((k, i) => drawSpr(crateSprite(k), PL.x - 7, PL.y - 36 - i * 8));
+  if (PL.carts) drawTrain(PL, PL.carts);
   if (s > 55 && Math.random() < 0.35) RT.parts.push({ x: PL.x - PL.vx * 0.06 + (Math.random() - 0.5) * 6, y: PL.y - 1, vx: -PL.vx * 0.2, vy: -6, t: 0.35, c: '#ffffff', dust: true });
 }
 function objDraw(o) {
@@ -119,7 +122,7 @@ function objDraw(o) {
     case 'gacha': return bot(propSprite('gacha', 0));
     case 'tank': return drawSpr(tankSprite(o.kind, Math.floor(t * 2 + o.x) % 3, !ST.fedToday && RT.dayT > 60), x, y - 8);
     case 'pallet': return drawSpr(palletSprite(o.crate), x - 1, y - 8 - 1);
-    case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob, dir: 'down', frame: 0 }, o.look); return; } // givers shift their weight now and then
+    case 'staff': { const bob = o.giver && Math.sin(R.t * 2 + o.x) > 0.7 ? -1 : 0; drawPerson({ x: x + 8, y: y + 12 + bob - (o.cook ? 11 : 0), dir: 'down', frame: 0 }, o.look); return; } // food court cooks stand behind their counter // givers shift their weight now and then
     case 'bar': return bot(propSprite('bar', o.frame || 0));
     case 'register': { const l = W.lanes[o.lane], on = !!l && laneOpen(l); return bot(registerSprite(o.lane, on, on && l.queue.length ? Math.floor(t * 4) % 2 : 0)); }
     case 'belt': { const l = W.lanes[o.lane], busy = l && l.queue.length && laneOpen(l); return bot(beltSprite(o.lane, busy ? Math.floor(t * 6) % 3 : 0)); }
@@ -143,14 +146,14 @@ function objDraw(o) {
     case 'corral': return drawSpr(propSprite('corral', 0), x - 12, y);
     case 'couch': return drawSpr(propSprite('couch', 0), x, y - 4);
     case 'racecar': return drawSpr(propSprite('racecar', 0), x - 1, y);
-    case 'deck': return drawSpr(propSprite('deck', 0), x - 1, y - 4);
+    case 'hangcar': { const g = R.g; g.fillStyle = '#6a6f78'; g.fillRect(sx(x + 6), sy(y - 22), R.SC, 10 * R.SC); g.fillRect(sx(x + 26), sy(y - 22), R.SC, 10 * R.SC); g.globalAlpha = 0.18; g.fillStyle = '#000'; g.fillRect(sx(x + 2), sy(y + 10), 28 * R.SC, 3 * R.SC); g.globalAlpha = 1; return drawSpr(propSprite('racecar', o.frame || 0), x - 1, y - 16); } // hung from the ceiling
     case 'elephant': return drawSpr(propSprite('elephant', 0), x - 9, y - 10);
     case 'penguin': return drawSpr(propSprite('penguin', 0), x, y - 6);
     case 'hive': return drawSpr(propSprite('hive', Math.floor(R.t * 3) % 2), x, y - 8);
     default: { const s = propSprite(o.type, o.type === 'ringlight' ? Math.floor(t * 3) % 2 : (o.frame || 0)); if (s) bot(s); }
   }
 }
-function objBase(o) { return (o.y + o.h) * T + (o.type === 'tree' || o.type === 'lamp' ? 0 : 0); }
+function objBase(o) { return o.cook ? o.y * T - 1 : (o.y + o.h) * T; } // cooks sort before their stall's counter
 
 function render() {
   const zw = RT.zoomT > 0 ? Math.max(1, Math.floor(R.SCb / 2)) : R.SCb; if (zw && R.SC !== zw) { R.SC = zw; R.vw = R.cv.width / R.SC; R.vh = R.cv.height / R.SC; } // the observation deck zooms out
@@ -165,6 +168,7 @@ function render() {
   // spills (flat)
   RT.spills.forEach(s => drawSpr(spillSprite(s.kind), s.x * T, s.y * T));
   RT.spills.filter(s => s.kind === 'water').forEach(s => drawSpr(propSprite('wetsign', 0), s.x * T + 8, s.y * T - 10));
+  drawCarts();
   // contact shadows under everything solid
   g.fillStyle = 'rgba(20,12,16,0.2)';
   for (const o of W.objs) { if (!o.solid || ['tree', 'lamp', 'staff', 'giraffe', 'rhino', 'billboard'].includes(o.type)) continue; const x0 = (o.x * T - R.cx) * SC, y0 = ((o.y + o.h) * T - R.cy) * SC; if (x0 < -80 || x0 > R.cv.width + 40 || y0 < -20 || y0 > R.cv.height + 40) continue; g.fillRect(x0 + SC, y0, (o.w * T) * SC, 3 * SC); g.fillRect(x0 + o.w * T * SC, y0 - 6 * SC, 2 * SC, 9 * SC); }
@@ -179,8 +183,8 @@ function render() {
   for (const [, k, e] of list) {
     if (k === 0) objDraw(e);
     else if (k === 1) { const off = e.leaving ? e.t * 30 : e.enter * 28; g.globalAlpha = e.leaving ? Math.max(0, 1 - e.t) : 1 - e.enter * 0.8; drawSpr(carSprite(e.col), e.x - 9, e.y - 13 + off); g.globalAlpha = 1; }
-    else if (k === 2) drawPerson(e, e.look);
-    else if (k === 3) drawPerson(e, e.look, e.carry ? [e.carry] : null);
+    else if (k === 2) { if (e.cart && e.dir === 'up') drawCartBy(e); drawPerson(e, e.look); if (e.cart && e.dir !== 'up') drawCartBy(e); if (e.tray && e.state === 'walk') drawSpr(propSprite('tray', 0), e.x - 5, e.y - 20); }
+    else if (k === 3) { drawPerson(e, e.look, e.carry ? [e.carry] : null); if (e.train) drawTrain(e, e.train); }
     else if (k === 4) drawBoss();
   }
   if (RT.sleeping) { drawSpr(bossSprite('down', 'idle', false, 0), PL.x - 10, PL.y - 28); }
@@ -211,18 +215,18 @@ function drawRain() {
   for (let i = 0; i < 160; i++) { const rx = (i * 97.3 + R.t * 40) % R.vw, ry = (i * 53.1 + R.t * 260) % R.vh; const wx = R.cx + rx, wy = R.cy + ry; const tx = Math.floor(wx / T), ty = Math.floor(wy / T); if (!inb(tx, ty) || !W.outdoor[idx(tx, ty)]) continue; g.moveTo(rx * R.SC, ry * R.SC); g.lineTo((rx - 2) * R.SC, (ry + 6) * R.SC); }
   g.stroke();
 }
-// monorail: runs north-south along the east side, station by the quick-trip door
+// monorail: parked on a raised track along the plaza out front of the Foodie Entrance (you can skate under it).
+// with the Fix the Monorail upgrade it shuttles back and forth on Fridays and fest days.
 function drawMonorail() {
-  const g = R.g, SC = R.SC, x = 74.5 * T, y1 = 3 * T, y2 = 46 * T;
-  if (sx(x) < -60 || sx(x) > R.cv.width + 60) return;
-  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(sx(x + 10), sy(y1), 4 * SC, (y2 - y1) * SC);
-  g.fillStyle = '#6a6f78'; for (let y = y1 + 8; y <= y2; y += 6 * T) g.fillRect(sx(x - 1), sy(y), 3 * SC, 10 * SC);
-  g.fillStyle = '#8a8f98'; g.fillRect(sx(x - 3), sy(y1), 6 * SC, (y2 - y1) * SC); g.fillStyle = '#b8bec8'; g.fillRect(sx(x - 3), sy(y1), SC, (y2 - y1) * SC);
-  g.fillStyle = '#9aa3ad'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 3 * T * SC); g.fillStyle = '#c8ccd2'; g.fillRect(sx(x - 14), sy(7 * T), 28 * SC, 2 * SC);
-  const running = ST.ups.monorail && isOpen() && (['Sat', 'Sun'].includes(weekday()) || eventToday());
-  const k = running ? (1 - Math.cos(R.t / 9)) / 2 : 0; const py = (8.5 + k * 34) * T;
-  const s = propSprite('monorail', 0); g.save(); g.translate(sx(x), sy(py)); g.rotate(Math.PI / 2); g.drawImage(s, -25 * SC, -11 * SC, s.width * SC, s.height * SC); g.restore();
-  if (!ST.ups.monorail) label(sx(x), sy(6 * T), 'Monorail: out of order', '#f2c81c', '#2a1d22', 5.5);
+  const g = R.g, SC = R.SC, m = W.spots.monorail; if (!m) return; const x0 = m[0] * T, x1 = m[1] * T, y = m[2] * T;
+  if (sx(x1) < -60 || sx(x0) > R.cv.width + 60 || sy(y) < -60 || sy(y) > R.cv.height + 80) return;
+  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(sx(x0), sy(y + 30), (x1 - x0) * SC, 4 * SC); // its shadow on the plaza
+  g.fillStyle = '#6a6f78'; for (let x = x0 + 8; x <= x1; x += 4 * T) { g.fillRect(sx(x), sy(y + 2), 3 * SC, 28 * SC); g.fillStyle = '#8a8f98'; g.fillRect(sx(x), sy(y + 2), SC, 28 * SC); g.fillStyle = '#6a6f78'; }
+  g.fillStyle = '#8a8f98'; g.fillRect(sx(x0), sy(y - 3), (x1 - x0) * SC, 6 * SC); g.fillStyle = '#b8bec8'; g.fillRect(sx(x0), sy(y - 3), (x1 - x0) * SC, SC);
+  const running = ST.ups.monorail && isOpen() && (weekday() === 'Fri' || eventToday());
+  const k = running ? (1 - Math.cos(R.t / 6)) / 2 : 0.15, px = x0 + k * (x1 - x0 - 50);
+  drawSpr(propSprite('monorail', 0), px, y - 20);
+  if (!ST.ups.monorail) label(sx((x0 + x1) / 2), sy(y - 28), 'Monorail: parked for good (for now)', '#f2c81c', '#2a1d22', 5.5);
 }
 // ---------- hi-res overlay ----------
 function label(x, y, text, fg, bg, size, font) {
@@ -260,6 +264,7 @@ function drawOverlay() {
       g.save(); g.translate(ax, ay); g.rotate(a); g.scale(pulse, pulse); g.fillStyle = '#ffe14d'; g.strokeStyle = '#2a1d22'; g.lineWidth = 1.5 * SC; g.beginPath(); g.moveTo(11 * SC, 0); g.lineTo(-6 * SC, -8 * SC); g.lineTo(-2 * SC, 0); g.lineTo(-6 * SC, 8 * SC); g.closePath(); g.fill(); g.stroke(); g.restore();
       questMark(ax - Math.cos(a) * 16 * SC, ay - Math.sin(a) * 16 * SC + 6 * SC, '?'); } }
   // bubbles
+  drawStaffBubbles();
   for (const c of RT.custs) { if (!c.bubble) continue; const x = sx(c.x), y = sy(c.y - 30); if (x < -100 || x > R.cv.width + 100 || y < -50 || y > R.cv.height + 50) continue; drawBubble(x, y, c.bubble); }
   // floats
   RT.floats.forEach(f => { g.globalAlpha = Math.min(1, f.t * 1.5); const sp = floatSprite(f.text.replace(/,/g, ''), f.col); drawSpr(sp, Math.round(f.x - sp.width / 2), Math.round(f.y)); g.globalAlpha = 1; });

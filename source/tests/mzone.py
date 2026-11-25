@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1280,'height':800}); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.goto(URL('dist.html')); pg.wait_for_timeout(700)
-    # 1. every two departments you can walk between directly (touching, or across open floor) are at most one note apart
+    # 1. every two departments you can walk between directly (touching, or across open floor) share a chord (the hand-over)
     r=pg.evaluate("""()=>{ const U={toys:1,gacha:1,tiktok:1,cards:1,sushi:1}; buildWorld(U); const S=MUSIC.SONGS;
       const pcs=s=>new Set(MUSIC.SCALES[S[s].scale].map(x=>(((x+S[s].key)%12)+12)%12));
       const song=i=>zoneSong(DEPTS[i].id), inStock=(x,y)=>x>=W.stockRect[0]&&x<=W.stockRect[2]&&y>=W.stockRect[1]&&y<=W.stockRect[3];
@@ -19,9 +19,9 @@ with sync_playwright() as p:
           while(q.length){ const [a,c]=q.pop(), k=idx(a,c); if(!open(a,c)||seen.has(k)) continue; seen.add(k); const z2=W.zone[k];
             if(z2>=0){ if(z2!==z) pairs.add([song(z),song(z2)].sort().join('|')); continue; }
             if(seen.size>400) break; for(const [ex,ey] of N) q.push([a+ex,c+ey]); } } }
-      const bad=[], ok=[]; for(const pr of pairs){ const [a,c]=pr.split('|'); if(a===c) continue; const A=pcs(a),B=pcs(c); let d=0; A.forEach(v=>{ if(!B.has(v)) d++; }); (d<=1?ok:bad).push(pr+':'+d); }
+      const bad=[], ok=[]; for(const pr of pairs){ const [a,c]=pr.split('|'); if(a===c) continue; const shared=MUSIC.pivotChord(a,c)!==null && MUSIC.pivotChord(c,a)!==null; (shared?ok:bad).push(pr); }
       return {pairs:ok.length+bad.length, bad}; }""")
-    print(('PASS' if not r['bad'] else 'FAIL'),'neighbouring departments are at most one note apart',r['pairs'],'pairs',r['bad'])
+    print(('PASS' if not r['bad'] else 'FAIL'),'every two departments you can walk between share a chord to hand over on',r['pairs'],'pairs',r['bad'])
     # 2. in the game: wobbling across a boundary never changes the song; standing in a department does, once
     pg.click('#t-new'); pg.wait_for_timeout(200); pg.keyboard.press('Space'); pg.keyboard.press('Space')
     r=pg.evaluate("""()=>{ window.update=()=>{}; __game.ST.minute=11*60; AU.started=true; AU.music=AU.music||{gain:{}}; const calls=[]; MUSIC.set=(s,m)=>calls.push(s);

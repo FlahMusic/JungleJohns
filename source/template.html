@@ -59,6 +59,9 @@ h2.big { font-size: 22px; color: var(--money); text-shadow: 3px 3px 0 var(--ink)
 .toast { background: rgba(22,58,34,.92); box-shadow: 0 0 0 3px var(--ink); padding: 4px 10px; font-size: 19px; line-height: 1.1; }
 .toast.warn { background: rgba(120,40,20,.92); } .toast.good { background: rgba(30,90,120,.92); }
 #dialog { display: none; position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(760px, 92vw); min-height: 120px; z-index: 5; cursor: pointer; }
+#dl-wrap { display: flex; gap: 14px; align-items: flex-start; } #dl-body { flex: 1; min-width: 0; }
+#dl-face { display: none; flex: none; width: 96px; height: 96px; image-rendering: pixelated; background: #1d3a26; border: 3px solid var(--gold); border-radius: 4px; }
+@media (max-width: 600px) { #dl-face { width: 64px; height: 64px; } }
 #dl-name { font-family: 'Press Start 2P', monospace; font-size: 12px; color: var(--gold); margin-bottom: 8px; }
 #dl-text { font-size: 25px; line-height: 1.15; min-height: 58px; }
 .dsub { margin-top: 8px; color: var(--money); font-size: 21px; }
@@ -127,7 +130,7 @@ table.rep .neg { color: var(--bad); } table.rep .pos { color: #7dff7a; } table.r
   <div id="prompt"></div>
   <div id="toolbar"><div id="tools"></div><button id="qbtn">Quests <span class="kk">J</span><span id="qbadge"></span></button><div id="h-tool"></div></div>
 </div>
-<div id="dialog" class="px"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div><div id="dl-more">▼</div></div>
+<div id="dialog" class="px"><div id="dl-wrap"><img id="dl-face" alt=""><div id="dl-body"><div id="dl-name"></div><div id="dl-text"></div><div id="dl-choices"></div></div></div><div id="dl-more">▼</div></div>
 <div id="menu" class="menu"><div id="menu-box"></div></div>
 <div id="touch"><div id="t-pad"><div id="t-knob"></div></div><div id="t-a">A</div><div id="t-tool">TOOL</div><div id="t-skate">WALK</div><div id="t-menu">II</div></div>
 <script>
